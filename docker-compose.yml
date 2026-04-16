@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: madoffice
       POSTGRES_USER: madoffice
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-REDACTED_DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es requerida}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -24,11 +24,12 @@ services:
     container_name: mad-office-backend
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://madoffice:${DB_PASSWORD:-REDACTED_DB_PASSWORD}@postgres:5432/madoffice
+      DATABASE_URL: postgres://madoffice:${DB_PASSWORD:?DB_PASSWORD es requerida}@postgres:5432/madoffice
       PORT: 3001
-      JWT_SECRET: ${JWT_SECRET:-REDACTED_JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET es requerida}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8081,http://localhost:3000}
     ports:
-      - "3001:3001"
+      - "3002:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,7 +44,7 @@ services:
         REACT_APP_WS_URL: ${WS_URL:-}
     container_name: mad-office-frontend
     ports:
-      - "80:80"
+      - "8081:80"
     depends_on:
       - backend
     restart: unless-stopped

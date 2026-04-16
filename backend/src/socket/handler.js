@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'REDACTED_JWT_SECRET';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 function socketHandler(io, pool, statusEngine, officeEvents) {
   const connectedSockets = new Map(); // socketId -> userId

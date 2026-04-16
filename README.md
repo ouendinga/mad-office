@@ -2,7 +2,7 @@
 
 Plataforma de oficina virtual con avatares pixel art automatizados. Los avatares reflejan el estado de animo real de cada miembro del equipo basandose en integraciones con Jira, correo y calendario.
 
-**Produccion**: http://REDACTED_PRODUCTION_HOST/
+**Produccion**: URL gestionada via infraestructura privada
 
 ## Stack Tecnologico
 
@@ -27,11 +27,11 @@ git clone git@github.com:ouendinga/mad-office.git
 cd mad-office
 ```
 
-### 2. Configurar variables de entorno (opcional)
+### 2. Configurar variables de entorno (obligatorio)
 
 ```bash
 cp .env.example .env
-# Editar .env si necesitas cambiar passwords/secrets
+# Editar .env con passwords y secrets seguros (ver .env.example para detalles)
 ```
 
 ### 3. Levantar con Docker Compose
@@ -76,65 +76,27 @@ npm install
 npm start
 ```
 
-## Despliegue en Servidor
+## Despliegue
 
-### Entorno de Produccion
+### CI/CD automatico
 
-- **URL**: http://REDACTED_PRODUCTION_HOST:443/
-- **Servidor**: AWS EC2 (eu-south-2) - Ubuntu 24.04 LTS
-- **IP**: REDACTED_SERVER_IP
-- **Puerto SSH**: REDACTED_SSH_PORT
-- **Usuario**: ubuntu
-- **Directorio**: /app
-- **Estado**: Desplegado y operativo
+Cada push a la rama `main` activa el workflow de GitHub Actions (`.github/workflows/deploy.yml`) que despliega automaticamente al servidor de produccion.
 
-### Acceso SSH al servidor
-
-```bash
-ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP
-```
-
-### Preparar el servidor (ya completado)
-
-Los siguientes pasos ya se ejecutaron en el servidor:
-
-```bash
-# Git ya preinstalado en Ubuntu 24.04
-
-# Docker instalado via script oficial
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker ubuntu
-
-# Claves SSH autorizadas
-# - github-actions-deploy (para CI/CD automatico)
-# - gina.chaparro@globant.com (para acceso manual)
-```
-
-### Despliegue automatico (CI/CD)
-
-Cada push a la rama `main` activa el workflow de GitHub Actions (`.github/workflows/deploy.yml`) que:
-1. Se conecta al servidor por SSH (puerto REDACTED_SSH_PORT)
-2. Hace `git pull` del repositorio en `/app`
-3. Ejecuta `docker compose down && docker compose build --no-cache && docker compose up -d`
-4. Limpia imagenes Docker antiguas
-
-El secreto `DEPLOY_SSH_KEY` ya esta configurado en el repositorio de GitHub.
+Los datos de conexion al servidor se gestionan via GitHub Secrets:
+- `DEPLOY_HOST` — IP del servidor
+- `DEPLOY_PORT` — Puerto SSH
+- `DEPLOY_USER` — Usuario SSH
+- `DEPLOY_SSH_KEY` — Clave privada SSH
 
 ### Despliegue manual
 
 ```bash
-ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP
+ssh -p $DEPLOY_PORT $DEPLOY_USER@$DEPLOY_HOST
 cd /app
 git pull origin main
 sudo docker compose down
 sudo docker compose build --no-cache
 sudo docker compose up -d
-```
-
-### Verificar estado del despliegue
-
-```bash
-ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP "sudo docker ps && curl -s http://localhost:3001/api/health"
 ```
 
 ## Estructura del Proyecto

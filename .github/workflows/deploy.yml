@@ -14,10 +14,10 @@ jobs:
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: REDACTED_SERVER_IP
-          username: ubuntu
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: REDACTED_SSH_PORT
+          port: ${{ secrets.DEPLOY_PORT }}
           script: |
             # Ensure /app exists
             sudo mkdir -p /app

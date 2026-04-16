@@ -2,9 +2,8 @@
 
 ## Entorno de Produccion
 
-- **URL**: http://REDACTED_PRODUCTION_HOST:443/
 - **Servidor**: AWS EC2 (eu-south-2) - Ubuntu 24.04 LTS
-- **IP**: REDACTED_SERVER_IP | **SSH**: puerto REDACTED_SSH_PORT | **Usuario**: ubuntu
+- **Conexion**: Datos de acceso gestionados via GitHub Secrets (DEPLOY_HOST, DEPLOY_PORT, DEPLOY_USER)
 - **Directorio de despliegue**: /app
 - **CI/CD**: GitHub Actions (push a `main` -> deploy automatico)
 - **Repositorio**: https://github.com/ouendinga/mad-office
@@ -222,7 +221,7 @@ Configuracion en `frontend/nginx.conf`:
 Workflow `deploy.yml` se ejecuta en cada push a `main`:
 
 1. Checkout del codigo
-2. SSH al servidor (REDACTED_SERVER_IP:REDACTED_SSH_PORT) usando secreto `DEPLOY_SSH_KEY`
+2. SSH al servidor usando secretos de GitHub (DEPLOY_HOST, DEPLOY_PORT, DEPLOY_SSH_KEY)
 3. Git pull del repositorio en `/app`
 4. `docker compose down` + `build --no-cache` + `up -d`
 5. Limpieza de imagenes Docker antiguas

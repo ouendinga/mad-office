@@ -3,7 +3,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'REDACTED_JWT_SECRET';
+if (!process.env.JWT_SECRET) {
+  console.error('ERROR: JWT_SECRET no configurada. Configura las variables de entorno.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Register
 router.post('/register', async (req, res) => {

@@ -15,19 +15,29 @@ const socketHandler = require('./socket/handler');
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:8081', 'http://localhost:3000'];
+
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
+if (!process.env.DATABASE_URL) {
+  console.error('ERROR: DATABASE_URL no configurada. Configura las variables de entorno.');
+  process.exit(1);
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://madoffice:REDACTED_DB_PASSWORD@localhost:5432/madoffice'
+  connectionString: process.env.DATABASE_URL
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // Make pool and io available to routes
