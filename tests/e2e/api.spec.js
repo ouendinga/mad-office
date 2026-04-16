@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const API_URL = 'http://localhost:3001';
+const API_URL = process.env.DOCKER_NETWORK === '1' ? 'http://mad-office-backend:3001' : 'http://localhost:3001';
 
 test.describe('API Endpoints', () => {
   test('GET /api/health should return ok', async ({ request }) => {
