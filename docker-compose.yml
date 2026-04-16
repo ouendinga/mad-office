@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mad-office-db
+    environment:
+      POSTGRES_DB: madoffice
+      POSTGRES_USER: madoffice
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-REDACTED_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U madoffice"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mad-office-backend
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://madoffice:${DB_PASSWORD:-REDACTED_DB_PASSWORD}@postgres:5432/madoffice
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:-REDACTED_JWT_SECRET}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: ${API_URL:-}
+        REACT_APP_WS_URL: ${WS_URL:-}
+    container_name: mad-office-frontend
+    ports:
+      - "443:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:

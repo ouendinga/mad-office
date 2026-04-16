@@ -1,0 +1,238 @@
+/* Office Page Styles */
+
+.office-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.office-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1.5rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.office-header-left { display: flex; align-items: center; gap: 1rem; }
+.office-header-right { display: flex; align-items: center; gap: 1rem; }
+
+.office-logo {
+  font-size: 0.7rem;
+  color: var(--primary-light);
+}
+
+.office-user-name {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+/* Layout */
+.office-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.office-canvas-container {
+  flex: 1;
+  position: relative;
+  background: var(--bg-dark);
+}
+
+.office-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* Office event notifications */
+.office-event-notifications {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.office-event-toast {
+  background: rgba(108, 92, 231, 0.9);
+  color: white;
+  padding: 0.5rem 1.25rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  text-align: center;
+  animation: fadeInOut 10s ease-in-out;
+  white-space: nowrap;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-10px); }
+  5% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Sidebar */
+.office-sidebar {
+  width: 300px;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.sidebar-section {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.75rem;
+}
+
+/* Team list */
+.team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.team-member {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.team-member:hover { background: var(--bg-surface); }
+.team-member.selected { background: var(--bg-surface); border-left: 2px solid var(--primary); }
+
+.team-member-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.team-member-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.team-member-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.team-member-action {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Mood bars */
+.mood-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mood-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mood-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  min-width: 75px;
+}
+
+.mood-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-dark);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mood-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.mood-value {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 16px;
+  text-align: right;
+}
+
+.mood-representation {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: var(--bg-dark);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Event log */
+.event-log {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.event-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.event-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(45, 45, 68, 0.5);
+}
+
+.event-source {
+  font-size: 0.7rem;
+  color: var(--primary-light);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.event-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
