@@ -1,12 +1,21 @@
 # Mad Office - Documentacion Tecnica
 
+## Entorno de Produccion
+
+- **URL**: http://REDACTED_PRODUCTION_HOST:443/
+- **Servidor**: AWS EC2 (eu-south-2) - Ubuntu 24.04 LTS
+- **IP**: REDACTED_SERVER_IP | **SSH**: puerto REDACTED_SSH_PORT | **Usuario**: ubuntu
+- **Directorio de despliegue**: /app
+- **CI/CD**: GitHub Actions (push a `main` -> deploy automatico)
+- **Repositorio**: https://github.com/ouendinga/mad-office
+
 ## Arquitectura General
 
 Mad Office sigue una arquitectura de tres capas desplegada con Docker Compose:
 
 ```
-[Browser] <---> [Nginx (Frontend)] <---> [Express (Backend)] <---> [PostgreSQL]
-                                    <---> [Socket.io (WebSocket)]
+[Browser] <---> [Nginx (Frontend :443)] <---> [Express (Backend :3001)] <---> [PostgreSQL :5432]
+                                         <---> [Socket.io (WebSocket)]
 ```
 
 ### Flujo de Datos
@@ -180,21 +189,54 @@ Eventos aleatorios que afectan a toda la oficina o usuarios especificos:
 
 ## Despliegue
 
+### Infraestructura
+
+| Componente | Tecnologia | Detalles |
+|-----------|------------|---------|
+| Cloud | AWS EC2 | Region eu-south-2 (Spain) |
+| OS | Ubuntu 24.04 LTS | Servidor dedicado |
+| Contenedores | Docker 29.4 + Compose v5.1 | Instalado via script oficial |
+| CI/CD | GitHub Actions | Workflow `.github/workflows/deploy.yml` |
+
 ### Docker Compose
 
-3 servicios:
-1. **postgres**: PostgreSQL 16 Alpine con init.sql
-2. **backend**: Node.js 20 Alpine, puerto 3001
-3. **frontend**: Build React + Nginx Alpine, puerto 443->80
+3 servicios definidos en `docker-compose.yml`:
 
-### Nginx
+| Servicio | Imagen | Puerto | Descripcion |
+|----------|--------|--------|-------------|
+| postgres | postgres:16-alpine | 5432 | Base de datos con init.sql automatico |
+| backend | Node.js 20 Alpine (build) | 3001 | Express + Socket.io + Status Engine |
+| frontend | Node.js 20 build + Nginx Alpine | 443->80 | React SPA + reverse proxy |
 
-- Sirve el build de React
-- Proxy inverso para `/api` y `/socket.io` al backend
+El servicio postgres incluye healthcheck; el backend espera a que postgres este healthy antes de arrancar.
 
-### GitHub Actions
+### Nginx (Reverse Proxy)
 
-Workflow `deploy.yml` en push a `main`:
-1. SSH al servidor (REDACTED_SERVER_IP:REDACTED_SSH_PORT)
-2. Git pull en `/app`
-3. Docker compose rebuild
+Configuracion en `frontend/nginx.conf`:
+- `/` -> Sirve el build estatico de React (SPA con fallback a index.html)
+- `/api/*` -> Proxy a `http://backend:3001` (REST API)
+- `/socket.io/*` -> Proxy a `http://backend:3001` (WebSocket con upgrade de conexion)
+
+### GitHub Actions (CI/CD)
+
+Workflow `deploy.yml` se ejecuta en cada push a `main`:
+
+1. Checkout del codigo
+2. SSH al servidor (REDACTED_SERVER_IP:REDACTED_SSH_PORT) usando secreto `DEPLOY_SSH_KEY`
+3. Git pull del repositorio en `/app`
+4. `docker compose down` + `build --no-cache` + `up -d`
+5. Limpieza de imagenes Docker antiguas
+
+### Usuarios de prueba (seed data)
+
+Los siguientes usuarios se crean automaticamente via `backend/db/init.sql`:
+
+| Nombre | Email | Escritorio |
+|--------|-------|-----------|
+| David | david@madoffice.com | #1 |
+| Alfredo | alfredo@madoffice.com | #2 |
+| Jose Antonio | jose.antonio@madoffice.com | #3 |
+| Jose Luis | jose.luis@madoffice.com | #4 |
+| Carlos | carlos@madoffice.com | #5 |
+
+Login con email unicamente (sin password para el MVP).

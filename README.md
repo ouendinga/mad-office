@@ -2,6 +2,8 @@
 
 Plataforma de oficina virtual con avatares pixel art automatizados. Los avatares reflejan el estado de animo real de cada miembro del equipo basandose en integraciones con Jira, correo y calendario.
 
+**Produccion**: http://REDACTED_PRODUCTION_HOST:443/
+
 ## Stack Tecnologico
 
 - **Frontend**: React 18 + HTML5 Canvas (sprites pixel art 16x16 escalados)
@@ -76,40 +78,64 @@ npm start
 
 ## Despliegue en Servidor
 
-### Servidor
+### Entorno de Produccion
 
+- **URL**: http://REDACTED_PRODUCTION_HOST:443/
+- **Servidor**: AWS EC2 (eu-south-2) - Ubuntu 24.04 LTS
 - **IP**: REDACTED_SERVER_IP
 - **Puerto SSH**: REDACTED_SSH_PORT
 - **Usuario**: ubuntu
 - **Directorio**: /app
+- **Estado**: Desplegado y operativo
 
-### Preparar el servidor
+### Acceso SSH al servidor
 
 ```bash
 ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP
+```
 
-# Instalar Git
-sudo apt update && sudo apt install -y git
+### Preparar el servidor (ya completado)
 
-# Instalar Docker
+Los siguientes pasos ya se ejecutaron en el servidor:
+
+```bash
+# Git ya preinstalado en Ubuntu 24.04
+
+# Docker instalado via script oficial
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker ubuntu
 
-# Agregar clave publica de GitHub Actions
-echo "REDACTED_SSH_PUBLIC_KEY" >> ~/.ssh/authorized_keys
+# Claves SSH autorizadas
+# - github-actions-deploy (para CI/CD automatico)
+# - gina.chaparro@globant.com (para acceso manual)
 ```
 
-### Despliegue automatico
+### Despliegue automatico (CI/CD)
 
-Cada push a la rama `main` activa GitHub Actions que:
-1. Se conecta al servidor por SSH
+Cada push a la rama `main` activa el workflow de GitHub Actions (`.github/workflows/deploy.yml`) que:
+1. Se conecta al servidor por SSH (puerto REDACTED_SSH_PORT)
 2. Hace `git pull` del repositorio en `/app`
-3. Ejecuta `docker compose up --build`
+3. Ejecuta `docker compose down && docker compose build --no-cache && docker compose up -d`
+4. Limpia imagenes Docker antiguas
 
-### Configurar secreto en GitHub
+El secreto `DEPLOY_SSH_KEY` ya esta configurado en el repositorio de GitHub.
 
-En el repositorio de GitHub, ir a Settings > Secrets and variables > Actions y crear:
-- `DEPLOY_SSH_KEY`: La clave privada SSH para el despliegue
+### Despliegue manual
+
+```bash
+ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP
+cd /app
+git pull origin main
+sudo docker compose down
+sudo docker compose build --no-cache
+sudo docker compose up -d
+```
+
+### Verificar estado del despliegue
+
+```bash
+ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP "sudo docker ps && curl -s http://localhost:3001/api/health"
+```
 
 ## Estructura del Proyecto
 
