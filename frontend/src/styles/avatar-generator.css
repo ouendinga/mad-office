@@ -1,0 +1,120 @@
+/* Avatar Generator Styles */
+
+.avatar-gen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: radial-gradient(ellipse at center, rgba(108, 92, 231, 0.1) 0%, transparent 60%);
+}
+
+.avatar-gen-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3rem;
+  max-width: 700px;
+  width: 100%;
+  text-align: center;
+}
+
+.avatar-gen-title {
+  font-size: 1.3rem;
+  color: var(--primary-light);
+  margin-bottom: 0.5rem;
+}
+
+.avatar-gen-subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+}
+
+.avatar-gen-content {
+  display: flex;
+  gap: 3rem;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.avatar-preview-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.avatar-canvas {
+  width: 128px;
+  height: 128px;
+  image-rendering: pixelated;
+  background: var(--bg-dark);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.avatar-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.avatar-options {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.option-selector {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.option-selector label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  min-width: 120px;
+  text-align: left;
+}
+
+.option-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.option-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.option-btn:hover {
+  background: var(--primary-dark);
+}
+
+.option-value {
+  min-width: 80px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+@media (max-width: 600px) {
+  .avatar-gen-content {
+    flex-direction: column;
+    align-items: center;
+  }
+}
