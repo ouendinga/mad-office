@@ -1,8 +1,11 @@
 name: Deploy to Server
 
-on:
-  push:
-    branches: [main]
+# Desactivado temporalmente - trabajamos en local
+# Reactivar cuando tengamos entorno de produccion configurado
+# on:
+#   push:
+#     branches: [main]
+on: workflow_dispatch
 
 jobs:
   deploy:
