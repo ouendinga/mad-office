@@ -51,6 +51,18 @@ export const T = {
   MIRROR: 40,
   FLOOR_BATH: 41,
   DOOR: 42,
+  // Tiles combinados (v2) — desk compacto
+  DESK_MONITOR: 43,   // Superficie de desk con monitor encima (vista top-down)
+  DESK_KEYBOARD: 44,  // Superficie de desk con teclado
+  DESK_CHAIR_L: 45,   // Silla mirando arriba (pegada al desk)
+  DESK_CHAIR_R: 46,   // Silla mirando arriba (variante)
+  FLOOR_WOOD_3: 47,   // Variante de suelo con nudos
+  FLOOR_WOOD_4: 48,   // Variante de suelo oscuro
+  PLANT_BIG: 49,      // Planta grande (1 tile completo)
+  PRINTER: 50,        // Impresora
+  WATER_COOLER: 51,   // Dispensador de agua
+  RUG_CENTER: 52,     // Centro de alfombra
+  LAMP: 53,           // Lampara de pie
 };
 
 const tileCache = new Map();
@@ -94,23 +106,34 @@ function generateTile(ctx, id) {
   const S = TILE_SIZE;
   switch (id) {
     case T.FLOOR_WOOD_1:
-      px(ctx, 0, 0, S, S, '#8B7355');
-      // Vetas de madera
-      for (let y = 4; y < S; y += 8) {
-        line(ctx, 0, y, S, y + 1, '#7A6348');
-      }
-      // Variaciones de tono
-      px(ctx, 0, 0, S, 2, '#917A5E');
-      px(ctx, 0, 16, S, 2, '#7F6B4F');
+      px(ctx, 0, 0, S, S, '#9E8B6E');
+      // Tablas horizontales
+      px(ctx, 0, 0, S, 15, '#A89374');
+      px(ctx, 0, 16, S, 16, '#9E8B6E');
+      // Juntas entre tablas
+      line(ctx, 0, 15, S, 15, '#8A7758');
+      line(ctx, 0, 31, S, 31, '#8A7758');
+      // Vetas sutiles
+      line(ctx, 4, 2, 28, 4, '#937F64');
+      line(ctx, 2, 8, 30, 9, '#937F64');
+      line(ctx, 6, 20, 26, 21, '#937F64');
+      line(ctx, 3, 26, 29, 27, '#937F64');
+      // Nudo de madera
+      px(ctx, 20, 6, 3, 3, '#8A7758');
       break;
 
     case T.FLOOR_WOOD_2:
-      px(ctx, 0, 0, S, S, '#806A4E');
-      for (let y = 6; y < S; y += 8) {
-        line(ctx, 0, y, S, y + 1, '#705C42');
-      }
-      px(ctx, 8, 0, 2, S, '#8B7355');
-      px(ctx, 24, 0, 2, S, '#8B7355');
+      px(ctx, 0, 0, S, S, '#A89374');
+      px(ctx, 0, 0, 15, S, '#9E8B6E');
+      px(ctx, 16, 0, 16, S, '#A89374');
+      // Juntas verticales
+      line(ctx, 15, 0, 15, S, '#8A7758');
+      // Vetas
+      line(ctx, 2, 4, 4, 28, '#937F64');
+      line(ctx, 8, 2, 10, 30, '#937F64');
+      line(ctx, 20, 3, 22, 29, '#937F64');
+      line(ctx, 26, 5, 28, 27, '#937F64');
+      px(ctx, 6, 18, 3, 3, '#8A7758');
       break;
 
     case T.FLOOR_TILE_1:
@@ -472,6 +495,178 @@ function generateTile(ctx, id) {
       px(ctx, 8, 14, 16, 8, '#3D5F8C');
       px(ctx, 8, 22, 16, 10, '#4A6FA5');
       px(ctx, 10, 24, 12, 6, '#5A82B5');
+      break;
+
+    // --- Tiles combinados v2 ---
+
+    case T.DESK_MONITOR:
+      // Superficie del desk (vista top-down) con monitor
+      px(ctx, 0, 0, S, S, '#8B7355');
+      px(ctx, 0, 0, S, 2, '#9E8468');
+      px(ctx, 0, S - 1, S, 1, '#7A6348');
+      // Monitor (centrado en el desk)
+      px(ctx, 6, 3, 20, 14, '#2C3E50');
+      px(ctx, 8, 5, 16, 10, '#4A90D9');
+      // Brillo pantalla
+      px(ctx, 9, 6, 5, 3, '#6AB0E8');
+      // Base monitor
+      px(ctx, 13, 17, 6, 3, '#2C3E50');
+      px(ctx, 10, 20, 12, 2, '#34495E');
+      // Sombra sutil
+      px(ctx, 1, 1, S - 2, 1, '#7A6348');
+      break;
+
+    case T.DESK_KEYBOARD:
+      // Superficie del desk con teclado y raton
+      px(ctx, 0, 0, S, S, '#8B7355');
+      px(ctx, 0, 0, S, 1, '#9E8468');
+      px(ctx, 0, S - 1, S, 1, '#7A6348');
+      // Teclado
+      px(ctx, 4, 6, 18, 10, '#34495E');
+      px(ctx, 5, 7, 16, 8, '#4A5A6A');
+      // Teclas (hileras)
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 6; col++) {
+          px(ctx, 6 + col * 2.5, 8 + row * 2.5, 2, 2, '#5A6A7A');
+        }
+      }
+      // Raton
+      px(ctx, 25, 8, 5, 8, '#34495E');
+      px(ctx, 26, 9, 3, 6, '#4A5A6A');
+      // Barra espaciadora
+      px(ctx, 8, 14, 10, 1, '#5A6A7A');
+      break;
+
+    case T.DESK_CHAIR_L:
+      // Silla vista desde arriba, orientada hacia el desk (arriba)
+      // Asiento
+      px(ctx, 4, 6, 24, 20, '#4A6FA5');
+      px(ctx, 6, 8, 20, 16, '#5A82B5');
+      // Respaldo (parte superior, mas cerca del desk)
+      px(ctx, 4, 2, 24, 6, '#3D5F8C');
+      px(ctx, 6, 3, 20, 4, '#4A6FA5');
+      // Patas/ruedas (esquinas)
+      px(ctx, 3, 26, 4, 4, '#333');
+      px(ctx, 25, 26, 4, 4, '#333');
+      px(ctx, 3, 4, 3, 3, '#333');
+      px(ctx, 26, 4, 3, 3, '#333');
+      // Detalle cojin
+      px(ctx, 10, 12, 12, 8, '#6490BD');
+      break;
+
+    case T.DESK_CHAIR_R:
+      // Variante de silla
+      px(ctx, 4, 6, 24, 20, '#6C5CE7');
+      px(ctx, 6, 8, 20, 16, '#7D6FE8');
+      px(ctx, 4, 2, 24, 6, '#5B4CD6');
+      px(ctx, 6, 3, 20, 4, '#6C5CE7');
+      px(ctx, 3, 26, 4, 4, '#333');
+      px(ctx, 25, 26, 4, 4, '#333');
+      px(ctx, 3, 4, 3, 3, '#333');
+      px(ctx, 26, 4, 3, 3, '#333');
+      px(ctx, 10, 12, 12, 8, '#8B7FEC');
+      break;
+
+    case T.FLOOR_WOOD_3:
+      px(ctx, 0, 0, S, S, '#93805F');
+      px(ctx, 0, 0, S, 15, '#9A8768');
+      px(ctx, 0, 16, S, 16, '#93805F');
+      line(ctx, 0, 15, S, 15, '#847252');
+      line(ctx, 0, 31, S, 31, '#847252');
+      // Nudo grande
+      ctx.fillStyle = '#847252';
+      ctx.beginPath();
+      ctx.arc(12, 8, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#7A6848';
+      ctx.beginPath();
+      ctx.arc(12, 8, 2, 0, Math.PI * 2);
+      ctx.fill();
+      line(ctx, 4, 22, 28, 24, '#847252');
+      break;
+
+    case T.FLOOR_WOOD_4:
+      px(ctx, 0, 0, S, S, '#887455');
+      px(ctx, 0, 0, 10, S, '#8B7758');
+      px(ctx, 11, 0, 10, S, '#887455');
+      px(ctx, 22, 0, 10, S, '#8B7758');
+      line(ctx, 10, 0, 10, S, '#7A6848');
+      line(ctx, 21, 0, 21, S, '#7A6848');
+      line(ctx, 3, 4, 5, 28, '#7A6848');
+      line(ctx, 15, 6, 17, 26, '#7A6848');
+      line(ctx, 26, 3, 28, 29, '#7A6848');
+      break;
+
+    case T.PLANT_BIG:
+      // Maceta grande
+      px(ctx, 6, 18, 20, 14, '#A0522D');
+      px(ctx, 4, 18, 24, 3, '#B8652A');
+      px(ctx, 8, 18, 16, 2, '#4A3520');
+      // Copa frondosa
+      ctx.fillStyle = '#1E8449';
+      ctx.beginPath();
+      ctx.arc(16, 12, 13, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#27AE60';
+      ctx.beginPath();
+      ctx.arc(12, 8, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#2ECC71';
+      ctx.beginPath();
+      ctx.arc(20, 6, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#58D68D';
+      ctx.beginPath();
+      ctx.arc(16, 4, 5, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+
+    case T.PRINTER:
+      px(ctx, 2, 6, 28, 22, '#BDC3C7');
+      px(ctx, 4, 8, 24, 8, '#95A5A6');
+      // Panel
+      px(ctx, 18, 10, 8, 4, '#2ECC71');
+      // Bandeja superior
+      px(ctx, 6, 4, 20, 4, '#A8B2B8');
+      // Bandeja inferior (papel)
+      px(ctx, 8, 22, 16, 4, '#FFFFFF');
+      px(ctx, 10, 23, 12, 2, '#ECF0F1');
+      break;
+
+    case T.WATER_COOLER:
+      // Deposito
+      px(ctx, 8, 0, 16, 14, '#AED6F1');
+      px(ctx, 10, 2, 12, 10, '#D4E6F1');
+      // Brillo
+      px(ctx, 12, 3, 3, 6, '#E8F0F8');
+      // Cuerpo
+      px(ctx, 6, 14, 20, 16, '#BDC3C7');
+      px(ctx, 8, 16, 16, 12, '#D5D8DC');
+      // Grifos
+      px(ctx, 10, 20, 4, 3, '#3498DB');
+      px(ctx, 18, 20, 4, 3, '#E74C3C');
+      // Patas
+      px(ctx, 8, 30, 4, 2, '#7F8C8D');
+      px(ctx, 20, 30, 4, 2, '#7F8C8D');
+      break;
+
+    case T.RUG_CENTER:
+      px(ctx, 0, 0, S, S, 'rgba(108, 92, 231, 0.2)');
+      break;
+
+    case T.LAMP:
+      // Base
+      px(ctx, 10, 26, 12, 6, '#7F8C8D');
+      // Poste
+      px(ctx, 14, 8, 4, 18, '#95A5A6');
+      // Pantalla
+      px(ctx, 6, 2, 20, 10, '#F7DC6F');
+      px(ctx, 8, 4, 16, 6, '#F9E79F');
+      // Brillo
+      ctx.fillStyle = 'rgba(247, 220, 111, 0.3)';
+      ctx.beginPath();
+      ctx.arc(16, 7, 14, 0, Math.PI * 2);
+      ctx.fill();
       break;
 
     default:
