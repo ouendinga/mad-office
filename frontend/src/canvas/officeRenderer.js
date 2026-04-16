@@ -12,7 +12,7 @@ import officeMapData from '../assets/maps/office.json';
 
 // --- Constantes ---
 
-const AVATAR_SCALE = 3;
+const AVATAR_SCALE = 4;
 
 export const MOOD_COLORS = {
   alegria: '#00B894',
@@ -34,8 +34,9 @@ function ensureInit(canvasW, canvasH) {
   }
   if (!camera) {
     camera = new Camera(canvasW, canvasH, tileMap.pixelW, tileMap.pixelH);
+    // Zoom para que el mapa llene el viewport con algo de margen
     camera.zoom = Math.min(canvasW / tileMap.pixelW, canvasH / tileMap.pixelH);
-    if (camera.zoom < 1) camera.zoom = Math.max(camera.zoom, 0.6);
+    camera.zoom = Math.max(camera.zoom, 0.85);
     // Centrar mapa inicialmente
     camera.follow(tileMap.pixelW / 2, tileMap.pixelH / 2);
     camera.x = camera.targetX;
@@ -173,14 +174,18 @@ export function renderOffice(ctx, canvas, users, animFrame, reactions, clock) {
       const spriteW = 16 * AVATAR_SCALE;
       const spriteH = 16 * AVATAR_SCALE;
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '11px Inter, sans-serif';
+      ctx.font = 'bold 10px Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(user.name, pos.x + spriteW / 2, pos.y + spriteH + 12);
+      // Sombra del texto para legibilidad
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur = 3;
+      ctx.fillText(user.name, pos.x + spriteW / 2, pos.y + spriteH + 10);
+      ctx.shadowBlur = 0;
 
       // Mood dot
       const dominantMood = getDominantMood(user);
       ctx.beginPath();
-      ctx.arc(pos.x + spriteW / 2, pos.y + spriteH + 20, 4, 0, Math.PI * 2);
+      ctx.arc(pos.x + spriteW / 2, pos.y + spriteH + 17, 4, 0, Math.PI * 2);
       ctx.fillStyle = MOOD_COLORS[dominantMood] || '#6C6C8A';
       ctx.fill();
       ctx.textAlign = 'left';
