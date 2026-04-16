@@ -82,13 +82,14 @@ export default class TileMap {
     return false;
   }
 
-  /** Obtener la zona en la que esta un punto */
+  /** Obtener la zona en la que esta un punto (worldX/Y en pixeles) */
   getZoneAt(worldX, worldY) {
     for (const zone of this.zones) {
-      if (
-        worldX >= zone.x && worldX < zone.x + zone.w &&
-        worldY >= zone.y && worldY < zone.y + zone.h
-      ) {
+      const zx = zone.x * this.tileW;
+      const zy = zone.y * this.tileH;
+      const zw = zone.w * this.tileW;
+      const zh = zone.h * this.tileH;
+      if (worldX >= zx && worldX < zx + zw && worldY >= zy && worldY < zy + zh) {
         return zone;
       }
     }

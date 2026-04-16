@@ -34,15 +34,14 @@ function ensureInit(canvasW, canvasH) {
   }
   if (!camera) {
     camera = new Camera(canvasW, canvasH, tileMap.pixelW, tileMap.pixelH);
-    // Zoom para que el mapa llene el viewport con algo de margen
-    camera.zoom = Math.min(canvasW / tileMap.pixelW, canvasH / tileMap.pixelH);
-    camera.zoom = Math.max(camera.zoom, 0.85);
     // Centrar mapa inicialmente
     camera.follow(tileMap.pixelW / 2, tileMap.pixelH / 2);
     camera.x = camera.targetX;
     camera.y = camera.targetY;
   }
   camera.resize(canvasW, canvasH);
+  // Recalcular zoom cada frame para adaptarse al tamaño del canvas
+  camera.zoom = canvasH / tileMap.pixelH;
 }
 
 // --- Posiciones interpoladas de avatares ---
@@ -52,11 +51,24 @@ const avatarPositions = {};
 function getAvatarDisplayPos(user) {
   const userId = user.id;
 
+  // Si es el usuario local, usar posicion directa (ya controlada por Movement)
+  if (user._isLocal && user.position_x != null) {
+    avatarPositions[userId] = { x: user.position_x, y: user.position_y };
+    return avatarPositions[userId];
+  }
+
   let targetX, targetY;
   if (user.position_x !== null && user.position_x !== undefined) {
-    // Convertir posiciones legacy (800x600) a coordenadas del nuevo mapa
-    targetX = (user.position_x / 800) * tileMap.pixelW;
-    targetY = (user.position_y / 600) * tileMap.pixelH;
+    // Posiciones de otros usuarios (ya en coordenadas del mapa nuevo si vienen de Movement,
+    // o legacy si vienen del statusEngine)
+    const isNewCoords = user.position_x > 100; // Heuristica: nuevas coords son > 100
+    if (isNewCoords) {
+      targetX = user.position_x;
+      targetY = user.position_y;
+    } else {
+      targetX = (user.position_x / 800) * tileMap.pixelW;
+      targetY = (user.position_y / 600) * tileMap.pixelH;
+    }
   } else {
     const deskPos = tileMap.getDeskPosition(user.desk_index);
     if (deskPos) {
@@ -72,7 +84,7 @@ function getAvatarDisplayPos(user) {
     avatarPositions[userId] = { x: targetX, y: targetY };
   }
   const pos = avatarPositions[userId];
-  const speed = user.current_action === 'corriendo' ? 0.08 : 0.03;
+  const speed = user._moving ? 0.15 : (user.current_action === 'corriendo' ? 0.08 : 0.03);
   pos.x += (targetX - pos.x) * speed;
   pos.y += (targetY - pos.y) * speed;
 
