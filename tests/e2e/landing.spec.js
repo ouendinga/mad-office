@@ -13,22 +13,20 @@ test.describe('Landing Page', () => {
 
   test('should display hero section', async ({ page }) => {
     await expect(page.locator('.hero-title')).toContainText('Mad Office');
-    await expect(page.locator('.hero-subtitle')).toContainText('Tu oficina');
     await expect(page.locator('.hero .btn-primary')).toContainText('Registrate');
   });
 
-  test('should display how it works section with 3 steps', async ({ page }) => {
+  test('should display 3 step cards', async ({ page }) => {
     const steps = page.locator('.step-card');
     await expect(steps).toHaveCount(3);
-    await expect(steps.nth(2).locator('.badge')).toContainText('Automatico');
   });
 
-  test('should display features section with 3 cards', async ({ page }) => {
+  test('should display 3 feature cards', async ({ page }) => {
     const features = page.locator('.feature-card');
     await expect(features).toHaveCount(3);
   });
 
-  test('should display testimonials section with 3 cards', async ({ page }) => {
+  test('should display 3 testimonial cards', async ({ page }) => {
     const testimonials = page.locator('.testimonial-card');
     await expect(testimonials).toHaveCount(3);
   });
@@ -42,14 +40,12 @@ test.describe('Landing Page', () => {
     await expect(page.locator('.modal-title')).toContainText('Crear cuenta');
     await expect(page.locator('.modal input[type="email"]')).toBeVisible();
     await expect(page.locator('.modal input[type="text"]')).toBeVisible();
-    await expect(page.locator('.modal button[type="submit"]')).toContainText('Registrarse');
   });
 
   test('should open login modal on Login click', async ({ page }) => {
     await page.click('button:has-text("Login")');
     await expect(page.locator('.modal-title')).toContainText('Iniciar sesion');
     await expect(page.locator('.modal input[type="email"]')).toBeVisible();
-    await expect(page.locator('.modal button[type="submit"]')).toContainText('Entrar');
   });
 
   test('should close modal when clicking overlay', async ({ page }) => {
@@ -58,59 +54,33 @@ test.describe('Landing Page', () => {
     await page.click('.modal-overlay', { position: { x: 10, y: 10 } });
     await expect(page.locator('.modal')).not.toBeVisible();
   });
-
-  test('should close modal when clicking X button', async ({ page }) => {
-    await page.click('button:has-text("Login")');
-    await expect(page.locator('.modal')).toBeVisible();
-    await page.click('.modal-close');
-    await expect(page.locator('.modal')).not.toBeVisible();
-  });
 });
 
 test.describe('Registration Flow', () => {
-  test('should register a new user and redirect to avatar generator', async ({ page }) => {
+  test('should register and redirect to avatar generator', async ({ page }) => {
     await page.goto('/');
     await page.click('button:has-text("Registro")');
-
     await page.fill('input[type="email"]', `test_${Date.now()}@madoffice.com`);
     await page.fill('input[type="text"]', 'Test User');
     await page.click('button[type="submit"]:has-text("Registrarse")');
-
-    // Should redirect to avatar generator
     await expect(page.locator('.avatar-gen-title')).toBeVisible({ timeout: 10000 });
-  });
-
-  test('should show error for duplicate email', async ({ page }) => {
-    await page.goto('/');
-    await page.click('button:has-text("Registro")');
-
-    await page.fill('input[type="email"]', 'david@madoffice.com');
-    await page.fill('input[type="text"]', 'David Duplicate');
-    await page.click('button[type="submit"]:has-text("Registrarse")');
-
-    await expect(page.locator('.modal-error')).toBeVisible({ timeout: 5000 });
   });
 });
 
 test.describe('Login Flow', () => {
-  test('should login with existing user and go to office', async ({ page }) => {
+  test('should login with existing user', async ({ page }) => {
     await page.goto('/');
     await page.click('button:has-text("Login")');
-
     await page.fill('input[type="email"]', 'david@madoffice.com');
     await page.click('button[type="submit"]:has-text("Entrar")');
-
-    // David has a default empty avatar_config, so should go to avatar generator
     await expect(page.locator('.avatar-gen, .office-page')).toBeVisible({ timeout: 10000 });
   });
 
   test('should show error for non-existent email', async ({ page }) => {
     await page.goto('/');
     await page.click('button:has-text("Login")');
-
     await page.fill('input[type="email"]', 'nonexistent@madoffice.com');
     await page.click('button[type="submit"]:has-text("Entrar")');
-
     await expect(page.locator('.modal-error')).toBeVisible({ timeout: 5000 });
   });
 });

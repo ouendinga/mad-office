@@ -7,14 +7,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'REDACTED_JWT_SECRET';
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'No autorizado' });
   }
   try {
     const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
     req.userId = decoded.userId;
     next();
   } catch {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: 'Token invalido' });
   }
 }
 
@@ -27,12 +27,12 @@ router.get('/:userId', authMiddleware, async (req, res) => {
       [req.params.userId]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Mood state not found' });
+      return res.status(404).json({ error: 'Estado de animo no encontrado' });
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Get mood error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error obteniendo estado de animo:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -46,8 +46,8 @@ router.get('/:userId/events', authMiddleware, async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    console.error('Get events error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error obteniendo eventos:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 

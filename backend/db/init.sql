@@ -1,4 +1,5 @@
--- Mad Office Database Schema
+-- Mad Office Database Schema v2
+-- Sistema bipolar de estados de animo
 
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -6,6 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(255) NOT NULL,
     avatar_config JSONB DEFAULT '{}',
     desk_index INTEGER,
+    position_x FLOAT DEFAULT NULL,
+    position_y FLOAT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -13,13 +16,12 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS mood_states (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    happiness INTEGER DEFAULT 5 CHECK (happiness >= 0 AND happiness <= 10),
-    stress INTEGER DEFAULT 3 CHECK (stress >= 0 AND stress <= 10),
-    frustration INTEGER DEFAULT 0 CHECK (frustration >= 0 AND frustration <= 10),
-    excitement INTEGER DEFAULT 5 CHECK (excitement >= 0 AND excitement <= 10),
-    sadness INTEGER DEFAULT 0 CHECK (sadness >= 0 AND sadness <= 10),
-    tiredness INTEGER DEFAULT 3 CHECK (tiredness >= 0 AND tiredness <= 10),
-    current_action VARCHAR(50) DEFAULT 'sitting',
+    alegria INTEGER DEFAULT 5 CHECK (alegria >= 0 AND alegria <= 10),
+    energia INTEGER DEFAULT 5 CHECK (energia >= 0 AND energia <= 10),
+    optimismo INTEGER DEFAULT 5 CHECK (optimismo >= 0 AND optimismo <= 10),
+    frustracion INTEGER DEFAULT 5 CHECK (frustracion >= 0 AND frustracion <= 10),
+    estres INTEGER DEFAULT 5 CHECK (estres >= 0 AND estres <= 10),
+    current_action VARCHAR(50) DEFAULT 'sentado',
     current_representation VARCHAR(50) DEFAULT NULL,
     action_started_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -44,6 +46,13 @@ CREATE TABLE IF NOT EXISTS office_events (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 -- Insert default users
 INSERT INTO users (email, name, desk_index) VALUES
     ('david@madoffice.com', 'David', 0),
@@ -53,7 +62,7 @@ INSERT INTO users (email, name, desk_index) VALUES
     ('carlos@madoffice.com', 'Carlos', 4)
 ON CONFLICT (email) DO NOTHING;
 
--- Insert default mood states for each user
-INSERT INTO mood_states (user_id, happiness, stress, frustration, excitement, sadness, tiredness)
-SELECT id, 5, 3, 0, 5, 0, 3 FROM users
+-- Insert default mood states (all at neutral 5)
+INSERT INTO mood_states (user_id, alegria, energia, optimismo, frustracion, estres)
+SELECT id, 5, 5, 5, 5, 5 FROM users
 ON CONFLICT DO NOTHING;

@@ -1,78 +1,94 @@
 /**
- * Office Events - Random events that occur in the office
- * Events like storms, earthquakes, etc. that affect user moods
+ * Eventos de Oficina - Eventos aleatorios que ocurren en la oficina
+ * Sistema bipolar: positivo sube el eje, negativo lo baja
  */
 
 const OFFICE_EVENTS = [
   {
-    type: 'mini_storm',
-    description: 'A small storm cloud appears over {user}!',
-    moodImpact: { sadness: 2, stress: 1 },
+    type: 'mini_tormenta',
+    description: 'Una pequena nube de tormenta aparece sobre {user}!',
+    moodImpact: { alegria: -2, estres: -1 },
     probability: 0.05,
     targeted: true,
   },
   {
-    type: 'earthquake',
-    description: 'A small earthquake shakes the office!',
-    moodImpact: { stress: 2, excitement: 1, frustration: 1 },
+    type: 'terremoto',
+    description: 'Un pequeno terremoto sacude la oficina!',
+    moodImpact: { estres: -2, energia: 1, frustracion: -1 },
     probability: 0.02,
     targeted: false,
   },
   {
-    type: 'coffee_spill',
-    description: '{user} spills coffee on their desk!',
-    moodImpact: { frustration: 2, sadness: 1 },
+    type: 'cafe_derramado',
+    description: '{user} derrama cafe en su escritorio!',
+    moodImpact: { frustracion: -2, alegria: -1 },
     probability: 0.04,
     targeted: true,
   },
   {
-    type: 'pizza_delivery',
-    description: 'Pizza delivery for the office!',
-    moodImpact: { happiness: 3, excitement: 2, stress: -1 },
+    type: 'entrega_pizza',
+    description: 'Entrega de pizza para la oficina!',
+    moodImpact: { alegria: 3, energia: 2, estres: 1 },
     probability: 0.03,
     targeted: false,
   },
   {
-    type: 'wifi_outage',
-    description: 'The WiFi goes down momentarily!',
-    moodImpact: { frustration: 3, stress: 2 },
+    type: 'caida_wifi',
+    description: 'El WiFi se cae momentaneamente!',
+    moodImpact: { frustracion: -3, estres: -2 },
     probability: 0.02,
     targeted: false,
   },
   {
-    type: 'birthday_surprise',
-    description: "It's {user}'s birthday! The team sings happy birthday!",
-    moodImpact: { happiness: 4, excitement: 3 },
+    type: 'sorpresa_cumpleanos',
+    description: 'Es el cumpleanos de {user}! El equipo le canta!',
+    moodImpact: { alegria: 4, energia: 3 },
     probability: 0.02,
     targeted: true,
   },
   {
-    type: 'plant_grows',
-    description: 'The office plant suddenly blooms!',
-    moodImpact: { happiness: 1, excitement: 1 },
+    type: 'planta_florece',
+    description: 'La planta de la oficina florece de repente!',
+    moodImpact: { alegria: 1, optimismo: 2 },
     probability: 0.04,
     targeted: false,
   },
   {
-    type: 'fire_alarm_drill',
-    description: 'Fire alarm drill! Everyone looks confused.',
-    moodImpact: { stress: 2, frustration: 1, tiredness: 1 },
+    type: 'simulacro_incendio',
+    description: 'Simulacro de incendio! Todos parecen confundidos.',
+    moodImpact: { estres: -2, frustracion: -1, energia: -1 },
     probability: 0.01,
     targeted: false,
   },
   {
-    type: 'rainbow',
-    description: 'A rainbow appears outside the office window!',
-    moodImpact: { happiness: 2, sadness: -1 },
+    type: 'arcoiris',
+    description: 'Un arcoiris aparece fuera de la ventana de la oficina!',
+    moodImpact: { alegria: 2, optimismo: 2 },
     probability: 0.03,
     targeted: false,
   },
   {
-    type: 'cat_visit',
-    description: 'A stray cat wanders into the office!',
-    moodImpact: { happiness: 3, excitement: 2, stress: -2 },
+    type: 'visita_gato',
+    description: 'Un gato callejero entra en la oficina!',
+    moodImpact: { alegria: 3, energia: 2, estres: 2 },
     probability: 0.03,
     targeted: false,
+  },
+  {
+    type: 'brainstorming',
+    description: 'Sesion de brainstorming en la pizarra! {user} va a la pizarra.',
+    moodImpact: { energia: 2, optimismo: 1 },
+    probability: 0.04,
+    targeted: true,
+    moveTo: 'pizarra',
+  },
+  {
+    type: 'reunion_improvisada',
+    description: 'Reunion improvisada! Varios se juntan en la sala de reuniones.',
+    moodImpact: { estres: -1, energia: -1 },
+    probability: 0.03,
+    targeted: false,
+    moveTo: 'reunion',
   },
 ];
 
@@ -81,10 +97,11 @@ class OfficeEvents {
     this.pool = pool;
     this.io = io;
     this.interval = null;
+    this.connectedUsers = new Set();
   }
 
   start() {
-    console.log('Office Events started - checking every 30 seconds');
+    console.log('Eventos de Oficina iniciados - tick cada 30 segundos');
     this.interval = setInterval(() => this.tick(), 30000);
   }
 
@@ -95,10 +112,21 @@ class OfficeEvents {
     }
   }
 
+  setConnectedUsers(users) {
+    this.connectedUsers = users;
+  }
+
   async tick() {
     try {
-      const usersResult = await this.pool.query('SELECT id, name FROM users');
+      const connectedIds = Array.from(this.connectedUsers);
+      if (connectedIds.length === 0) return;
+
+      const usersResult = await this.pool.query(
+        'SELECT id, name FROM users WHERE id = ANY($1)',
+        [connectedIds]
+      );
       const users = usersResult.rows;
+      if (users.length === 0) return;
 
       for (const event of OFFICE_EVENTS) {
         if (Math.random() < event.probability) {
@@ -111,14 +139,22 @@ class OfficeEvents {
               [event.type, targetUser.id, description, JSON.stringify(event.moodImpact)]
             );
 
-            // Apply mood impact to target user
             await this.applyMoodImpact(targetUser.id, event.moodImpact);
+
+            // Mover avatar si el evento lo requiere
+            if (event.moveTo) {
+              await this.pool.query(
+                'UPDATE mood_states SET current_action = $1, action_started_at = NOW() WHERE user_id = $2',
+                [event.moveTo, targetUser.id]
+              );
+            }
 
             this.io.emit('office_event', {
               type: event.type,
               description,
               targetUserId: targetUser.id,
-              targetUserName: targetUser.name
+              targetUserName: targetUser.name,
+              moveTo: event.moveTo || null,
             });
           } else {
             await this.pool.query(
@@ -126,27 +162,38 @@ class OfficeEvents {
               [event.type, event.description, JSON.stringify(event.moodImpact)]
             );
 
-            // Apply mood impact to all users
             for (const user of users) {
               await this.applyMoodImpact(user.id, event.moodImpact);
+            }
+
+            if (event.moveTo) {
+              // Mover usuarios aleatorios a la ubicacion
+              const movedUsers = users.slice(0, Math.min(3, users.length));
+              for (const u of movedUsers) {
+                await this.pool.query(
+                  'UPDATE mood_states SET current_action = $1, action_started_at = NOW() WHERE user_id = $2',
+                  [event.moveTo === 'reunion' ? 'reunido' : event.moveTo, u.id]
+                );
+              }
             }
 
             this.io.emit('office_event', {
               type: event.type,
               description: event.description,
               targetUserId: null,
-              targetUserName: null
+              targetUserName: null,
+              moveTo: event.moveTo || null,
             });
           }
         }
       }
     } catch (err) {
-      console.error('OfficeEvents tick error:', err);
+      console.error('Error en tick de Eventos de Oficina:', err);
     }
   }
 
   async applyMoodImpact(userId, impact) {
-    const moodFields = ['happiness', 'stress', 'frustration', 'excitement', 'sadness', 'tiredness'];
+    const moodFields = ['alegria', 'energia', 'optimismo', 'frustracion', 'estres'];
     const updates = [];
     const values = [userId];
     let paramIndex = 2;

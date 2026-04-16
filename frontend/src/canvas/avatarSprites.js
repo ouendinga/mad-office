@@ -312,36 +312,80 @@ function drawAccessory(ctx, accessoryIndex, ox, oy, scale) {
   }
 }
 
-// Mood representation overlays
+// Representaciones visuales de estados de animo
 export function drawRepresentation(ctx, representation, ox, oy, scale, frame) {
   switch (representation) {
-    case 'smiling':
-      // Already handled in base mouth
-      break;
-
-    case 'sparkles':
+    case 'llorando':
+      // Lagrimas en ambos lados
+      setPixel(ctx, ox + 5, oy + 4 + (frame % 2), '#87CEEB', scale);
+      setPixel(ctx, ox + 10, oy + 4 + (frame % 2), '#87CEEB', scale);
       if (frame % 2 === 0) {
-        setPixel(ctx, ox + 3, oy + 0, '#FFD700', scale);
-        setPixel(ctx, ox + 13, oy + 2, '#FFD700', scale);
-      } else {
-        setPixel(ctx, ox + 2, oy + 1, '#FFD700', scale);
-        setPixel(ctx, ox + 14, oy + 1, '#FFD700', scale);
+        setPixel(ctx, ox + 5, oy + 5, '#5DADE2', scale);
+        setPixel(ctx, ox + 10, oy + 5, '#5DADE2', scale);
       }
       break;
 
-    case 'sweat_drop':
-      setPixel(ctx, ox + 12, oy + 2, '#87CEEB', scale);
-      setPixel(ctx, ox + 12, oy + 3, '#87CEEB', scale);
+    case 'enfadado':
+      // Cara roja + cejas fruncidas
+      setPixel(ctx, ox + 5, oy + 4, '#FF6B6B', scale);
+      setPixel(ctx, ox + 10, oy + 4, '#FF6B6B', scale);
+      // Cejas enfadadas
+      setPixel(ctx, ox + 5, oy + 2, '#1A1A2E', scale);
+      setPixel(ctx, ox + 6, oy + 2, '#1A1A2E', scale);
+      setPixel(ctx, ox + 9, oy + 2, '#1A1A2E', scale);
+      setPixel(ctx, ox + 10, oy + 2, '#1A1A2E', scale);
+      if (frame % 2 === 0) {
+        setPixel(ctx, ox + 6, oy - 1, '#FF4444', scale);
+        setPixel(ctx, ox + 9, oy - 1, '#FF4444', scale);
+      }
       break;
 
-    case 'steam':
-      const steamOffset = frame % 3;
-      setPixel(ctx, ox + 6 + steamOffset, oy - 1, '#CCCCCC', scale);
-      setPixel(ctx, ox + 8 - steamOffset, oy - 2, '#AAAAAA', scale);
+    case 'somnoliento':
+      // Ojos cerrados + ZZZ
+      setPixel(ctx, ox + 6, oy + 3, '#1A1A2E', scale);
+      setPixel(ctx, ox + 7, oy + 3, '#1A1A2E', scale);
+      setPixel(ctx, ox + 8, oy + 3, '#1A1A2E', scale);
+      setPixel(ctx, ox + 9, oy + 3, '#1A1A2E', scale);
+      // ZZZ burbujas
+      {
+        const zOff = frame % 4;
+        ctx.fillStyle = '#A29BFE';
+        ctx.font = `${scale * 2}px 'Press Start 2P', monospace`;
+        ctx.fillText('z', (ox + 12) * scale, (oy + 1 - zOff) * scale);
+        ctx.font = `${scale * 3}px 'Press Start 2P', monospace`;
+        ctx.fillText('Z', (ox + 13) * scale, (oy - 1 - zOff) * scale);
+      }
       break;
 
-    case 'anger_cloud': {
-      // Cloud above head
+    case 'cantando':
+      // Notas musicales flotando
+      {
+        const nOff = frame % 4;
+        ctx.fillStyle = '#FFD700';
+        ctx.font = `${scale * 3}px sans-serif`;
+        ctx.fillText('\u266A', (ox + 12 + nOff) * scale, (oy - nOff) * scale);
+        ctx.fillStyle = '#FFA500';
+        ctx.font = `${scale * 2}px sans-serif`;
+        ctx.fillText('\u266B', (ox + 2 - nOff) * scale, (oy + 1 - nOff) * scale);
+      }
+      // Boca abierta (sonrisa grande)
+      setPixel(ctx, ox + 7, oy + 5, '#E74C3C', scale);
+      setPixel(ctx, ox + 8, oy + 5, '#E74C3C', scale);
+      break;
+
+    case 'tirandose_del_pelo':
+      // Manos arriba en la cabeza
+      setPixel(ctx, ox + 5, oy + 0, '#FFA07A', scale);
+      setPixel(ctx, ox + 10, oy + 0, '#FFA07A', scale);
+      // Lineas de estres
+      if (frame % 2 === 0) {
+        setPixel(ctx, ox + 3, oy + 0, '#FF6B6B', scale);
+        setPixel(ctx, ox + 12, oy + 0, '#FF6B6B', scale);
+      }
+      break;
+
+    case 'nube_en_la_cabeza': {
+      // Nube oscura sobre la cabeza
       const cloudY = oy - 2;
       for (let x = 5; x <= 10; x++) {
         setPixel(ctx, ox + x, cloudY, '#555555', scale);
@@ -349,62 +393,11 @@ export function drawRepresentation(ctx, representation, ox, oy, scale, frame) {
       for (let x = 6; x <= 9; x++) {
         setPixel(ctx, ox + x, cloudY - 1, '#666666', scale);
       }
-      // Lightning
+      // Rayos
       if (frame % 3 === 0) {
         setPixel(ctx, ox + 7, cloudY + 1, '#FFD700', scale);
         setPixel(ctx, ox + 8, cloudY + 2, '#FFD700', scale);
       }
-      break;
-    }
-
-    case 'red_face':
-      setPixel(ctx, ox + 5, oy + 4, '#FF6B6B', scale);
-      setPixel(ctx, ox + 10, oy + 4, '#FF6B6B', scale);
-      break;
-
-    case 'tear':
-      setPixel(ctx, ox + 6, oy + 4 + (frame % 2), '#87CEEB', scale);
-      break;
-
-    case 'rain_cloud': {
-      for (let x = 5; x <= 10; x++) {
-        setPixel(ctx, ox + x, oy - 2, '#4A6FA5', scale);
-      }
-      // Rain drops
-      const rainOff = frame % 2;
-      setPixel(ctx, ox + 6, oy - 1 + rainOff, '#87CEEB', scale);
-      setPixel(ctx, ox + 8, oy + rainOff, '#87CEEB', scale);
-      setPixel(ctx, ox + 10, oy - 1 + rainOff, '#87CEEB', scale);
-      break;
-    }
-
-    case 'yawning':
-      // Open mouth
-      setPixel(ctx, ox + 7, oy + 5, '#8B0000', scale);
-      setPixel(ctx, ox + 8, oy + 5, '#8B0000', scale);
-      setPixel(ctx, ox + 7, oy + 6, '#8B0000', scale);
-      setPixel(ctx, ox + 8, oy + 6, '#8B0000', scale);
-      break;
-
-    case 'zzz_bubbles': {
-      const zOff = frame % 4;
-      ctx.fillStyle = '#A29BFE';
-      ctx.font = `${scale * 2}px 'Press Start 2P', monospace`;
-      ctx.fillText('z', (ox + 12) * scale, (oy + 1 - zOff) * scale);
-      ctx.font = `${scale * 3}px 'Press Start 2P', monospace`;
-      ctx.fillText('Z', (ox + 13) * scale, (oy - 1 - zOff) * scale);
-      break;
-    }
-
-    case 'bouncing':
-      // Handled by position offset in office renderer
-      break;
-
-    case 'stars': {
-      const sOff = frame % 4;
-      setPixel(ctx, ox + 2 + sOff, oy + 0, '#FFD700', scale);
-      setPixel(ctx, ox + 12 - sOff, oy - 1, '#FFD700', scale);
-      setPixel(ctx, ox + 1, oy + 2 + sOff, '#FFA500', scale);
       break;
     }
 
@@ -413,44 +406,49 @@ export function drawRepresentation(ctx, representation, ox, oy, scale, frame) {
   }
 }
 
-// Draw action indicator
+// Indicadores de accion del avatar
 export function drawActionIndicator(ctx, action, ox, oy, scale, frame) {
   switch (action) {
-    case 'sleeping':
-      // Closed eyes
+    case 'durmiendo':
+      // Ojos cerrados
       setPixel(ctx, ox + 6, oy + 3, '#1A1A2E', scale);
       setPixel(ctx, ox + 7, oy + 3, '#1A1A2E', scale);
       setPixel(ctx, ox + 8, oy + 3, '#1A1A2E', scale);
       setPixel(ctx, ox + 9, oy + 3, '#1A1A2E', scale);
       break;
 
-    case 'working_hard':
-      // Sweat drop
-      if (frame % 4 < 2) {
-        setPixel(ctx, ox + 12, oy + 2, '#87CEEB', scale);
-      }
-      break;
-
-    case 'celebrating':
-      // Raised arms (override)
+    case 'celebrando':
+      // Brazos arriba
       setPixel(ctx, ox + 3, oy + 7, SKIN_TONES[0], scale);
       setPixel(ctx, ox + 12, oy + 7, SKIN_TONES[0], scale);
       break;
 
-    case 'crying':
-      // Tears on both sides
-      setPixel(ctx, ox + 5, oy + 4 + (frame % 2), '#87CEEB', scale);
-      setPixel(ctx, ox + 10, oy + 4 + (frame % 2), '#87CEEB', scale);
-      break;
-
-    case 'raging':
-      // Red tint + steam
+    case 'rabieta':
+      // Cara roja + vapor
       setPixel(ctx, ox + 5, oy + 4, '#FF0000', scale);
       setPixel(ctx, ox + 10, oy + 4, '#FF0000', scale);
       if (frame % 2 === 0) {
         setPixel(ctx, ox + 6, oy - 1, '#FF4444', scale);
         setPixel(ctx, ox + 9, oy - 1, '#FF4444', scale);
       }
+      // Pisando fuerte (animacion)
+      if (frame % 3 === 0) {
+        setPixel(ctx, ox + 5, oy + 16, '#FF4444', scale);
+        setPixel(ctx, ox + 10, oy + 16, '#FF4444', scale);
+      }
+      break;
+
+    case 'corriendo':
+      // Gota de sudor
+      if (frame % 2 === 0) {
+        setPixel(ctx, ox + 12, oy + 2, '#87CEEB', scale);
+      }
+      break;
+
+    case 'holgazaneando':
+      // Ojos medio cerrados
+      setPixel(ctx, ox + 6, oy + 3, '#1A1A2E', scale);
+      setPixel(ctx, ox + 9, oy + 3, '#1A1A2E', scale);
       break;
 
     default:

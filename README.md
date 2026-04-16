@@ -2,7 +2,7 @@
 
 Plataforma de oficina virtual con avatares pixel art automatizados. Los avatares reflejan el estado de animo real de cada miembro del equipo basandose en integraciones con Jira, correo y calendario.
 
-**Produccion**: http://REDACTED_PRODUCTION_HOST:443/
+**Produccion**: http://REDACTED_PRODUCTION_HOST/
 
 ## Stack Tecnologico
 
@@ -41,7 +41,7 @@ docker compose up --build
 ```
 
 La aplicacion estara disponible en:
-- **Frontend**: http://localhost:443
+- **Frontend**: http://localhost:80
 - **Backend API**: http://localhost:3001
 - **PostgreSQL**: localhost:5432
 
