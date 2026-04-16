@@ -94,14 +94,14 @@ El repositorio se encuentra en git@github.com:ouendinga/mad-office.git
 
 ## Gestion del servidor
 
-- La conexion al servidor es mediante ssh. La cadena de conexion es: ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP.
+- La conexion al servidor es mediante SSH. Los datos de conexion se gestionan via variables de entorno y GitHub Secrets.
 - Instala git, docker
 
 ## Despliegue del proyecto
 
 - En el servidor el proyecto estara ubicado en /app
 - Despliegue por git pull en el servidor desde el repositorio git con github Actions.
-- Hay que incluir la clave publica de github actions en el servidor "REDACTED_SSH_PUBLIC_KEY"
+- La clave publica de GitHub Actions debe estar autorizada en el servidor (gestionada via GitHub Secrets)
 - Instalacion / actualizacion del stack mediante docker compose.
 - La aplicacion debe escuchar por el puerto 443.
 

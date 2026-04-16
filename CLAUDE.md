@@ -2,13 +2,11 @@
 
 ## Project Overview
 
-**Mad Office** is a virtual office platform with pixel art avatars and automated mood states. Hackathon project at Globant.
+**Mad Office** is a virtual office platform with pixel art avatars and automated mood states.
 
-- **Production URL**: http://REDACTED_PRODUCTION_HOST:443/
 - **Repo**: git@github.com:ouendinga/mad-office.git
-- **Server**: ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP (Ubuntu 24.04 LTS, AWS EC2 eu-south-2)
-- **App directory on server**: /app
 - **CI/CD**: GitHub Actions - push to `main` auto-deploys via SSH
+- **Infrastructure details**: See private documentation (not in repo for security)
 
 ## Tech Stack
 
@@ -30,9 +28,9 @@
 ## Key Design Decisions
 
 - **No passwords for MVP**: Auth is email-only. Register = email + name, Login = email. JWT tokens with 24h expiration.
-- **Mood system**: 6 moods (happiness, stress, frustration, excitement, sadness, tiredness), each 0-10 scale. All moods always have a value.
+- **Mood system**: 5 bipolar axes (alegria, energia, optimismo, frustracion, estres), each 0-10 scale. All moods always have a value.
 - **Actions**: Change when completed, mood shifts significantly, or after 30 minutes. Dominant mood determines next action.
-- **Representations**: Visual overlays (tears, clouds, sparkles) triggered by probability based on mood intensity. 3 tiers: leve (>=4, 10%), moderado (>=7, 20%), intenso (>=9, 30%).
+- **Representations**: Visual overlays (tears, clouds, sparkles) triggered by probability based on mood intensity.
 - **Avatar sprites**: 16x16 pixel art with 4 layers (body/skin -> clothes -> hair -> accessories). Rendered directly in Canvas, no image assets.
 - **Office map**: 800x600 logical canvas with 8 desks (2 rows of 4), meeting room (bottom-right), break area (bottom-left), decorations (plants, whiteboard, coffee machine).
 
@@ -40,11 +38,10 @@
 
 David, Alfredo, Jose Antonio, Jose Luis, Carlos - created automatically via `backend/db/init.sql`.
 
-## SSH Keys
+## Environment Variables
 
-- `REDACTED_SSH_KEY_PATH` - Gina's deploy key (authorized on server)
-- `REDACTED_SSH_KEY_PATH` - GitHub Actions deploy key (authorized on server)
-- GitHub secret `DEPLOY_SSH_KEY` is configured in the repo
+All secrets are managed via environment variables. See `.env.example` for the required variables.
+**Never hardcode secrets in source code or documentation.**
 
 ## Project Structure
 
@@ -70,7 +67,7 @@ frontend/
   nginx.conf               - Reverse proxy config
 
 tests/e2e/                 - Playwright tests (landing, avatar, office, API)
-doc/                       - technical_doc.md, spec_improvement.md
+doc/                       - technical_doc.md, spec_improvement.md, ROADMAP.md
 ```
 
 ## Development Commands
@@ -79,12 +76,8 @@ doc/                       - technical_doc.md, spec_improvement.md
 # Local development with Docker
 docker compose up --build
 
-# Deploy manually to server
-ssh -p REDACTED_SSH_PORT ubuntu@REDACTED_SERVER_IP
-cd /app && git pull && sudo docker compose down && sudo docker compose build --no-cache && sudo docker compose up -d
-
-# Verify production health
-curl http://REDACTED_PRODUCTION_HOST:443/api/health
+# Verify health
+curl http://localhost:8081/api/health
 ```
 
 ## Specs Reference
@@ -92,6 +85,8 @@ curl http://REDACTED_PRODUCTION_HOST:443/api/health
 **IMPORTANT**: The file `specs.md` in the project root is the authoritative specification for this project. All implementation decisions must follow `specs.md` strictly. When in doubt, defer to what the spec says.
 
 - `specs.md` - Full functional and technical specification (source of truth)
+- `SPECSv2.md` - Improvements over the original spec
+- `doc/ROADMAP.md` - Project roadmap (post-hackathon evolution)
 - `doc/spec_improvement.md` - Suggested improvements beyond the spec
 - `doc/technical_doc.md` - Technical architecture documentation
 
@@ -105,6 +100,4 @@ curl http://REDACTED_PRODUCTION_HOST:443/api/health
 - Mock users: David, Alfredo, Jose Antonio, Jose Luis, Carlos
 - Office map: 8 desks (2 rows of 4), meeting room (bottom-right), break area (bottom-left)
 - Docker Compose with 3 services: frontend, backend, postgres (PostgreSQL 16)
-- App listens on port 443
 - Landing page modals use JavaScript vanilla for open/close
-- Deployment via git pull + docker compose on server at /app
