@@ -193,7 +193,7 @@ Fase 0 (Motor gráfico)
 | Base de datos | PostgreSQL solo vs + Redis para estado real-time | Fase 1 |
 | Assets: crear vs comprar vs libres | Pixel art propio vs asset packs vs mezcla | Fase 0/2 |
 | Auth | OAuth propio vs Auth0/Clerk vs mantener email-only | Fase 4 |
-| Hosting | EC2 actual vs contenedores (ECS/Fly.io) vs serverless | Fase 5 |
+| Hosting | Fly.io (free tier, Docker nativo, WebSocket OK) vs Railway vs EC2 | Fase 5 |
 
 ---
 
