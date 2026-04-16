@@ -97,7 +97,7 @@ class StatusEngine {
   }
 
   isWorkingHours() {
-    return this.virtualHour >= 9 && this.virtualHour < 18;
+    return true; // Oficina siempre abierta
   }
 
   async tick() {
