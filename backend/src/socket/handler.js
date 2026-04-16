@@ -56,6 +56,28 @@ function socketHandler(io, pool, statusEngine, officeEvents) {
       }
     });
 
+    // Manual position update from client
+    socket.on('position:update', async (data) => {
+      if (!socket.userId) return;
+      const { x, y, moving } = data;
+      if (typeof x !== 'number' || typeof y !== 'number') return;
+
+      try {
+        await pool.query(
+          'UPDATE users SET position_x = $1, position_y = $2 WHERE id = $3',
+          [Math.round(x), Math.round(y), socket.userId]
+        );
+
+        // Broadcast to all other clients
+        socket.broadcast.to('office').emit('position:remote', {
+          userId: socket.userId,
+          x, y, moving
+        });
+      } catch (err) {
+        console.error('Error actualizando posicion:', err);
+      }
+    });
+
     // Emoji reactions
     socket.on('reaction:send', (data) => {
       if (socket.userId) {

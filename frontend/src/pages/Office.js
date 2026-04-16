@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { renderOffice, MOOD_COLORS } from '../canvas/officeRenderer';
+import { renderOffice, MOOD_COLORS, getCamera, getTileMap } from '../canvas/officeRenderer';
+import Movement from '../engine/Movement';
 import '../styles/office.css';
 
 const WS_URL = process.env.REACT_APP_WS_URL || '';
@@ -44,6 +45,8 @@ export default function Office({ user, token, onLogout, onEditAvatar, setUser })
   const animFrameRef = useRef(0);
   const animTickRef = useRef(0);
   const rafRef = useRef(null);
+  const movementRef = useRef(null);
+  const remotePositions = useRef({});  // userId -> {x, y, moving}
 
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
@@ -58,6 +61,7 @@ export default function Office({ user, token, onLogout, onEditAvatar, setUser })
   const [virtualClock, setVirtualClock] = useState({ hour: 9, minute: 0, working: true });
   const [profileName, setProfileName] = useState(user.name);
   const [profileEmail, setProfileEmail] = useState(user.email);
+  const [currentZone, setCurrentZone] = useState(null);
   const chatEndRef = useRef(null);
 
   // Connect WebSocket
@@ -105,6 +109,13 @@ export default function Office({ user, token, onLogout, onEditAvatar, setUser })
       setVirtualClock(clock);
     });
 
+    // Posiciones remotas de otros usuarios (movimiento manual)
+    socket.on('position:remote', (data) => {
+      remotePositions.current[data.userId] = {
+        x: data.x, y: data.y, moving: data.moving
+      };
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -117,7 +128,40 @@ export default function Office({ user, token, onLogout, onEditAvatar, setUser })
     }
   }, [chatMessages]);
 
-  // Canvas rendering loop - reduced animation speed
+  // Inicializar Movement controller
+  useEffect(() => {
+    // Forzar un primer render para que tileMap se inicialice
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      renderOffice(ctx, canvas, [], 0, [], virtualClock);
+    }
+
+    const tileMap = getTileMap();
+    if (!tileMap) return;
+
+    const movement = new Movement(tileMap);
+    const deskPos = tileMap.getDeskPosition(user.desk_index || 0);
+    const startX = deskPos ? deskPos.x : tileMap.pixelW / 2;
+    const startY = deskPos ? deskPos.y + 40 : tileMap.pixelH / 2;
+    movement.init(startX, startY);
+
+    movement.onPositionChange = (x, y, moving) => {
+      if (socketRef.current) {
+        socketRef.current.emit('position:update', { x, y, moving });
+      }
+    };
+
+    movement.onZoneEnter = (zone) => setCurrentZone(zone);
+    movement.onZoneLeave = () => setCurrentZone(null);
+
+    movementRef.current = movement;
+
+    return () => movement.destroy();
+    // eslint-disable-next-line
+  }, [user.desk_index]);
+
+  // Canvas rendering loop con movement update
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -127,15 +171,41 @@ export default function Office({ user, token, onLogout, onEditAvatar, setUser })
     ctx.imageSmoothingEnabled = false;
 
     animFrameRef.current++;
-    // Animation tick every 6 frames for slower animations
     if (animFrameRef.current % 6 === 0) {
       animTickRef.current++;
     }
 
-    renderOffice(ctx, canvas, users, animTickRef.current, reactions, virtualClock);
+    // Actualizar movimiento del usuario
+    const mv = movementRef.current;
+    if (mv) {
+      mv.update();
+
+      // Camara sigue al avatar del usuario
+      const cam = getCamera();
+      if (cam) {
+        cam.follow(mv.x, mv.y);
+      }
+
+      // Inyectar posicion local del usuario en la lista de users
+      // y posiciones remotas de otros usuarios
+      const enrichedUsers = users.map(u => {
+        if (u.id === user.id) {
+          return { ...u, position_x: mv.x, position_y: mv.y, _isLocal: true, _moving: mv.moving };
+        }
+        const remote = remotePositions.current[u.id];
+        if (remote) {
+          return { ...u, position_x: remote.x, position_y: remote.y, _moving: remote.moving };
+        }
+        return u;
+      });
+
+      renderOffice(ctx, canvas, enrichedUsers, animTickRef.current, reactions, virtualClock);
+    } else {
+      renderOffice(ctx, canvas, users, animTickRef.current, reactions, virtualClock);
+    }
 
     rafRef.current = requestAnimationFrame(render);
-  }, [users, reactions, virtualClock]);
+  }, [users, reactions, virtualClock, user.id]);
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(render);
@@ -157,6 +227,28 @@ export default function Office({ user, token, onLogout, onEditAvatar, setUser })
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Click en canvas → mover avatar
+  const handleCanvasClick = useCallback((e) => {
+    const mv = movementRef.current;
+    const cam = getCamera();
+    if (!mv || !cam) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    const world = cam.screenToWorld(screenX, screenY);
+    mv.handleClick(world.x, world.y);
+  }, []);
+
+  // Desactivar movimiento cuando se escribe en chat
+  const handleChatFocus = () => {
+    if (movementRef.current) movementRef.current.enabled = false;
+  };
+  const handleChatBlur = () => {
+    if (movementRef.current) movementRef.current.enabled = true;
+  };
 
   const sendReaction = (emoji) => {
     if (socketRef.current) {
@@ -236,7 +328,15 @@ export default function Office({ user, token, onLogout, onEditAvatar, setUser })
       <div className="office-layout">
         {/* Main canvas area */}
         <div className="office-canvas-container">
-          <canvas ref={canvasRef} className="office-canvas" />
+          <canvas ref={canvasRef} className="office-canvas" onClick={handleCanvasClick} />
+
+          {/* Indicador de zona */}
+          {currentZone && (
+            <div className="zone-indicator">
+              <span className="zone-indicator-icon">📍</span>
+              <span>{currentZone.label}</span>
+            </div>
+          )}
 
           {/* Office event notifications */}
           <div className="office-event-notifications">
@@ -275,7 +375,7 @@ export default function Office({ user, token, onLogout, onEditAvatar, setUser })
                 <div ref={chatEndRef} />
               </div>
               <form className="chat-input-form" onSubmit={sendChat}>
-                <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Escribe un mensaje..." className="chat-input" />
+                <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} onFocus={handleChatFocus} onBlur={handleChatBlur} placeholder="Escribe un mensaje..." className="chat-input" />
                 <button type="submit" className="btn btn-primary btn-sm">Enviar</button>
               </form>
             </div>

@@ -59,6 +59,36 @@
   height: 100%;
   display: block;
   image-rendering: pixelated;
+  cursor: pointer;
+}
+
+/* Zone indicator */
+.zone-indicator {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 26, 46, 0.85);
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  border: 1px solid var(--primary);
+  color: var(--primary-light);
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  animation: zoneSlideIn 0.3s ease-out;
+  pointer-events: none;
+}
+
+.zone-indicator-icon {
+  font-size: 1rem;
+}
+
+@keyframes zoneSlideIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* Emoji bar */
