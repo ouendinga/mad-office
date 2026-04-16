@@ -89,6 +89,7 @@ curl http://localhost:8081/api/health
 - `doc/ROADMAP.md` - Project roadmap (post-hackathon evolution)
 - `doc/spec_improvement.md` - Suggested improvements beyond the spec
 - `doc/technical_doc.md` - Technical architecture documentation
+- `doc/starmeup-integration.md` - StarMeUp API details and integration strategy
 
 ### Key spec constraints to always respect
 
