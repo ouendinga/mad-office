@@ -1,6 +1,7 @@
 /**
- * Mock Integrations - Simulates real API events from Jira, Gmail, Google Calendar
- * Generates random events for users every 15 seconds
+ * Integraciones Mock - Simula eventos de Jira, Gmail, Google Calendar
+ * Genera eventos aleatorios cada 15 segundos
+ * Sistema bipolar: valores positivos suben el eje, negativos lo bajan
  */
 class MockIntegrations {
   constructor(pool) {
@@ -8,30 +9,30 @@ class MockIntegrations {
 
     this.eventTemplates = {
       jira: [
-        { type: 'ticket_assigned', description: 'New ticket assigned: Bug fix in payment module', mood: { stress: 2, frustration: 1 } },
-        { type: 'ticket_completed', description: 'Ticket marked as done: User dashboard redesign', mood: { happiness: 3, excitement: 2, stress: -2 } },
-        { type: 'ticket_blocked', description: 'Ticket blocked by dependency', mood: { frustration: 3, stress: 2 } },
-        { type: 'sprint_started', description: 'New sprint started: Sprint 14', mood: { excitement: 2, stress: 1 } },
-        { type: 'code_review_requested', description: 'Pull request needs your review', mood: { stress: 1 } },
-        { type: 'bug_reported', description: 'Critical bug reported in production', mood: { stress: 4, frustration: 2, happiness: -2 } },
-        { type: 'ticket_reopened', description: 'Previously closed ticket reopened', mood: { frustration: 3, sadness: 1 } },
-        { type: 'deployment_success', description: 'Deployment to production successful', mood: { happiness: 3, excitement: 2, stress: -3 } },
+        { type: 'ticket_asignado', description: 'Nuevo ticket asignado: Corregir bug en modulo de pagos', mood: { estres: -2, frustracion: -1 } },
+        { type: 'ticket_completado', description: 'Ticket marcado como hecho: Rediseno del dashboard', mood: { alegria: 3, energia: 1, estres: 2 } },
+        { type: 'ticket_bloqueado', description: 'Ticket bloqueado por dependencia', mood: { frustracion: -3, estres: -2 } },
+        { type: 'sprint_iniciado', description: 'Nuevo sprint iniciado: Sprint 14', mood: { energia: 2, estres: -1 } },
+        { type: 'revision_codigo', description: 'Pull request necesita tu revision', mood: { estres: -1 } },
+        { type: 'bug_produccion', description: 'Bug critico reportado en produccion', mood: { estres: -4, frustracion: -2, alegria: -2 } },
+        { type: 'ticket_reabierto', description: 'Ticket previamente cerrado fue reabierto', mood: { frustracion: -3, alegria: -1 } },
+        { type: 'despliegue_exitoso', description: 'Despliegue a produccion exitoso', mood: { alegria: 3, energia: 2, estres: 3 } },
       ],
       gmail: [
-        { type: 'email_urgent', description: 'Urgent email from management about deadline', mood: { stress: 3, frustration: 1 } },
-        { type: 'email_praise', description: 'Email: Great job on the presentation!', mood: { happiness: 4, excitement: 2 } },
-        { type: 'email_meeting', description: 'Meeting scheduled: Quarterly review', mood: { stress: 2, tiredness: 1 } },
-        { type: 'email_spam', description: '15 unread promotional emails', mood: { frustration: 1 } },
-        { type: 'email_feedback', description: 'Positive client feedback received', mood: { happiness: 3, excitement: 1 } },
-        { type: 'email_complaint', description: 'Client complaint about delayed feature', mood: { stress: 3, sadness: 2, frustration: 1 } },
+        { type: 'email_urgente', description: 'Email urgente de direccion sobre fecha limite', mood: { estres: -3, frustracion: -1 } },
+        { type: 'email_reconocimiento', description: 'Email: Excelente trabajo en la presentacion!', mood: { alegria: 4, energia: 2 } },
+        { type: 'email_reunion', description: 'Reunion programada: Revision trimestral', mood: { estres: -2, energia: -1 } },
+        { type: 'email_spam', description: '15 correos promocionales sin leer', mood: { frustracion: -1 } },
+        { type: 'email_feedback', description: 'Feedback positivo del cliente recibido', mood: { alegria: 3, optimismo: 2 } },
+        { type: 'email_queja', description: 'Queja del cliente por funcionalidad retrasada', mood: { estres: -3, alegria: -2, frustracion: -1 } },
       ],
       calendar: [
-        { type: 'meeting_start', description: 'Stand-up meeting starting in 5 minutes', mood: { stress: 1 } },
-        { type: 'meeting_cancelled', description: 'Afternoon meeting cancelled', mood: { happiness: 2, stress: -2, tiredness: -1 } },
-        { type: 'meeting_overrun', description: 'Meeting running 30 minutes over schedule', mood: { tiredness: 3, frustration: 2, stress: 1 } },
-        { type: 'lunch_break', description: 'Lunch break reminder', mood: { happiness: 2, tiredness: -2, stress: -1 } },
-        { type: 'deadline_approaching', description: 'Project deadline in 2 hours', mood: { stress: 4, frustration: 1 } },
-        { type: 'free_slot', description: 'No meetings for next 2 hours', mood: { happiness: 2, stress: -2 } },
+        { type: 'reunion_inicio', description: 'Daily stand-up empieza en 5 minutos', mood: { estres: -1 } },
+        { type: 'reunion_cancelada', description: 'Reunion de la tarde cancelada', mood: { alegria: 2, estres: 2, energia: 1 } },
+        { type: 'reunion_extendida', description: 'Reunion se extiende 30 minutos sobre lo previsto', mood: { energia: -3, frustracion: -2, estres: -1 } },
+        { type: 'hora_almuerzo', description: 'Recordatorio de hora de almuerzo', mood: { alegria: 2, energia: 2, estres: 1 } },
+        { type: 'deadline_cercano', description: 'Fecha limite del proyecto en 2 horas', mood: { estres: -4, frustracion: -1 } },
+        { type: 'hueco_libre', description: 'Sin reuniones las proximas 2 horas', mood: { alegria: 2, estres: 2 } },
       ]
     };
   }
@@ -56,17 +57,9 @@ class MockIntegrations {
         moodImpact: template.mood
       };
     } catch (err) {
-      console.error('Error generating mock event:', err);
+      console.error('Error generando evento mock:', err);
       return null;
     }
-  }
-
-  async getRecentEvents(userId, limit = 5) {
-    const result = await this.pool.query(
-      'SELECT * FROM mock_events WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
-      [userId, limit]
-    );
-    return result.rows;
   }
 }
 

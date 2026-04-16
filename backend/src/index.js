@@ -44,18 +44,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// WebSocket handling
-socketHandler(io, pool);
-
 // Start services
 const mockIntegrations = new MockIntegrations(pool);
 const statusEngine = new StatusEngine(pool, io, mockIntegrations);
 const officeEvents = new OfficeEvents(pool, io);
 
+// Pass engines to socket handler for presence tracking
+socketHandler(io, pool, statusEngine, officeEvents);
+
 const PORT = process.env.PORT || 3001;
 
 server.listen(PORT, () => {
-  console.log(`Mad Office backend running on port ${PORT}`);
+  console.log(`Mad Office backend en puerto ${PORT}`);
   statusEngine.start();
   officeEvents.start();
 });

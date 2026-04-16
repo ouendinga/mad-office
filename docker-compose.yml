@@ -43,7 +43,7 @@ services:
         REACT_APP_WS_URL: ${WS_URL:-}
     container_name: mad-office-frontend
     ports:
-      - "443:80"
+      - "80:80"
     depends_on:
       - backend
     restart: unless-stopped

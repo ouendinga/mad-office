@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'REDACTED_JWT_SECRET';
 router.post('/register', async (req, res) => {
   const { email, name } = req.body;
   if (!email || !name) {
-    return res.status(400).json({ error: 'Email and name are required' });
+    return res.status(400).json({ error: 'Email y nombre son requeridos' });
   }
 
   const pool = req.app.get('db');
@@ -17,10 +17,10 @@ router.post('/register', async (req, res) => {
   try {
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'User already exists' });
+      return res.status(409).json({ error: 'El usuario ya existe' });
     }
 
-    // Assign next available desk
+    // Assign next available desk (dynamic - no limit)
     const deskResult = await pool.query(
       'SELECT COALESCE(MAX(desk_index), -1) + 1 AS next_desk FROM users'
     );
@@ -28,7 +28,7 @@ router.post('/register', async (req, res) => {
 
     const result = await pool.query(
       'INSERT INTO users (email, name, desk_index) VALUES ($1, $2, $3) RETURNING id, email, name, desk_index, avatar_config',
-      [email, name, deskIndex < 8 ? deskIndex : null]
+      [email, name, deskIndex]
     );
 
     const user = result.rows[0];
@@ -44,7 +44,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({ user, token });
   } catch (err) {
     console.error('Register error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
@@ -52,7 +52,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email } = req.body;
   if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
+    return res.status(400).json({ error: 'Email es requerido' });
   }
 
   const pool = req.app.get('db');
@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
     const user = result.rows[0];
@@ -73,7 +73,7 @@ router.post('/login', async (req, res) => {
     res.json({ user, token });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
