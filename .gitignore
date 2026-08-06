@@ -12,6 +12,5 @@ playwright-report/
 test-results/
 .idea/
 .vscode/
-.claude/
 *.swp
 *.swo

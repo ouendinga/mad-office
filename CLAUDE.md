@@ -1,4 +1,4 @@
-# Mad Office - Claude Context
+# Mad Office - contexto del proyecto
 
 ## Project Overview
 

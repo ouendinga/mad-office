@@ -199,7 +199,7 @@ Fase 0 (Motor gráfico)
 
 ## Notas para colaboradores
 
-- **Convenciones**: seguir `CLAUDE.md` del workspace (commits con gitmoji, código en inglés, comentarios en español).
+- **Convenciones**: commits con gitmoji, código en inglés, comentarios en español.
 - **Specs vigentes**: `SPECSv2.md` define el comportamiento del MVP actual. Este roadmap lo extiende.
 - **Branch strategy**: feature branches desde `main`. PRs con review.
 - **Tests**: Playwright E2E en `tests/e2e/`. Añadir tests para cada feature nueva.
