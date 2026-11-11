@@ -1,6 +1,8 @@
 # Mad Office
 
-Plataforma de oficina virtual con avatares pixel art automatizados. Los avatares reflejan el estado de animo real de cada miembro del equipo basandose en integraciones con Jira, correo y calendario.
+Oficina pixel art donde cada compañero tiene un personaje de IA que vive solo, en clave de comedia. Su dueño solo puede inducirle un sueño cada noche, y al despertar el personaje decide si le hace caso.
+
+> **En reconstrucción (2026-11-11).** El diseño vigente está en [doc/oficina-viva.md](doc/oficina-viva.md). Lo que sigue describe el MVP del hackathon, que se va a sustituir.
 
 **Produccion**: URL gestionada via infraestructura privada
 

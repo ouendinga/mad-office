@@ -82,7 +82,7 @@ curl http://localhost:8081/api/health
 
 ## Specs Reference
 
-**IMPORTANT**: The file `specs.md` in the project root is the authoritative specification for this project. All implementation decisions must follow `specs.md` strictly. When in doubt, defer to what the spec says.
+**IMPORTANT (2026-11-11)**: `doc/oficina-viva.md` is now the source of truth: autonomous comedic AI characters, nightly dreams, BYO model, minimal tokens, zero-config onboarding. It may be rebuilt from scratch. `specs.md`, `SPECSv2.md`, `doc/ROADMAP.md` and the constraints below are LEGACY (hackathon MVP) and no longer binding.
 
 - `specs.md` - Full functional and technical specification (source of truth)
 - `SPECSv2.md` - Improvements over the original spec
