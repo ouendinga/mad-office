@@ -1,84 +1,71 @@
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const router = express.Router();
+// Entrada solo con correo (de momento, para uso local). El primer usuario es el admin.
+// Después del primero, el registro solo queda abierto si ALLOW_REGISTRATION=true.
+// ⚠️ No exponer a Internet así: falta el enlace mágico por correo (doc/oficina-viva.md).
 
-if (!process.env.JWT_SECRET) {
-  console.error('ERROR: JWT_SECRET no configurada. Configura las variables de entorno.');
+const express = require('express');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  console.error('ERROR: JWT_SECRET falta o es corta (mínimo 32 caracteres).');
   process.exit(1);
 }
-const JWT_SECRET = process.env.JWT_SECRET;
 
-// Register
-router.post('/register', async (req, res) => {
-  const { email, name } = req.body;
-  if (!email || !name) {
-    return res.status(400).json({ error: 'Email y nombre son requeridos' });
-  }
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const pool = req.app.get('db');
+function sign(user) {
+  return jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
+}
 
+function verify(token) {
   try {
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'El usuario ya existe' });
+    return jwt.verify(token, JWT_SECRET);
+  } catch {
+    return null;
+  }
+}
+
+function requireUser(req, res, next) {
+  const h = req.headers.authorization || '';
+  const payload = verify(h.startsWith('Bearer ') ? h.slice(7) : '');
+  if (!payload) return res.status(401).json({ error: 'Tienes que entrar otra vez.' });
+  req.userId = payload.userId;
+  next();
+}
+
+function router({ onUsersChanged }) {
+  const r = express.Router();
+
+  r.post('/register', async (req, res) => {
+    const pool = req.app.get('db');
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const name = String(req.body.name || '').trim().slice(0, 40);
+    if (!EMAIL_RE.test(email) || !name) return res.status(400).json({ error: 'Pon tu nombre y un correo válido.' });
+    const count = (await pool.query('SELECT COUNT(*)::int AS n FROM users')).rows[0].n;
+    if (count > 0 && process.env.ALLOW_REGISTRATION !== 'true') {
+      return res.status(403).json({ error: 'La oficina está completa. Pide invitación a quien la lleva.' });
     }
-
-    // Assign next available desk (dynamic - no limit)
-    const deskResult = await pool.query(
-      'SELECT COALESCE(MAX(desk_index), -1) + 1 AS next_desk FROM users'
-    );
-    const deskIndex = deskResult.rows[0].next_desk;
-
-    const result = await pool.query(
-      'INSERT INTO users (email, name, desk_index) VALUES ($1, $2, $3) RETURNING id, email, name, desk_index, avatar_config',
-      [email, name, deskIndex]
-    );
-
-    const user = result.rows[0];
-
-    // Create initial mood state
-    await pool.query(
-      'INSERT INTO mood_states (user_id) VALUES ($1)',
-      [user.id]
-    );
-
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
-
-    res.status(201).json({ user, token });
-  } catch (err) {
-    console.error('Register error:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// Login
-router.post('/login', async (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: 'Email es requerido' });
-  }
-
-  const pool = req.app.get('db');
-
-  try {
-    const result = await pool.query(
-      'SELECT id, email, name, desk_index, avatar_config FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
+    try {
+      const u = (await pool.query(
+        'INSERT INTO users (email, name, is_admin) VALUES ($1, $2, $3) RETURNING id, email, name, is_admin, avatar_config',
+        [email, name, count === 0])).rows[0];
+      onUsersChanged();
+      res.status(201).json({ user: u, token: sign(u) });
+    } catch (e) {
+      if (e.code === '23505') return res.status(409).json({ error: 'Ese correo ya tiene cuenta: entra con él.' });
+      throw e;
     }
+  });
 
-    const user = result.rows[0];
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '24h' });
+  r.post('/login', async (req, res) => {
+    const pool = req.app.get('db');
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const u = (await pool.query('SELECT id, email, name, is_admin, avatar_config FROM users WHERE email = $1', [email])).rows[0];
+    if (!u) return res.status(404).json({ error: 'No hay nadie con ese correo.' });
+    res.json({ user: u, token: sign(u) });
+  });
 
-    res.json({ user, token });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
+  return r;
+}
 
-module.exports = router;
+module.exports = { router, requireUser, verify };

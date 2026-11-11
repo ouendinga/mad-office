@@ -1,71 +1,57 @@
-const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
+const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
+const { Server } = require('socket.io');
+const { makePool, migrate } = require('./db');
+const { makeClock } = require('./world/clock');
+const { Sim } = require('./world/sim');
+const auth = require('./routes/auth');
+const me = require('./routes/me');
+const office = require('./routes/office');
+const runner = require('./routes/runner');
 
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const moodRoutes = require('./routes/moods');
-const StatusEngine = require('./services/statusEngine');
-const MockIntegrations = require('./services/mockIntegrations');
-const OfficeEvents = require('./services/officeEvents');
-const socketHandler = require('./socket/handler');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:8081,http://localhost:3000').split(',');
 
-const app = express();
-const server = http.createServer(app);
+async function main() {
+  const pool = makePool();
+  await migrate(pool);
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:8081', 'http://localhost:3000'];
+  const app = express();
+  const server = http.createServer(app);
+  const io = new Server(server, { cors: { origin: allowedOrigins, credentials: true } });
 
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
-});
+  // Solo entra al directo quien tiene sesión.
+  io.use((socket, next) => (auth.verify(socket.handshake.auth && socket.handshake.auth.token) ? next() : next(new Error('auth'))));
 
-if (!process.env.DATABASE_URL) {
-  console.error('ERROR: DATABASE_URL no configurada. Configura las variables de entorno.');
-  process.exit(1);
+  const clock = makeClock({
+    speed: Number(process.env.CLOCK_SPEED || 1),
+    start: process.env.CLOCK_START ? Date.parse(process.env.CLOCK_START) : null,
+  });
+  const sim = new Sim({ pool, io, clock });
+
+  app.use(cors({ origin: allowedOrigins, credentials: true }));
+  app.use(express.json({ limit: '64kb' }));
+  app.set('db', pool);
+
+  app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+  app.use('/api/auth', auth.router({ onUsersChanged: () => { sim.invalidate(); sim.ensured.clear(); } }));
+  app.use('/api/me', me.router({ sim }));
+  app.use('/api/runner', runner.router({ sim }));
+  app.use('/api', office.router());
+
+  app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+    console.error(err);
+    res.status(500).json({ error: 'Algo se ha roto en la oficina. Prueba otra vez en un momento.' });
+  });
+
+  const port = Number(process.env.PORT || 3001);
+  server.listen(port, () => {
+    console.log(`Mad Office en el puerto ${port} (reloj x${clock.speed})`);
+    sim.start();
+  });
 }
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-});
-
-// Middleware
-app.use(cors({ origin: allowedOrigins, credentials: true }));
-app.use(express.json());
-
-// Make pool and io available to routes
-app.set('db', pool);
-app.set('io', io);
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/moods', moodRoutes);
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Start services
-const mockIntegrations = new MockIntegrations(pool);
-const statusEngine = new StatusEngine(pool, io, mockIntegrations);
-const officeEvents = new OfficeEvents(pool, io);
-
-// Pass engines to socket handler for presence tracking
-socketHandler(io, pool, statusEngine, officeEvents);
-
-const PORT = process.env.PORT || 3001;
-
-server.listen(PORT, () => {
-  console.log(`Mad Office backend en puerto ${PORT}`);
-  statusEngine.start();
-  officeEvents.start();
+main().catch(e => {
+  console.error(e);
+  process.exit(1);
 });

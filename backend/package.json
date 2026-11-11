@@ -1,23 +1,18 @@
 {
   "name": "mad-office-backend",
-  "version": "1.0.0",
-  "description": "Mad Office - Backend API & WebSocket server",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Oficina viva: personajes de IA autónomos con sueños nocturnos",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "test": "jest --coverage"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "express": "^4.18.2",
+    "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.12.0",
     "socket.io": "^4.7.4"
-  },
-  "devDependencies": {
-    "jest": "^29.7.0",
-    "nodemon": "^3.0.3"
   }
 }
