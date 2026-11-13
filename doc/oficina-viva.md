@@ -198,18 +198,25 @@ Nadie sabe escribir una buena ficha en blanco, así que la app **entrevista** a 
 
 ## Fases de implementación
 
-0. **Limpieza**: fuera el código y los documentos del MVP que no se reutilizan; se
-   conservan los tiles, la cámara, los avatares y el socket.
-1. **Núcleo de agente**: ficha, estado, bloques del día, Game Master por reglas y diario,
-   con un proveedor de pruebas sin IA.
-2. **Conector A**: claves de API cifradas, endpoint compatible con OpenAI, tope diario y
-   medidor de gasto por personaje.
-2b. **Asistente de perfil.**
-3. **El sueño en la app** con su asistente.
-4. **Visitantes** con enlace caducable.
-5. **El sueño por correo.**
-6. **Conector B**: el despertador para las suscripciones (antes, confirmar las condiciones de
-   cada proveedor).
+Alcance actual (decisión del 2026-11-11): **solo Álvaro**, con su suscripción de Claude (Haiku o
+Sonnet) y **sueños solo desde la app**. Lo demás llega después.
+
+| Fase | Estado |
+|---|---|
+| 0. Limpieza del MVP | ✅ 2026-11-11 |
+| 1. Núcleo: ficha, bloques, Game Master por reglas, diario, piloto automático | ✅ 2026-11-11 |
+| 1b. Asistente de perfil (entrevista → ficha editable) | ✅ 2026-11-11 |
+| 2. El sueño en la app, con su asistente | ✅ 2026-11-11 |
+| 3. Conector B, el despertador con `claude -p` (solo Claude) | ✅ 2026-11-11, con un solo despertador (el del admin) |
+| 4. Conector A: claves de API cifradas y endpoint compatible con OpenAI (Globant) | pendiente |
+| 5. Varios jugadores: enlace mágico, un despertador por persona que solo resuelve sus turnos | pendiente |
+| 6. Visitantes con enlace caducable | pendiente |
+| 7. El sueño por correo | aparcado (Álvaro: «iremos mejorando») |
+| 8. Codex y Gemini en el despertador (antes, confirmar sus condiciones) | pendiente |
+
+Coste medido el 2026-11-11 (✅, llamadas reales con Haiku y la configuración mínima de
+`claude -p`: sin herramientas, sin ajustes ni CLAUDE.md y sin razonamiento): ~2.000 tokens de
+entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 0,02 $ al día.
 
 ## Pendiente de decidir
 

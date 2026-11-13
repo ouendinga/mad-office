@@ -1,162 +1,73 @@
 # Mad Office
 
-Oficina pixel art donde cada compañero tiene un personaje de IA que vive solo, en clave de comedia. Su dueño solo puede inducirle un sueño cada noche, y al despertar el personaje decide si le hace caso.
+Oficina pixel art donde cada compañero tiene un personaje de IA que vive solo, en clave de
+comedia: trabaja, cotillea, hace tratos y escribe su diario sin guion. Su dueño solo puede
+**susurrarle un sueño cada noche** (de 18:00 a 09:00, máximo 200 caracteres). Por la mañana,
+el personaje decide si le hace caso.
 
-> **En reconstrucción (2026-11-11).** El diseño vigente está en [doc/oficina-viva.md](doc/oficina-viva.md). Lo que sigue describe el MVP del hackathon, que se va a sustituir.
+El diseño completo y sus decisiones están en [doc/oficina-viva.md](doc/oficina-viva.md).
 
-**Produccion**: URL gestionada via infraestructura privada
+## Arrancarlo (local)
 
-## Stack Tecnologico
-
-- **Frontend**: React 18 + HTML5 Canvas (sprites pixel art 16x16 escalados)
-- **Backend**: Node.js + Express
-- **Tiempo real**: Socket.io (WebSockets con fallback)
-- **Base de datos**: PostgreSQL 16
-- **Contenedores**: Docker Compose (3 servicios)
-- **CI/CD**: GitHub Actions
-
-## Inicio Rapido (Desarrollo Local)
-
-### Requisitos
-
-- Docker y Docker Compose
-- Git
-
-### 1. Clonar el repositorio
-
-```bash
-git clone git@github.com:ouendinga/mad-office.git
-cd mad-office
-```
-
-### 2. Configurar variables de entorno (obligatorio)
+Hace falta Docker y, para que los personajes piensen, Claude Code con tu suscripción.
 
 ```bash
 cp .env.example .env
-# Editar .env con passwords y secrets seguros (ver .env.example para detalles)
+# Rellena DB_PASSWORD, JWT_SECRET y RUNNER_TOKEN (cada .env.example dice cómo generarlos)
+docker compose up -d --build
+./despertador/arrancar.sh          # déjalo abierto en horario de oficina
 ```
 
-### 3. Levantar con Docker Compose
+Abre <http://localhost:8081>. **El primero que se registra es el admin**, y luego el registro se
+cierra (`ALLOW_REGISTRATION=true` para abrirlo). Por ahora, entrar solo pide el correo:
+**no lo expongas a Internet** hasta que exista el enlace mágico. Por eso solo escucha en
+`127.0.0.1`.
+
+## Cómo funciona
+
+- **Reloj**: hora real de Madrid, de lunes a viernes. La mañana va de 09:00 a 14:00, la tarde de
+  14:00 a 18:00 y el resto es noche.
+- **Simulación** (`backend/src/world/sim.js`): mueve a todos según su plan. Andar, ánimo y
+  café son reglas que no gastan nada.
+- **La IA solo planifica**, en 3 turnos al día por personaje: *despertar* (con el sueño y la
+  decisión de hacerle caso), *tarde* y *diario*. Además, bajo demanda, la *ficha* (entrevista)
+  y la *ayuda para el sueño*.
+- **Game Master por reglas** (`backend/src/world/gameMaster.js`): todo lo que devuelve la IA
+  pasa por él (horas, lugares, compañeros, longitudes). La IA propone y las reglas deciden.
+- **Piloto automático**: sin IA (turno en cola, despertador apagado o tope gastado), el
+  personaje sigue una rutina por reglas. La oficina nunca se para.
+- **El despertador** (`despertador/`) corre en tu máquina, recoge los turnos y los resuelve
+  con `claude -p` (Haiku por defecto). Tu sesión de Claude no sale de tu ordenador.
+- **Tope de gasto** diario por persona (`DAILY_CAP_USD`, 0,25 $ por defecto), aplicado en el
+  servidor. Los cuatro compañeros ficticios (Marisa, Paco, Lucía y Toni) los paga el admin.
+
+**Coste medido** (2026-11-11, Haiku): ~2.000 tokens de entrada y ~550 de salida por turno de
+plan, **≈0,006 $**, y la ficha ≈0,005 $. Con 3 turnos al día salen unos 0,02 $ por personaje y
+día.
+
+## Probar sin gastar
 
 ```bash
-docker compose up --build
+# Reloj acelerado en el .env: CLOCK_SPEED=60 (1 min real = 1 h de oficina)
+# y CLOCK_START=2026-11-16T08:58:00+01:00
+./despertador/arrancar.sh --fake    # respuestas de mentira con la forma correcta
 ```
 
-La aplicacion estara disponible en:
-- **Frontend**: http://localhost:80
-- **Backend API**: http://localhost:3001
-- **PostgreSQL**: localhost:5432
-
-### 4. Usuarios de prueba predefinidos
-
-Los siguientes usuarios se crean automaticamente:
-- David (david@madoffice.com)
-- Alfredo (alfredo@madoffice.com)
-- Jose Antonio (jose.antonio@madoffice.com)
-- Jose Luis (jose.luis@madoffice.com)
-- Carlos (carlos@madoffice.com)
-
-Para hacer login, usa cualquiera de estos emails.
-
-## Desarrollo sin Docker
-
-### Backend
+## Verificación
 
 ```bash
-cd backend
-npm install
-npm run dev
+cd backend && npm test                      # reloj, Game Master y piloto automático
+cd tests && npx playwright test             # recorrido completo (pila levantada + despertador)
 ```
 
-Requiere PostgreSQL corriendo en localhost:5432.
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm start
-```
-
-## Despliegue
-
-### CI/CD automatico
-
-Cada push a la rama `main` activa el workflow de GitHub Actions (`.github/workflows/deploy.yml`) que despliega automaticamente al servidor de produccion.
-
-Los datos de conexion al servidor se gestionan via GitHub Secrets:
-- `DEPLOY_HOST` — IP del servidor
-- `DEPLOY_PORT` — Puerto SSH
-- `DEPLOY_USER` — Usuario SSH
-- `DEPLOY_SSH_KEY` — Clave privada SSH
-
-### Despliegue manual
-
-```bash
-ssh -p $DEPLOY_PORT $DEPLOY_USER@$DEPLOY_HOST
-cd /app
-git pull origin main
-sudo docker compose down
-sudo docker compose build --no-cache
-sudo docker compose up -d
-```
-
-## Estructura del Proyecto
+## Estructura
 
 ```
-mad-office/
-├── backend/
-│   ├── db/init.sql                 # Schema de base de datos
-│   ├── src/
-│   │   ├── index.js                # Servidor Express + Socket.io
-│   │   ├── routes/
-│   │   │   ├── auth.js             # Registro y login
-│   │   │   ├── users.js            # API de usuarios
-│   │   │   └── moods.js            # API de estados de animo
-│   │   ├── services/
-│   │   │   ├── statusEngine.js     # Motor de estados de animo
-│   │   │   ├── mockIntegrations.js # Simulador de integraciones
-│   │   │   └── officeEvents.js     # Eventos aleatorios de oficina
-│   │   └── socket/handler.js       # WebSocket handler
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/
-│   ├── public/index.html
-│   ├── src/
-│   │   ├── App.js                  # Router principal
-│   │   ├── pages/
-│   │   │   ├── Landing.js          # Landing page + modales
-│   │   │   ├── AvatarGenerator.js  # Generador de avatares
-│   │   │   └── Office.js           # Oficina virtual
-│   │   ├── canvas/
-│   │   │   ├── avatarSprites.js    # Sistema de sprites pixel art
-│   │   │   └── officeRenderer.js   # Renderer del mapa de oficina
-│   │   └── styles/
-│   ├── nginx.conf
-│   ├── Dockerfile
-│   └── package.json
-├── doc/
-│   ├── spec_improvement.md
-│   └── technical_doc.md
-├── tests/
-│   └── e2e/
-├── docker-compose.yml
-├── specs.md
-└── README.md
+backend/db/migrations/   esquema (se aplica solo al arrancar)
+backend/src/world/       reloj, lugares, simulación, Game Master y piloto automático
+backend/src/ai/          prompts + esquemas JSON, cola de turnos
+backend/src/routes/      auth, me (personaje, ficha, sueño, gasto), office, runner
+despertador/             el conector de suscripción (claude -p)
+frontend/src/            React + canvas (motor de tiles y sprites reutilizado)
+tests/e2e/               Playwright
 ```
-
-## Testing
-
-```bash
-# E2E tests (requiere la app corriendo)
-cd tests
-npx playwright test
-
-# Backend tests
-cd backend
-npm test
-```
-
-## Licencia
-
-(c) 2025 Mad Office. Todos los derechos reservados.
