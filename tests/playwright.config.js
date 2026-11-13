@@ -7,9 +7,9 @@ const isDocker = process.env.DOCKER_NETWORK === '1';
 module.exports = defineConfig({
   testDir: './e2e',
   timeout: 30000,
-  retries: 1,
+  retries: 0,
   use: {
-    baseURL: isDocker ? 'http://mad-office-frontend:80' : 'http://localhost:80',
+    baseURL: process.env.BASE_URL || (isDocker ? 'http://mad-office-frontend:80' : 'http://localhost:8081'),
     headless: true,
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',

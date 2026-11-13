@@ -1,508 +1,282 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { renderOffice, MOOD_COLORS, getCamera, getTileMap } from '../canvas/officeRenderer';
-import Movement from '../engine/Movement';
+import { renderOffice, pickAt } from '../canvas/officeRenderer';
+import { api, getToken, waitTurn, WS_URL, HUMOR_EMOJI } from '../api';
 import '../styles/office.css';
 
-const WS_URL = process.env.REACT_APP_WS_URL || '';
-const API_URL = process.env.REACT_APP_API_URL || '';
+const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+const PLACE_TEXT = { mesa: 'en su mesa', cafe: 'en el café', reuniones: 'en reunión', lavabo: 'en el lavabo', visita: 'de visita' };
 
-const MOOD_LABELS = {
-  alegria: { name: 'Alegria', low: 'Tristeza', high: 'Felicidad' },
-  energia: { name: 'Energia', low: 'Cansancio', high: 'Energico' },
-  optimismo: { name: 'Optimismo', low: 'Pesimismo', high: 'Optimista' },
-  frustracion: { name: 'Frustracion', low: 'Frustrado', high: 'Complacido' },
-  estres: { name: 'Estres', low: 'Estresado', high: 'Chill' },
-};
+function fmtMorning(date) {
+  const d = new Date(`${date}T12:00:00`);
+  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+}
 
-const ACTION_LABELS = {
-  sentado: 'Sentado',
-  rabieta: 'Montando una rabieta',
-  celebrando: 'Celebrando',
-  holgazaneando: 'Holgazaneando',
-  durmiendo: 'Durmiendo',
-  lavabo: 'En el lavabo',
-  corriendo: 'Corriendo',
-  reunido: 'En reunion',
-  paseando: 'Paseando',
-  pizarra: 'En la pizarra',
-};
-
-const REPRESENTATION_LABELS = {
-  llorando: 'Llorando',
-  enfadado: 'Enfadado',
-  somnoliento: 'Somnoliento',
-  cantando: 'Cantando',
-  tirandose_del_pelo: 'Tirandose del pelo',
-  nube_en_la_cabeza: 'Nube en la cabeza',
-};
-
-const EMOJI_LIST = ['😀', '😂', '😍', '🎉', '👍', '🔥', '😢', '😡', '💤', '☕', '🍕', '🐱'];
-
-export default function Office({ user, token, onLogout, onEditAvatar, setUser }) {
+export default function Office({ me, onLogout, onEditAvatar }) {
   const canvasRef = useRef(null);
-  const socketRef = useRef(null);
-  const animFrameRef = useRef(0);
-  const animTickRef = useRef(0);
-  const rafRef = useRef(null);
-  const movementRef = useRef(null);
-  const remotePositions = useRef({});  // userId -> {x, y, moving}
+  const worldRef = useRef(null);
+  const frameRef = useRef(0);
+  const [world, setWorld] = useState(null);
+  const [feed, setFeed] = useState([]);
+  const [offline, setOffline] = useState(false);
+  const [selected, setSelected] = useState(null); // ficha abierta
+  const selectedIdRef = useRef(null);
 
-  const [users, setUsers] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [officeEvents, setOfficeEvents] = useState([]);
-  const [reactions, setReactions] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showRanking, setShowRanking] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [virtualClock, setVirtualClock] = useState({ hour: 9, minute: 0, working: true });
-  const [profileName, setProfileName] = useState(user.name);
-  const [profileEmail, setProfileEmail] = useState(user.email);
-  const [currentZone, setCurrentZone] = useState(null);
-  const chatEndRef = useRef(null);
-
-  // Connect WebSocket
+  // Directo por socket.
   useEffect(() => {
-    const socket = io(WS_URL || window.location.origin, {
-      transports: ['websocket', 'polling']
-    });
-    socketRef.current = socket;
+    api('/feed').then(setFeed).catch(() => {});
+    const socket = io(WS_URL || window.location.origin, { auth: { token: getToken() }, transports: ['websocket', 'polling'] });
+    socket.on('connect', () => setOffline(false));
+    socket.on('disconnect', () => setOffline(true));
+    socket.on('connect_error', () => setOffline(true));
+    socket.on('world', w => { worldRef.current = w; setWorld(w); });
+    socket.on('feed', item => setFeed(prev => [...prev, item].slice(-80)));
+    return () => socket.disconnect();
+  }, []);
 
-    socket.on('connect', () => {
-      socket.emit('auth', token);
-    });
-
-    socket.on('state:update', (updatedUsers) => {
-      setUsers(updatedUsers);
-    });
-
-    socket.on('event:new', (event) => {
-      setEvents(prev => [event, ...prev].slice(0, 50));
-    });
-
-    socket.on('office_event', (event) => {
-      setOfficeEvents(prev => [event, ...prev].slice(0, 20));
-      setTimeout(() => {
-        setOfficeEvents(prev => prev.filter(e => e !== event));
-      }, 10000);
-    });
-
-    socket.on('reaction:new', (data) => {
-      setReactions(prev => [...prev, { ...data, id: Date.now() + Math.random() }]);
-      setTimeout(() => {
-        setReactions(prev => prev.filter(r => r.id !== data.id));
-      }, 3000);
-    });
-
-    socket.on('chat:history', (messages) => {
-      setChatMessages(messages);
-    });
-
-    socket.on('chat:message', (msg) => {
-      setChatMessages(prev => [...prev, msg]);
-    });
-
-    socket.on('clock:update', (clock) => {
-      setVirtualClock(clock);
-    });
-
-    // Posiciones remotas de otros usuarios (movimiento manual)
-    socket.on('position:remote', (data) => {
-      remotePositions.current[data.userId] = {
-        x: data.x, y: data.y, moving: data.moving
-      };
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [token]);
-
-  // Auto-scroll chat
+  // Bucle de dibujo.
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatMessages]);
-
-  // Inicializar Movement controller
-  useEffect(() => {
-    // Forzar un primer render para que tileMap se inicialice
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      renderOffice(ctx, canvas, [], 0, [], virtualClock);
-    }
-
-    const tileMap = getTileMap();
-    if (!tileMap) return;
-
-    const movement = new Movement(tileMap);
-    const deskPos = tileMap.getDeskPosition(user.desk_index || 0);
-    const startX = deskPos ? deskPos.x : tileMap.pixelW / 2;
-    const startY = deskPos ? deskPos.y + 40 : tileMap.pixelH / 2;
-    movement.init(startX, startY);
-
-    movement.onPositionChange = (x, y, moving) => {
-      if (socketRef.current) {
-        socketRef.current.emit('position:update', { x, y, moving });
-      }
-    };
-
-    movement.onZoneEnter = (zone) => setCurrentZone(zone);
-    movement.onZoneLeave = () => setCurrentZone(null);
-
-    movementRef.current = movement;
-
-    return () => movement.destroy();
-    // eslint-disable-next-line
-  }, [user.desk_index]);
-
-  // Canvas rendering loop con movement update
-  const render = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.imageSmoothingEnabled = false;
-
-    animFrameRef.current++;
-    if (animFrameRef.current % 6 === 0) {
-      animTickRef.current++;
-    }
-
-    // Actualizar movimiento del usuario
-    const mv = movementRef.current;
-    if (mv) {
-      mv.update();
-
-      // Camara sigue al avatar del usuario
-      const cam = getCamera();
-      if (cam) {
-        cam.follow(mv.x, mv.y);
-      }
-
-      // Inyectar posicion local del usuario en la lista de users
-      // y posiciones remotas de otros usuarios
-      const enrichedUsers = users.map(u => {
-        if (u.id === user.id) {
-          return { ...u, position_x: mv.x, position_y: mv.y, _isLocal: true, _moving: mv.moving };
-        }
-        const remote = remotePositions.current[u.id];
-        if (remote) {
-          return { ...u, position_x: remote.x, position_y: remote.y, _moving: remote.moving };
-        }
-        return u;
-      });
-
-      renderOffice(ctx, canvas, enrichedUsers, animTickRef.current, reactions, virtualClock);
-    } else {
-      renderOffice(ctx, canvas, users, animTickRef.current, reactions, virtualClock);
-    }
-
-    rafRef.current = requestAnimationFrame(render);
-  }, [users, reactions, virtualClock, user.id]);
-
-  useEffect(() => {
-    rafRef.current = requestAnimationFrame(render);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [render]);
-
-  // Resize canvas
-  useEffect(() => {
-    const handleResize = () => {
+    let raf;
+    const loop = () => {
       const canvas = canvasRef.current;
-      if (!canvas) return;
-      const container = canvas.parentElement;
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-    };
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Click en canvas → mover avatar
-  const handleCanvasClick = useCallback((e) => {
-    const mv = movementRef.current;
-    const cam = getCamera();
-    if (!mv || !cam) return;
-
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const screenX = e.clientX - rect.left;
-    const screenY = e.clientY - rect.top;
-    const world = cam.screenToWorld(screenX, screenY);
-    mv.handleClick(world.x, world.y);
-  }, []);
-
-  // Desactivar movimiento cuando se escribe en chat
-  const handleChatFocus = () => {
-    if (movementRef.current) movementRef.current.enabled = false;
-  };
-  const handleChatBlur = () => {
-    if (movementRef.current) movementRef.current.enabled = true;
-  };
-
-  const sendReaction = (emoji) => {
-    if (socketRef.current) {
-      socketRef.current.emit('reaction:send', { emoji });
-    }
-  };
-
-  const sendChat = (e) => {
-    e.preventDefault();
-    if (chatInput.trim() && socketRef.current) {
-      socketRef.current.emit('chat:send', { message: chatInput.trim() });
-      setChatInput('');
-    }
-  };
-
-  const saveProfile = async () => {
-    try {
-      const res = await fetch(`${API_URL}/api/users/${user.id}/profile`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: profileName, email: profileEmail })
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setUser(updated);
-        setShowProfile(false);
+      if (canvas) {
+        frameRef.current++;
+        renderOffice(canvas.getContext('2d'), canvas, worldRef.current, Math.floor(frameRef.current / 8), selectedIdRef.current);
       }
-    } catch (err) {
-      console.error('Error guardando perfil:', err);
-    }
-  };
-
-  const getDominantMood = (u) => {
-    const moods = { alegria: u.alegria || 5, energia: u.energia || 5, optimismo: u.optimismo || 5, frustracion: u.frustracion || 5, estres: u.estres || 5 };
-    // Find worst mood (lowest value = most negative)
-    let worst = 'alegria';
-    let minVal = 10;
-    for (const [k, v] of Object.entries(moods)) {
-      if (v < minVal) { minVal = v; worst = k; }
-    }
-    return minVal < 4 ? worst : 'neutral';
-  };
-
-  // Rankings
-  const getRankings = () => {
-    const sorted = (key, asc) => [...users].sort((a, b) => asc ? (a[key] || 5) - (b[key] || 5) : (b[key] || 5) - (a[key] || 5));
-    return {
-      feliz: sorted('alegria', false),
-      energico: sorted('energia', false),
-      estresado: sorted('estres', true),
-      frustrado: sorted('frustracion', true),
+      raf = requestAnimationFrame(loop);
     };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    const resize = () => {
+      const c = canvasRef.current;
+      if (!c) return;
+      c.width = c.parentElement.clientWidth;
+      c.height = c.parentElement.clientHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+
+  const openCharacter = useCallback(async id => {
+    selectedIdRef.current = id;
+    try {
+      setSelected(await api(`/characters/${id}`));
+    } catch {
+      setSelected(null);
+    }
+  }, []);
+
+  const onCanvasClick = e => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const hit = pickAt(worldRef.current, e.clientX - rect.left, e.clientY - rect.top);
+    if (hit) openCharacter(hit.id);
   };
 
-  const formatClock = () => {
-    const h = String(virtualClock.hour).padStart(2, '0');
-    const m = String(virtualClock.minute).padStart(2, '0');
-    return `${h}:${m}`;
-  };
+  const mine = world && world.characters.find(c => c.owner_user_id === me.user.id);
+  const clock = world && world.clock;
 
   return (
     <div className="office-page">
-      {/* Header */}
       <header className="office-header">
         <div className="office-header-left">
-          <span className="pixel-font office-logo">Mad Office</span>
-          <span className="office-clock">{formatClock()}{!virtualClock.working && ' (Fuera de horario)'}</span>
+          <span className="office-logo pixel-font">Mad Office</span>
+          {clock && (
+            <span className="office-clock" title={clock.date}>
+              {WEEKDAYS[clock.weekday]} {clock.hhmm}
+            </span>
+          )}
+          {offline && <span className="office-offline">sin conexión…</span>}
         </div>
         <div className="office-header-right">
-          <span className="office-user-name">{user.name}</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowProfile(true)}>Perfil</button>
+          <span className="office-user-name">{me.user.name}</span>
           <button className="btn btn-ghost btn-sm" onClick={onEditAvatar}>Avatar</button>
           <button className="btn btn-ghost btn-sm" onClick={onLogout}>Salir</button>
         </div>
       </header>
 
       <div className="office-layout">
-        {/* Main canvas area */}
         <div className="office-canvas-container">
-          <canvas ref={canvasRef} className="office-canvas" onClick={handleCanvasClick} />
-
-          {/* Indicador de zona */}
-          {currentZone && (
-            <div className="zone-indicator">
-              <span className="zone-indicator-icon">📍</span>
-              <span>{currentZone.label}</span>
-            </div>
-          )}
-
-          {/* Office event notifications */}
-          <div className="office-event-notifications">
-            {officeEvents.map((e, i) => (
-              <div key={i} className="office-event-toast">{e.description}</div>
-            ))}
-          </div>
-
-          {/* Emoji bar */}
-          <div className="emoji-bar">
-            {EMOJI_LIST.map((emoji, i) => (
-              <button key={i} className="emoji-btn" onClick={() => sendReaction(emoji)}>{emoji}</button>
-            ))}
-          </div>
+          <canvas ref={canvasRef} className="office-canvas" onClick={onCanvasClick} />
         </div>
 
-        {/* Side panel */}
         <aside className="office-sidebar">
-          {/* Sidebar buttons */}
-          <div className="sidebar-buttons">
-            <button className={`sidebar-tab ${!showRanking && !showChat ? 'active' : ''}`} onClick={() => { setShowRanking(false); setShowChat(false); }}>Equipo</button>
-            <button className={`sidebar-tab ${showRanking ? 'active' : ''}`} onClick={() => { setShowRanking(true); setShowChat(false); }}>Ranking</button>
-            <button className={`sidebar-tab ${showChat ? 'active' : ''}`} onClick={() => { setShowChat(true); setShowRanking(false); }}>Chat</button>
-          </div>
-
-          {/* Chat panel */}
-          {showChat && (
-            <div className="sidebar-section chat-section">
-              <div className="chat-messages">
-                {chatMessages.map((msg, i) => (
-                  <div key={i} className={`chat-msg ${msg.user_id === user.id ? 'own' : ''}`}>
-                    <span className="chat-msg-name">{msg.user_name || msg.userName}</span>
-                    <span className="chat-msg-text">{msg.message}</span>
-                  </div>
-                ))}
-                <div ref={chatEndRef} />
-              </div>
-              <form className="chat-input-form" onSubmit={sendChat}>
-                <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} onFocus={handleChatFocus} onBlur={handleChatBlur} placeholder="Escribe un mensaje..." className="chat-input" />
-                <button type="submit" className="btn btn-primary btn-sm">Enviar</button>
-              </form>
-            </div>
-          )}
-
-          {/* Ranking panel */}
-          {showRanking && !showChat && (
-            <div className="sidebar-section">
-              <h3 className="sidebar-title">Ranking de estados</h3>
-              {users.length > 0 && (() => {
-                const rankings = getRankings();
-                return (
-                  <div className="rankings">
-                    <div className="ranking-group">
-                      <h4>Mas feliz</h4>
-                      {rankings.feliz.slice(0, 3).map((u, i) => (
-                        <div key={u.id} className="ranking-item"><span className="ranking-pos">{i + 1}.</span> {u.name} <span className="ranking-val">{u.alegria || 5}/10</span></div>
-                      ))}
-                    </div>
-                    <div className="ranking-group">
-                      <h4>Mas energico</h4>
-                      {rankings.energico.slice(0, 3).map((u, i) => (
-                        <div key={u.id} className="ranking-item"><span className="ranking-pos">{i + 1}.</span> {u.name} <span className="ranking-val">{u.energia || 5}/10</span></div>
-                      ))}
-                    </div>
-                    <div className="ranking-group">
-                      <h4>Mas estresado</h4>
-                      {rankings.estresado.slice(0, 3).map((u, i) => (
-                        <div key={u.id} className="ranking-item"><span className="ranking-pos">{i + 1}.</span> {u.name} <span className="ranking-val">{u.estres || 5}/10</span></div>
-                      ))}
-                    </div>
-                    <div className="ranking-group">
-                      <h4>Mas frustrado</h4>
-                      {rankings.frustrado.slice(0, 3).map((u, i) => (
-                        <div key={u.id} className="ranking-item"><span className="ranking-pos">{i + 1}.</span> {u.name} <span className="ranking-val">{u.frustracion || 5}/10</span></div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Team list (default view) */}
-          {!showRanking && !showChat && (
-            <>
-              <div className="sidebar-section">
-                <h3 className="sidebar-title">Equipo ({users.length} conectados)</h3>
-                <div className="team-list">
-                  {users.map(u => (
-                    <div key={u.id} className={`team-member ${selectedUser?.id === u.id ? 'selected' : ''}`} onClick={() => setSelectedUser(u)}>
-                      <div className="team-member-dot" style={{ background: MOOD_COLORS[getDominantMood(u)] || '#6C6C8A' }} />
-                      <div className="team-member-info">
-                        <span className="team-member-name">{u.name}</span>
-                        <span className="team-member-action">{ACTION_LABELS[u.current_action] || u.current_action || 'Sentado'}</span>
-                        {u.current_representation && (
-                          <span className="team-member-repr">{REPRESENTATION_LABELS[u.current_representation] || u.current_representation}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Selected user details */}
-              {selectedUser && (
-                <div className="sidebar-section">
-                  <h3 className="sidebar-title">Estado de {selectedUser.name}</h3>
-                  <div className="mood-bars">
-                    {Object.entries(MOOD_LABELS).map(([key, label]) => {
-                      const val = selectedUser[key] || 5;
-                      return (
-                        <div key={key} className="mood-bar-row">
-                          <span className="mood-label">{val <= 3 ? label.low : val >= 7 ? label.high : label.name}</span>
-                          <div className="mood-bar-track">
-                            <div className="mood-bar-fill" style={{ width: `${val * 10}%`, background: MOOD_COLORS[key] || '#6C6C8A' }} />
-                          </div>
-                          <span className="mood-value">{val}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {selectedUser.current_representation && (
-                    <div className="mood-representation">Expresion: <strong>{REPRESENTATION_LABELS[selectedUser.current_representation] || selectedUser.current_representation}</strong></div>
-                  )}
-                </div>
-              )}
-
-              {/* Event log */}
-              <div className="sidebar-section">
-                <h3 className="sidebar-title">Eventos Recientes</h3>
-                <div className="event-log">
-                  {events.length === 0 && <p className="event-empty">Esperando eventos...</p>}
-                  {events.slice(0, 15).map((e, i) => (
-                    <div key={i} className="event-item">
-                      <span className="event-source">{e.source}</span>
-                      <span className="event-desc">{e.description}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
+          <MyCharacter mine={mine} me={me} onOpen={() => mine && openCharacter(mine.id)} />
+          <DreamPanel clock={clock} />
+          <Feed feed={feed} />
         </aside>
       </div>
 
-      {/* Profile modal */}
-      {showProfile && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowProfile(false); }}>
-          <div className="modal">
-            <button className="modal-close" onClick={() => setShowProfile(false)}>&times;</button>
-            <h2 className="modal-title">Mi Perfil</h2>
-            <div className="form-group">
-              <label>Nombre</label>
-              <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>Email</label>
-              <input type="email" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} />
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn btn-primary btn-full" onClick={saveProfile}>Guardar</button>
-              <button className="btn btn-ghost btn-full" onClick={onEditAvatar}>Cambiar Avatar</button>
-            </div>
+      {selected && (
+        <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setSelected(null); selectedIdRef.current = null; } }}>
+          <div className="modal char-modal">
+            <button className="modal-close" onClick={() => { setSelected(null); selectedIdRef.current = null; }}>&times;</button>
+            <h2 className="modal-title">{HUMOR_EMOJI[selected.humor] || ''} {selected.name}</h2>
+            <p className="char-puesto">{selected.ficha.puesto}</p>
+            <p>{selected.ficha.personalidad}</p>
+            {selected.ficha.manias && selected.ficha.manias.length > 0 && (
+              <ul className="char-list">{selected.ficha.manias.map(m => <li key={m}>{m}</li>)}</ul>
+            )}
+            <p><strong>Objetivo:</strong> {selected.ficha.objetivo}</p>
+            <h3 className="char-h3">📔 Diario</h3>
+            {selected.diaries.length === 0 && <p className="muted">Aún no ha escrito nada.</p>}
+            {selected.diaries.map(d => (
+              <div key={d.day} className="char-diary">
+                <div className="char-diary-day">{fmtMorning(d.day)}</div>
+                <p>{d.text}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function Bar({ label, value }) {
+  return (
+    <div className="stat-row">
+      <span>{label}</span>
+      <div className="stat-track"><div className="stat-fill" style={{ width: `${value * 10}%` }} /></div>
+    </div>
+  );
+}
+
+function MyCharacter({ mine, me, onOpen }) {
+  const [usage, setUsage] = useState(null);
+  useEffect(() => {
+    const load = () => api('/me/usage').then(setUsage).catch(() => {});
+    load();
+    const t = setInterval(load, 60000);
+    return () => clearInterval(t);
+  }, []);
+  if (!mine) return <section className="sidebar-section"><p className="muted">Tu personaje está en pausa.</p></section>;
+  return (
+    <section className="sidebar-section">
+      <h3 className="sidebar-title">Tu personaje</h3>
+      <button type="button" className="mine-name" onClick={onOpen}>
+        {HUMOR_EMOJI[mine.humor] || ''} {mine.name} <span className="muted">· ver ficha y diario</span>
+      </button>
+      <p className="mine-now">
+        {mine.home ? 'En casa, durmiendo.' : `${mine.que} (${PLACE_TEXT[mine.lugar] || mine.lugar})`}
+      </p>
+      <Bar label="Energía" value={mine.energia} />
+      <Bar label="Café" value={mine.cafe} />
+      {usage && (
+        <p className="mine-usage" title="Lo que lleva gastado hoy tu suscripción en esta oficina">
+          IA hoy: {usage.calls} llamadas · {Number(usage.spent).toFixed(3)} $ de {usage.cap} $
+          {me.user.is_admin ? ' (incluye a los compañeros ficticios)' : ''}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function DreamPanel({ clock }) {
+  const [state, setState] = useState(null);
+  const [text, setText] = useState('');
+  const [saved, setSaved] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [help, setHelp] = useState(null);
+  const [error, setError] = useState('');
+  const open = clock ? clock.dreamOpen : false;
+
+  const load = useCallback(() => api('/me/dream').then(s => {
+    setState(s);
+    setText(s.text || '');
+    setSaved(s.text || '');
+  }).catch(() => {}), []);
+
+  useEffect(() => { load(); }, [load, open]);
+
+  const save = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const r = await api('/me/dream', { method: 'PUT', body: { text } });
+      setSaved(r.text);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const askHelp = async () => {
+    setBusy(true);
+    setError('');
+    setHelp(null);
+    try {
+      const r = await api('/me/dream/help', { method: 'POST', body: { draft: text } });
+      setHelp(await waitTurn(r.turnId, { onSlow: () => setError('La musa tarda… ¿está encendido el despertador?') }));
+      setError('');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="sidebar-section dream">
+      <h3 className="sidebar-title">🌙 El sueño de esta noche</h3>
+      {state && state.last && (
+        <p className="dream-last">
+          Soñó «{state.last.text}» y {state.last.followed ? 'le hizo caso' : 'pasó'}: <em>{state.last.reason}</em>
+        </p>
+      )}
+      {!open ? (
+        <p className="muted">Ahora está despierto. A las 18:00 se abre la ventana de los sueños.</p>
+      ) : (
+        <>
+          <p className="muted">Lo soñará antes de despertar el {state ? fmtMorning(state.morning) : '…'}. Él decide si te hace caso.</p>
+          <textarea
+            className="dream-input"
+            maxLength={200}
+            rows={3}
+            value={text}
+            placeholder="Sueñas que Paco esconde algo en la maceta…"
+            onChange={e => setText(e.target.value)}
+          />
+          <div className="dream-row">
+            <span className="muted">{text.length}/200</span>
+            <button className="btn btn-ghost btn-sm" onClick={askHelp} disabled={busy}>Ayúdame ✨</button>
+            <button className="btn btn-primary btn-sm" onClick={save} disabled={busy || !text.trim() || text === saved}>
+              {saved && text === saved ? 'Guardado ✓' : 'Guardar'}
+            </button>
+          </div>
+          {help && (
+            <div className="dream-help">
+              {help.comentario && <p className="muted">{help.comentario}</p>}
+              {help.propuestas.map(p => (
+                <button key={p} type="button" className="dream-suggestion" onClick={() => setText(p)}>{p}</button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {error && <div className="modal-error">{error}</div>}
+    </section>
+  );
+}
+
+function Feed({ feed }) {
+  const items = [...feed].reverse();
+  return (
+    <section className="sidebar-section feed">
+      <h3 className="sidebar-title">📻 Radio pasillo</h3>
+      {items.length === 0 && <p className="muted">Silencio en la oficina… de momento.</p>}
+      <ul className="feed-list">
+        {items.map(f => (
+          <li key={f.id} className={`feed-item feed-${f.kind}`}>
+            <span className="feed-time">{new Date(f.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+            {f.text}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

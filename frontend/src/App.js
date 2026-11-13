@@ -1,75 +1,57 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Landing from './pages/Landing';
 import AvatarGenerator from './pages/AvatarGenerator';
+import Onboarding from './pages/Onboarding';
 import Office from './pages/Office';
+import { api, getToken, setToken } from './api';
 
-const API_URL = process.env.REACT_APP_API_URL || '';
-
-function App() {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('mad_office_token'));
+// Recorrido: entrar → avatar → entrevista y ficha → oficina.
+export default function App() {
+  const [me, setMe] = useState(null); // { user, character }
+  const [loading, setLoading] = useState(!!getToken());
   const [editAvatar, setEditAvatar] = useState(false);
 
-  useEffect(() => {
-    if (token) {
-      fetch(`${API_URL}/api/users`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-        .then(res => {
-          if (!res.ok) throw new Error('Token invalido');
-          return res.json();
-        })
-        .then(users => {
-          const storedUserId = localStorage.getItem('mad_office_user_id');
-          const currentUser = users.find(u => u.id === parseInt(storedUserId));
-          if (currentUser) setUser(currentUser);
-          else throw new Error('Usuario no encontrado');
-        })
-        .catch(() => {
-          localStorage.removeItem('mad_office_token');
-          localStorage.removeItem('mad_office_user_id');
-          setToken(null);
-        });
+  const load = useCallback(async () => {
+    if (!getToken()) return setLoading(false);
+    try {
+      setMe(await api('/me'));
+    } catch {
+      setToken(null);
+      setMe(null);
+    } finally {
+      setLoading(false);
     }
-  }, [token]);
+  }, []);
 
-  const handleAuth = (userData, authToken) => {
-    setUser(userData);
-    setToken(authToken);
-    localStorage.setItem('mad_office_token', authToken);
-    localStorage.setItem('mad_office_user_id', userData.id);
+  useEffect(() => { load(); }, [load]);
+
+  const onAuth = (user, token) => {
+    setToken(token);
+    setLoading(true);
+    load();
   };
 
-  const handleLogout = () => {
-    setUser(null);
+  const logout = () => {
     setToken(null);
-    setEditAvatar(false);
-    localStorage.removeItem('mad_office_token');
-    localStorage.removeItem('mad_office_user_id');
+    setMe(null);
   };
 
-  const handleAvatarSaved = (updatedUser) => {
-    setUser(updatedUser);
-    setEditAvatar(false);
-  };
+  if (loading) return <div className="loading">Abriendo la oficina…</div>;
+  if (!me) return <Landing onAuth={onAuth} />;
 
-  const handleEditAvatar = () => {
-    setEditAvatar(true);
-  };
+  const { user, character } = me;
+  const hasAvatar = user.avatar_config && Object.keys(user.avatar_config).length > 0;
 
-  if (!token) {
-    return <Landing onAuth={handleAuth} />;
+  if (!hasAvatar || editAvatar) {
+    return (
+      <AvatarGenerator
+        user={user}
+        onAvatarSaved={u => { setEditAvatar(false); setMe({ ...me, user: u }); }}
+      />
+    );
   }
-
-  if (editAvatar || (user && (!user.avatar_config || Object.keys(user.avatar_config).length === 0))) {
-    return <AvatarGenerator user={user} token={token} onAvatarSaved={handleAvatarSaved} />;
+  if (!character || !character.approved) {
+    return <Onboarding user={user} character={character} onDone={load} />;
   }
-
-  if (user) {
-    return <Office user={user} token={token} onLogout={handleLogout} onEditAvatar={handleEditAvatar} setUser={setUser} />;
-  }
-
-  return <div className="loading">Cargando...</div>;
+  return <Office me={me} onLogout={logout} onEditAvatar={() => setEditAvatar(true)} onRefresh={load} />;
 }
-
-export default App;

@@ -10,7 +10,10 @@ function makePool() {
     console.error('ERROR: falta DATABASE_URL.');
     process.exit(1);
   }
-  return new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  // Un corte en una conexión ociosa no debe tumbar el proceso: el pool abre otra.
+  pool.on('error', e => console.error('postgres:', e.message));
+  return pool;
 }
 
 // Migraciones en orden, una sola vez cada una, dentro de una transacción.

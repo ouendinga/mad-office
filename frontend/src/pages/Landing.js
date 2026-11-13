@@ -3,12 +3,6 @@ import '../styles/landing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-const TESTIMONIALS = [
-  { initials: 'MG', name: 'Maria Garcia', company: 'TechStart', stars: 5, text: 'Mad Office ha transformado como nuestro equipo remoto se conecta. Los avatares son geniales y los estados automaticos nos ayudan a entender mejor a nuestros companeros.' },
-  { initials: 'JP', name: 'Juan Perez', company: 'InnovateLab', stars: 5, text: 'Desde que usamos Mad Office, la comunicacion del equipo ha mejorado enormemente. Es como tener una oficina real pero mejor.' },
-  { initials: 'LC', name: 'Laura Castro', company: 'DataFlow', stars: 4, text: 'Los eventos aleatorios de la oficina siempre nos sacan una sonrisa. Es una forma divertida y efectiva de trabajar en remoto.' },
-];
-
 export default function Landing({ onAuth }) {
   const [modal, setModal] = useState(null); // 'login' | 'register' | null
   const [email, setEmail] = useState('');
@@ -75,8 +69,8 @@ export default function Landing({ onAuth }) {
             <span className="logo-text pixel-font">Mad Office</span>
           </div>
           <div className="header-buttons">
-            <button className="btn btn-ghost" onClick={() => openModal('login')}>Login</button>
-            <button className="btn btn-primary" onClick={() => openModal('register')}>Registro</button>
+            <button className="btn btn-ghost" onClick={() => openModal('login')}>Entrar</button>
+            <button className="btn btn-primary" onClick={() => openModal('register')}>Crear cuenta</button>
           </div>
         </div>
       </header>
@@ -84,72 +78,33 @@ export default function Landing({ onAuth }) {
       {/* Hero */}
       <section className="hero">
         <h1 className="hero-title">Mad Office</h1>
-        <p className="hero-subtitle">Tu oficina, en cualquier lugar del mundo</p>
-        <p className="hero-desc">La plataforma de oficina virtual con avatares pixel art que reflejan el estado de animo real de tu equipo. Conecta, colabora y diviertete trabajando en remoto.</p>
-        <button className="btn btn-primary btn-lg" onClick={() => openModal('register')}>Registrate</button>
+        <p className="hero-subtitle">La oficina donde tu personaje vive solo</p>
+        <p className="hero-desc">Cada uno tiene una caricatura de sí mismo que trabaja, cotillea, hace tratos y escribe su diario sin que nadie le diga qué hacer. Tú solo puedes susurrarle un sueño cada noche. Por la mañana, él decide si te hace caso.</p>
+        <button className="btn btn-primary btn-lg" onClick={() => openModal('login')}>Entrar a la oficina</button>
       </section>
 
       {/* How it works */}
       <section className="section">
-        <h2 className="section-title">Como funciona</h2>
+        <h2 className="section-title">Cómo va</h2>
         <div className="steps-grid">
           <div className="step-card">
-            <div className="step-icon">&#x1F4DD;</div>
-            <div className="step-number">1</div>
-            <h3>Registrate</h3>
-            <p>Crea tu cuenta en segundos con solo tu email y nombre.</p>
-          </div>
-          <div className="step-card">
             <div className="step-icon">&#x1F3A8;</div>
-            <div className="step-number">2</div>
-            <h3>Crea tu avatar y unete</h3>
-            <p>Personaliza tu avatar pixel art eligiendo pelo, ropa, piel y accesorios.</p>
+            <div className="step-number">1</div>
+            <h3>Tu avatar</h3>
+            <p>Pelo, ropa y gafas en pixel art. Un minuto.</p>
           </div>
           <div className="step-card">
-            <div className="step-icon">&#x1F680;</div>
+            <div className="step-icon">&#x1F3A4;</div>
+            <div className="step-number">2</div>
+            <h3>Una entrevista absurda</h3>
+            <p>Seis preguntas y sale tu caricatura: manías, muletillas y un objetivo vital ridículo. La retocas y la apruebas.</p>
+          </div>
+          <div className="step-card">
+            <div className="step-icon">&#x1F319;</div>
             <div className="step-number">3</div>
-            <h3>Trabaja con tu equipo</h3>
-            <p>Tu avatar refleja automaticamente tu estado de animo basado en tus actividades.</p>
-            <span className="badge">Automatico</span>
+            <h3>Le susurras de noche</h3>
+            <p>De 18:00 a 09:00 le mandas un sueño de 200 caracteres. A las 9 se despierta y decide qué hacer con él.</p>
           </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="section section-alt">
-        <h2 className="section-title">Caracteristicas</h2>
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">&#x1F4C5;</div>
-            <h3>Conexion con Google Calendar, Jira y Gmail</h3>
-            <p>Integraciones con las herramientas que ya usas para detectar tu actividad automaticamente.</p>
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon">&#x1F916;</div>
-            <h3>Estados automatizados</h3>
-            <p>Tu avatar cambia de estado segun tu actividad real. Sin configuracion manual.</p>
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon">&#x1F3AD;</div>
-            <h3>Eventos de estados de animo y acciones</h3>
-            <p>Los avatares expresan emociones con animaciones y eventos aleatorios mantienen la oficina viva.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="section">
-        <h2 className="section-title">Testimonios</h2>
-        <div className="testimonials-grid">
-          {TESTIMONIALS.map((t, i) => (
-            <div key={i} className="testimonial-card">
-              <div className="testimonial-avatar">{t.initials}</div>
-              <div className="testimonial-name">{t.name}</div>
-              <div className="testimonial-company">{t.company}</div>
-              <div className="testimonial-stars">{'★'.repeat(t.stars)}{'☆'.repeat(5 - t.stars)}</div>
-              <p className="testimonial-text">{t.text}</p>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -160,7 +115,7 @@ export default function Landing({ onAuth }) {
             <span className="logo-icon">&#x1F3E2;</span>
             <span className="logo-text pixel-font">Mad Office</span>
           </div>
-          <p>&copy; 2025 Mad Office. Todos los derechos reservados.</p>
+          <p>Mad Office · comedia de oficina con personajes de IA</p>
         </div>
       </footer>
 
@@ -182,12 +137,12 @@ export default function Landing({ onAuth }) {
                   <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Tu nombre" required />
                 </div>
                 <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-                  {loading ? 'Registrando...' : 'Registrarse'}
+                  {loading ? 'Creando...' : 'Crear cuenta'}
                 </button>
               </form>
             ) : (
               <form onSubmit={handleLogin}>
-                <h2 className="modal-title">Iniciar sesion</h2>
+                <h2 className="modal-title">Entrar</h2>
                 {error && <div className="modal-error">{error}</div>}
                 <div className="form-group">
                   <label>Email</label>

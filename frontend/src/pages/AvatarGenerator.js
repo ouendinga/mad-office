@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { SKIN_TONES, HAIR_STYLES, HAIR_COLORS, CLOTHES, ACCESSORIES, drawAvatar } from '../canvas/avatarSprites';
 import '../styles/avatar-generator.css';
+import { api } from '../api';
 
-const API_URL = process.env.REACT_APP_API_URL || '';
 
-export default function AvatarGenerator({ user, token, onAvatarSaved }) {
+export default function AvatarGenerator({ user, onAvatarSaved }) {
   const canvasRef = useRef(null);
-  const [config, setConfig] = useState({
+  const [config, setConfig] = useState(user.avatar_config && Object.keys(user.avatar_config).length ? user.avatar_config : {
     skinTone: 0,
     hairStyle: 0,
     hairColor: 0,
@@ -14,6 +14,7 @@ export default function AvatarGenerator({ user, token, onAvatarSaved }) {
     accessory: 0,
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const updatePreview = useCallback(() => {
     const canvas = canvasRef.current;
@@ -31,19 +32,10 @@ export default function AvatarGenerator({ user, token, onAvatarSaved }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/api/users/${user.id}/avatar`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ avatar_config: config }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await api('/me/avatar', { method: 'PUT', body: { avatar_config: config } });
       onAvatarSaved(data);
     } catch (err) {
-      alert('Error saving avatar: ' + err.message);
+      setError(err.message);
     } finally {
       setSaving(false);
     }
@@ -60,7 +52,7 @@ export default function AvatarGenerator({ user, token, onAvatarSaved }) {
     <div className="avatar-gen">
       <div className="avatar-gen-container">
         <h1 className="pixel-font avatar-gen-title">Crea tu Avatar</h1>
-        <p className="avatar-gen-subtitle">Personaliza tu avatar pixel art para la oficina</p>
+        <p className="avatar-gen-subtitle">Así te verán en la oficina. Luego viene la entrevista.</p>
 
         <div className="avatar-gen-content">
           <div className="avatar-preview-section">
@@ -107,6 +99,7 @@ export default function AvatarGenerator({ user, token, onAvatarSaved }) {
           </div>
         </div>
 
+        {error && <div className="modal-error">{error}</div>}
         <button className="btn btn-primary btn-lg" onClick={handleSave} disabled={saving}>
           {saving ? 'Guardando...' : 'Guardar y Entrar a la Oficina'}
         </button>

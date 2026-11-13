@@ -1,7 +1,6 @@
 /**
- * Office Map Renderer v3 — Tilemap + Camera + Z-sorting
- * Usa engine/TileMap para renderizar capas de tiles cacheadas,
- * engine/Camera para viewport con scroll, y z-sorting por coordenada Y.
+ * Renderer de la oficina: tilemap + cámara + personajes ordenados por Y + bocadillos.
+ * Las posiciones vienen del servidor (la simulación); aquí solo se interpolan.
  */
 
 import Camera from '../engine/Camera';
@@ -10,240 +9,141 @@ import { TILE_SIZE } from '../engine/TileSet';
 import { renderAvatar } from '../engine/SpriteSheet';
 import officeMapData from '../assets/maps/office.json';
 
-// --- Constantes ---
-
-const AVATAR_SCALE = 4;
-
-export const MOOD_COLORS = {
-  alegria: '#00B894',
-  energia: '#FDCB6E',
-  optimismo: '#6C5CE7',
-  frustracion: '#D63031',
-  estres: '#E17055',
-  neutral: '#6C6C8A',
-};
-
-// --- Singleton del mapa y camara ---
+const AVATAR_SCALE = 3;
+const SPRITE = 16 * AVATAR_SCALE;
 
 let tileMap = null;
 let camera = null;
+const shown = {}; // id -> {x, y} interpolada
 
-function ensureInit(canvasW, canvasH) {
-  if (!tileMap) {
-    tileMap = new TileMap(officeMapData);
-  }
-  if (!camera) {
-    camera = new Camera(canvasW, canvasH, tileMap.pixelW, tileMap.pixelH);
-    // Centrar mapa inicialmente
-    camera.follow(tileMap.pixelW / 2, tileMap.pixelH / 2);
-    camera.x = camera.targetX;
-    camera.y = camera.targetY;
-  }
-  camera.resize(canvasW, canvasH);
-  // Recalcular zoom cada frame para adaptarse al tamaño del canvas
-  camera.zoom = canvasH / tileMap.pixelH;
+function ensureInit(w, h) {
+  if (!tileMap) tileMap = new TileMap(officeMapData);
+  if (!camera) camera = new Camera(w, h, tileMap.pixelW, tileMap.pixelH);
+  camera.resize(w, h);
+  // Que quepa el mapa entero, centrado.
+  camera.zoom = Math.min(w / tileMap.pixelW, h / tileMap.pixelH);
+  camera.x = -(w / camera.zoom - tileMap.pixelW) / 2;
+  camera.y = -(h / camera.zoom - tileMap.pixelH) / 2;
 }
 
-// --- Posiciones interpoladas de avatares ---
-
-const avatarPositions = {};
-
-function getAvatarDisplayPos(user) {
-  const userId = user.id;
-
-  // Si es el usuario local, usar posicion directa (ya controlada por Movement)
-  if (user._isLocal && user.position_x != null) {
-    avatarPositions[userId] = { x: user.position_x, y: user.position_y };
-    return avatarPositions[userId];
-  }
-
-  let targetX, targetY;
-  if (user.position_x !== null && user.position_x !== undefined) {
-    // Posiciones de otros usuarios (ya en coordenadas del mapa nuevo si vienen de Movement,
-    // o legacy si vienen del statusEngine)
-    const isNewCoords = user.position_x > 100; // Heuristica: nuevas coords son > 100
-    if (isNewCoords) {
-      targetX = user.position_x;
-      targetY = user.position_y;
-    } else {
-      targetX = (user.position_x / 800) * tileMap.pixelW;
-      targetY = (user.position_y / 600) * tileMap.pixelH;
-    }
+function displayPos(c) {
+  const p = shown[c.id] || (shown[c.id] = { x: c.x, y: c.y });
+  const dx = c.x - p.x;
+  const dy = c.y - p.y;
+  const dist = Math.hypot(dx, dy);
+  const step = 2.2; // px por frame: andan, no se teletransportan
+  if (dist <= step) {
+    p.x = c.x;
+    p.y = c.y;
+    p.moving = false;
   } else {
-    const deskPos = tileMap.getDeskPosition(user.desk_index);
-    if (deskPos) {
-      targetX = deskPos.x;
-      targetY = deskPos.y;
-    } else {
-      targetX = tileMap.pixelW / 2;
-      targetY = tileMap.pixelH / 2;
-    }
+    p.x += (dx / dist) * step;
+    p.y += (dy / dist) * step;
+    p.moving = true;
   }
-
-  if (!avatarPositions[userId]) {
-    avatarPositions[userId] = { x: targetX, y: targetY };
-  }
-  const pos = avatarPositions[userId];
-  const speed = user._moving ? 0.15 : (user.current_action === 'corriendo' ? 0.08 : 0.03);
-  pos.x += (targetX - pos.x) * speed;
-  pos.y += (targetY - pos.y) * speed;
-
-  return pos;
+  return p;
 }
 
-// --- Mood helpers ---
-
-function getDominantMood(user) {
-  const moods = {
-    alegria: user.alegria || 5,
-    energia: user.energia || 5,
-    optimismo: user.optimismo || 5,
-    frustracion: user.frustracion || 5,
-    estres: user.estres || 5,
-  };
-  let worst = 'neutral';
-  let minVal = 10;
-  for (const [key, val] of Object.entries(moods)) {
-    if (val < minVal) { minVal = val; worst = key; }
+function wrap(ctx, text, maxW) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const w of words) {
+    const t = line ? `${line} ${w}` : w;
+    if (ctx.measureText(t).width > maxW && line) {
+      lines.push(line);
+      line = w;
+    } else line = t;
   }
-  return minVal < 4 ? worst : 'neutral';
+  if (line) lines.push(line);
+  return lines.slice(0, 4);
 }
 
-// --- Render principal ---
+function bubble(ctx, text, cx, top) {
+  ctx.font = '600 9px Inter, sans-serif';
+  const lines = wrap(ctx, text, 150);
+  const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 12;
+  const h = lines.length * 11 + 8;
+  const x = Math.round(cx - w / 2);
+  const y = Math.round(top - h - 8);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#1A1A2E';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, 5); else ctx.rect(x, y, w, h);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - 4, y + h);
+  ctx.lineTo(cx, y + h + 6);
+  ctx.lineTo(cx + 4, y + h);
+  ctx.fill();
+  ctx.fillStyle = '#1A1A2E';
+  ctx.textAlign = 'left';
+  lines.forEach((l, i) => ctx.fillText(l, x + 6, y + 13 + i * 11));
+}
 
-export function renderOffice(ctx, canvas, users, animFrame, reactions, clock) {
+export function renderOffice(ctx, canvas, world, animFrame, selectedId) {
   const w = canvas.width;
   const h = canvas.height;
-
   ensureInit(w, h);
-  camera.update();
-
-  ctx.clearRect(0, 0, w, h);
   ctx.imageSmoothingEnabled = false;
-
-  // Fondo fuera del mapa
   ctx.fillStyle = '#0D0D1A';
   ctx.fillRect(0, 0, w, h);
 
-  // Aplicar transformacion de camara
   camera.applyTransform(ctx);
-
-  // Capa 1: Suelo
   tileMap.renderLayer(ctx, camera, 'floor');
-
-  // Capa 2: Paredes
   tileMap.renderLayer(ctx, camera, 'walls');
-
-  // Capa 3: Mobiliario (debajo de avatares)
   tileMap.renderLayer(ctx, camera, 'furniture');
 
-  // Labels de zonas
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
   ctx.font = '11px Inter, sans-serif';
   ctx.textAlign = 'center';
-  for (const zone of tileMap.zones) {
-    const zx = zone.x * TILE_SIZE + (zone.w * TILE_SIZE) / 2;
-    const zy = zone.y * TILE_SIZE + 14;
-    ctx.fillText(zone.label, zx, zy);
+  for (const z of tileMap.zones) {
+    const label = z.name === 'break' ? 'Café' : z.label;
+    ctx.fillText(label, z.x * TILE_SIZE + (z.w * TILE_SIZE) / 2, z.y * TILE_SIZE + 14);
+  }
+
+  const night = !world || world.clock.block === 'noche';
+  const chars = world ? world.characters.filter(c => !c.home) : [];
+  const drawn = chars.map(c => ({ c, p: displayPos(c) })).sort((a, b) => a.p.y - b.p.y);
+
+  for (const { c, p } of drawn) {
+    const action = p.moving ? 'paseando' : c.action;
+    renderAvatar(ctx, c.avatar_config || {}, p.x, p.y, AVATAR_SCALE, animFrame, action, c.representation);
+    ctx.font = 'bold 9px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 3;
+    ctx.fillStyle = c.id === selectedId ? '#FDCB6E' : '#FFFFFF';
+    ctx.fillText(c.name, p.x + SPRITE / 2, p.y + SPRITE + 9);
+    ctx.shadowBlur = 0;
+  }
+  // Bocadillos encima de todo.
+  for (const { c, p } of drawn) if (c.bubble) bubble(ctx, c.bubble, p.x + SPRITE / 2, p.y);
+
+  if (night) {
+    ctx.fillStyle = 'rgba(5, 5, 25, 0.72)';
+    ctx.fillRect(0, 0, tileMap.pixelW, tileMap.pixelH);
+    ctx.fillStyle = '#B8B8D4';
+    ctx.font = '600 16px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('💤 Todos en casa, soñando', tileMap.pixelW / 2, tileMap.pixelH / 2 - 8);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillStyle = '#6C6C8A';
+    ctx.fillText('La oficina abre a las 9:00 (de lunes a viernes)', tileMap.pixelW / 2, tileMap.pixelH / 2 + 14);
   }
   ctx.textAlign = 'left';
-
-  // Night overlay
-  const isNight = clock && !clock.working;
-  if (isNight) {
-    ctx.fillStyle = 'rgba(0, 0, 20, 0.5)';
-    ctx.fillRect(0, 0, tileMap.pixelW, tileMap.pixelH);
-    ctx.fillStyle = '#6C6C8A';
-    ctx.font = '16px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Fuera de horario laboral', tileMap.pixelW / 2, tileMap.pixelH / 2);
-    ctx.textAlign = 'left';
-  }
-
-  // --- Avatares con Z-sorting ---
-  if (users && !isNight) {
-    // Calcular posiciones y ordenar por Y (profundidad)
-    const avatarData = users.map(user => {
-      const pos = getAvatarDisplayPos(user);
-      return { user, pos };
-    });
-    avatarData.sort((a, b) => a.pos.y - b.pos.y);
-
-    // Renderizar avatares
-    for (const { user, pos } of avatarData) {
-      const config = user.avatar_config || {};
-
-      renderAvatar(
-        ctx, config,
-        pos.x, pos.y,
-        AVATAR_SCALE,
-        animFrame,
-        user.current_action,
-        user.current_representation
-      );
-
-      // Nombre
-      const spriteW = 16 * AVATAR_SCALE;
-      const spriteH = 16 * AVATAR_SCALE;
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 10px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      // Sombra del texto para legibilidad
-      ctx.shadowColor = 'rgba(0,0,0,0.7)';
-      ctx.shadowBlur = 3;
-      ctx.fillText(user.name, pos.x + spriteW / 2, pos.y + spriteH + 10);
-      ctx.shadowBlur = 0;
-
-      // Mood dot
-      const dominantMood = getDominantMood(user);
-      ctx.beginPath();
-      ctx.arc(pos.x + spriteW / 2, pos.y + spriteH + 17, 4, 0, Math.PI * 2);
-      ctx.fillStyle = MOOD_COLORS[dominantMood] || '#6C6C8A';
-      ctx.fill();
-      ctx.textAlign = 'left';
-    }
-
-    // Emoji reactions flotantes
-    if (reactions) {
-      for (const r of reactions) {
-        const u = users.find(u => u.id === r.userId);
-        if (!u) continue;
-        const pos = getAvatarDisplayPos(u);
-        const elapsed = (Date.now() - r.timestamp) / 1000;
-        const alpha = Math.max(0, 1 - elapsed / 3);
-        const yOff = -elapsed * 20;
-
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.font = '20px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(r.emoji, pos.x + 24, pos.y + yOff - 5);
-        ctx.restore();
-      }
-    }
-  }
-
-  // Restaurar transformacion de camara
   camera.restore(ctx);
 }
 
-// --- Exports para uso externo ---
-
-export function getCamera() {
-  return camera;
+// Personaje bajo el ratón (coordenadas de pantalla del canvas).
+export function pickAt(world, sx, sy) {
+  if (!camera || !world) return null;
+  const p = camera.screenToWorld(sx, sy);
+  const hits = world.characters.filter(c => !c.home).filter(c => {
+    const s = shown[c.id] || c;
+    return p.x >= s.x - 4 && p.x <= s.x + SPRITE + 4 && p.y >= s.y - 4 && p.y <= s.y + SPRITE + 12;
+  });
+  return hits.length ? hits[hits.length - 1] : null;
 }
-
-export function getTileMap() {
-  return tileMap;
-}
-
-export { TILE_SIZE };
-
-// Posiciones de desk compatibles con el sistema anterior
-export const DESK_POSITIONS = officeMapData.desks.map(d => ({
-  x: d.x * TILE_SIZE,
-  y: d.y * TILE_SIZE,
-}));
-
-export const MAP_W = officeMapData.width * TILE_SIZE;
-export const MAP_H = officeMapData.height * TILE_SIZE;

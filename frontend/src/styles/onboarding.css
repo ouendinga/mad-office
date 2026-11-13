@@ -1,0 +1,50 @@
+.onb {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: var(--bg-dark);
+}
+
+.onb-card {
+  width: 100%;
+  max-width: 640px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem 1.5rem;
+  box-shadow: var(--shadow);
+}
+
+.onb-title { font-size: 1.1rem; color: var(--primary-light); margin-bottom: 0.75rem; }
+.onb-sub { color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem; }
+.onb-hint { color: var(--warning); font-size: 0.85rem; margin: 0.5rem 0; }
+.onb-foot { color: var(--text-muted); font-size: 0.8rem; margin-top: 1rem; }
+
+.onb-q { margin-bottom: 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.onb-q label { font-weight: 600; font-size: 0.9rem; }
+.onb-q input, .onb-q textarea {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.onb-q input:focus, .onb-q textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+.onb-options { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.onb-chip {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.onb-chip.is-on { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.onb-actions { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.5rem; }
