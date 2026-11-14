@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: mad-office-db
     environment:
       POSTGRES_DB: madoffice
       POSTGRES_USER: madoffice
@@ -18,7 +17,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: mad-office-backend
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://madoffice:${DB_PASSWORD:?DB_PASSWORD es requerida}@postgres:5432/madoffice
@@ -42,9 +40,8 @@ services:
       args:
         REACT_APP_API_URL: ${API_URL:-}
         REACT_APP_WS_URL: ${WS_URL:-}
-    container_name: mad-office-frontend
     ports:
-      - "127.0.0.1:8081:80"
+      - "127.0.0.1:${PORT:-8081}:80"
     depends_on:
       - backend
     restart: unless-stopped

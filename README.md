@@ -57,7 +57,17 @@ día.
 
 ```bash
 cd backend && npm test                      # reloj, Game Master y piloto automático
-cd tests && npx playwright test             # recorrido completo (pila levantada + despertador)
+```
+
+El e2e registra un usuario, y el primero de una base vacía se queda de admin. **No lo pases
+contra tu oficina**: levanta una pila aparte con su propio `.env` (otro `RUNNER_TOKEN`,
+`PORT=8082` y `ALLOW_REGISTRATION=true`):
+
+```bash
+docker compose -p mad-office-pruebas --env-file pruebas.env up -d --build
+RUNNER_TOKEN=… MAD_OFFICE_URL=http://localhost:8082 node despertador/despertador.js --fake &
+cd tests && BASE_URL=http://localhost:8082 npx playwright test
+docker compose -p mad-office-pruebas --env-file pruebas.env down -v   # al acabar
 ```
 
 ## Estructura
@@ -68,6 +78,6 @@ backend/src/world/       reloj, lugares, simulación, Game Master y piloto autom
 backend/src/ai/          prompts + esquemas JSON, cola de turnos
 backend/src/routes/      auth, me (personaje, ficha, sueño, gasto), office, runner
 despertador/             el conector de suscripción (claude -p)
-frontend/src/            React + canvas (motor de tiles y sprites reutilizado)
+frontend/src/            React + canvas (tiles reutilizados; personajes 32x32 en engine/Character.js)
 tests/e2e/               Playwright
 ```

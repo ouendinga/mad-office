@@ -4,10 +4,8 @@
  * Walk animation: 2 frames alternando piernas.
  */
 
-import {
-  SKIN_TONES, HAIR_COLORS, CLOTHES, ACCESSORIES,
-  drawAvatar, drawRepresentation, drawActionIndicator
-} from '../canvas/avatarSprites';
+import { drawRepresentation, drawActionIndicator } from '../canvas/avatarSprites';
+import { drawCharacter } from './Character';
 
 const SPRITE_BASE = 16;   // Tamano base del sprite en pixels
 const CACHE = new Map();
@@ -86,35 +84,18 @@ function applyWalkFrame2(ctx, config) {
  */
 export function renderAvatar(ctx, config, worldX, worldY, scale, animFrame, action, representation) {
   const isWalking = action === 'corriendo' || action === 'paseando';
-  let pose = 'idle';
-  if (isWalking) {
-    pose = animFrame % 2 === 0 ? 'walk1' : 'walk2';
-  }
-
-  const sprite = getCachedSprite(config, pose);
-
-  // Bounce para celebrando/corriendo
+  const pose = isWalking ? (animFrame % 2 === 0 ? 'walk1' : 'walk2') : 'idle';
   let yOffset = 0;
-  if (action === 'celebrando' || action === 'corriendo') {
-    yOffset = Math.sin(animFrame * 0.3) * 3;
-  }
-
+  if (action === 'celebrando' || action === 'corriendo') yOffset = Math.sin(animFrame * 0.3) * 3;
   const dx = Math.round(worldX);
   const dy = Math.round(worldY + yOffset);
+  drawCharacter(ctx, config, dx, dy, scale, pose);
 
-  // Dibujar sprite escalado sin antialiasing
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(sprite, dx, dy, SPRITE_BASE * scale, SPRITE_BASE * scale);
-
-  // Overlays de accion y representacion (estos se dibujan pixel a pixel, sobre el sprite)
+  // Los indicadores de acción y estado están dibujados sobre una rejilla de 16: doble escala.
   ctx.save();
   ctx.translate(dx, dy);
-  if (action) {
-    drawActionIndicator(ctx, action, 0, 0, scale, animFrame);
-  }
-  if (representation) {
-    drawRepresentation(ctx, representation, 0, 0, scale, animFrame);
-  }
+  if (action) drawActionIndicator(ctx, action, 0, 0, scale * 2, animFrame);
+  if (representation) drawRepresentation(ctx, representation, 0, 0, scale * 2, animFrame);
   ctx.restore();
 }
 

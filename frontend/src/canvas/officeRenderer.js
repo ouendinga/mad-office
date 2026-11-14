@@ -9,8 +9,8 @@ import { TILE_SIZE } from '../engine/TileSet';
 import { renderAvatar } from '../engine/SpriteSheet';
 import officeMapData from '../assets/maps/office.json';
 
-const AVATAR_SCALE = 3;
-const SPRITE = 16 * AVATAR_SCALE;
+const AVATAR_SCALE = 1.5;
+const SPRITE = 32 * AVATAR_SCALE;
 
 let tileMap = null;
 let camera = null;

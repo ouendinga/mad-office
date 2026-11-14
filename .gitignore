@@ -14,3 +14,4 @@ test-results/
 .vscode/
 *.swp
 *.swo
+despertador/*.log

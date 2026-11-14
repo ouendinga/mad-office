@@ -22,7 +22,7 @@ function normalize(ficha) {
   return { ...f, manias: manias.slice(0, 3), muletillas: f.muletillas || [] };
 }
 
-export default function Onboarding({ user, character, onDone }) {
+export default function Onboarding({ user, character, onDone, onBack }) {
   const hasFicha = character && character.ficha && character.ficha.puesto;
   const [step, setStep] = useState(hasFicha ? 'ficha' : 'entrevista');
   const [answers, setAnswers] = useState(() => (character && character.interview) || {});
@@ -113,6 +113,7 @@ export default function Onboarding({ user, character, onDone }) {
             {error && <div className="modal-error">{error}</div>}
             {slow && <div className="onb-hint">Tarda más de la cuenta… ¿está encendido el despertador?</div>}
             <div className="onb-actions">
+              {onBack && <button type="button" className="btn btn-ghost" onClick={onBack} disabled={busy}>← Avatar</button>}
               <button type="button" className="btn btn-ghost" onClick={randomFill} disabled={busy}>No sé qué poner 🎲</button>
               <button type="button" className="btn btn-primary" onClick={generate} disabled={busy || answered < 3}>
                 {busy ? 'La IA te está caricaturizando…' : 'Crear mi personaje'}

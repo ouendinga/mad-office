@@ -47,11 +47,14 @@ export default function App() {
       <AvatarGenerator
         user={user}
         onAvatarSaved={u => { setEditAvatar(false); setMe({ ...me, user: u }); }}
+        // Si ya tenía avatar, vuelve a donde estaba; si es la primera vez, la salida es cerrar sesión.
+        onCancel={hasAvatar ? () => setEditAvatar(false) : logout}
+        cancelLabel={hasAvatar ? 'Volver sin cambiar' : 'Salir'}
       />
     );
   }
   if (!character || !character.approved) {
-    return <Onboarding user={user} character={character} onDone={load} />;
+    return <Onboarding user={user} character={character} onDone={load} onBack={() => setEditAvatar(true)} />;
   }
   return <Office me={me} onLogout={logout} onEditAvatar={() => setEditAvatar(true)} onRefresh={load} />;
 }

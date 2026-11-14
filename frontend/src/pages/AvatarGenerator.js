@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { SKIN_TONES, HAIR_STYLES, HAIR_COLORS, CLOTHES, ACCESSORIES, drawAvatar } from '../canvas/avatarSprites';
+import { SKIN_TONES, HAIR_STYLES, HAIR_COLORS, CLOTHES, ACCESSORIES, characterSprite } from '../engine/Character';
 import '../styles/avatar-generator.css';
 import { api } from '../api';
 
 
-export default function AvatarGenerator({ user, onAvatarSaved }) {
+export default function AvatarGenerator({ user, onAvatarSaved, onCancel, cancelLabel }) {
   const canvasRef = useRef(null);
   const [config, setConfig] = useState(user.avatar_config && Object.keys(user.avatar_config).length ? user.avatar_config : {
     skinTone: 0,
@@ -20,9 +20,9 @@ export default function AvatarGenerator({ user, onAvatarSaved }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, 64, 64);
+    ctx.clearRect(0, 0, 128, 128);
     ctx.imageSmoothingEnabled = false;
-    drawAvatar(ctx, config, 0, 0, 4);
+    ctx.drawImage(characterSprite(config), 0, 0, 128, 128);
   }, [config]);
 
   useEffect(() => {
@@ -51,12 +51,12 @@ export default function AvatarGenerator({ user, onAvatarSaved }) {
   return (
     <div className="avatar-gen">
       <div className="avatar-gen-container">
-        <h1 className="pixel-font avatar-gen-title">Crea tu Avatar</h1>
+        <h1 className="pixel-font avatar-gen-title">Tu avatar</h1>
         <p className="avatar-gen-subtitle">Así te verán en la oficina. Luego viene la entrevista.</p>
 
         <div className="avatar-gen-content">
           <div className="avatar-preview-section">
-            <canvas ref={canvasRef} width={64} height={64} className="avatar-canvas" />
+            <canvas ref={canvasRef} width={128} height={128} className="avatar-canvas" />
             <p className="avatar-name">{user.name}</p>
           </div>
 
@@ -100,9 +100,16 @@ export default function AvatarGenerator({ user, onAvatarSaved }) {
         </div>
 
         {error && <div className="modal-error">{error}</div>}
-        <button className="btn btn-primary btn-lg" onClick={handleSave} disabled={saving}>
-          {saving ? 'Guardando...' : 'Guardar y Entrar a la Oficina'}
-        </button>
+        <div className="avatar-gen-actions">
+          {onCancel && (
+            <button type="button" className="btn btn-ghost btn-lg" onClick={onCancel} disabled={saving}>
+              ← {cancelLabel || 'Volver'}
+            </button>
+          )}
+          <button type="button" className="btn btn-primary btn-lg" onClick={handleSave} disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div>
       </div>
     </div>
   );

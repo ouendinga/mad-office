@@ -48,7 +48,7 @@
   width: 128px;
   height: 128px;
   image-rendering: pixelated;
-  background: var(--bg-dark);
+  background: #3A3550;
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
 }
@@ -70,7 +70,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: var(--bg-dark);
+  background: #3A3550;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
@@ -118,3 +118,5 @@
     align-items: center;
   }
 }
+
+.avatar-gen-actions { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
