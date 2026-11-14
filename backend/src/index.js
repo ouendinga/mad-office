@@ -28,17 +28,25 @@ async function main() {
 
   // Al directo solo entra quien tiene sesión Y es de esa empresa. Cada uno en su sala de usuario
   // (ahí le llegan sus cosas privadas) y en la de la empresa que está mirando.
-  io.use(async (socket, next) => {
-    if (!gate.cookieOk(socket.handshake.headers.cookie)) return next(new Error('gate'));
-    const a = socket.handshake.auth || {};
-    const payload = auth.verify(a.token);
-    if (!payload) return next(new Error('auth'));
-    const cid = Number(a.companyId);
-    const m = (await pool.query('SELECT 1 FROM memberships WHERE company_id = $1 AND user_id = $2', [cid, payload.userId])).rows[0];
-    if (!m) return next(new Error('no_miembro'));
-    socket.data.userId = payload.userId;
-    socket.data.companyId = cid;
-    return next();
+  // Ojo: un error aquí sin capturar tumbaba el proceso entero (una pestaña con el frontend viejo
+  // se conectaba sin empresa → companyId NaN → error de Postgres no capturado).
+  io.use((socket, next) => {
+    (async () => {
+      if (!gate.cookieOk(socket.handshake.headers.cookie)) return next(new Error('gate'));
+      const a = socket.handshake.auth || {};
+      const payload = auth.verify(a.token);
+      if (!payload) return next(new Error('auth'));
+      const cid = Number(a.companyId);
+      if (!Number.isInteger(cid) || cid <= 0) return next(new Error('sin_empresa'));
+      const m = (await pool.query('SELECT 1 FROM memberships WHERE company_id = $1 AND user_id = $2', [cid, payload.userId])).rows[0];
+      if (!m) return next(new Error('no_miembro'));
+      socket.data.userId = payload.userId;
+      socket.data.companyId = cid;
+      return next();
+    })().catch(e => {
+      console.error('socket:', e.message);
+      next(new Error('error'));
+    });
   });
   io.on('connection', socket => {
     socket.join(`user:${socket.data.userId}`);
@@ -73,6 +81,9 @@ async function main() {
     world.start().catch(e => console.error('arranque de oficinas:', e));
   });
 }
+
+// Red de seguridad: una promesa rechazada sin capturar se registra, no tumba la oficina.
+process.on('unhandledRejection', e => console.error('sin capturar:', e && e.message ? e.message : e));
 
 main().catch(e => {
   console.error(e);
