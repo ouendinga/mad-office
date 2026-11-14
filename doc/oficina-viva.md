@@ -238,6 +238,48 @@ characters[]: { id, name, owner_user_id, avatar_config, desk_index, humor, energ
          stats: { energia, animo, saciedad, social, calma } }    // 0-5, un decimal
 ```
 
+## Empresas (2026-11-14)
+
+Varias empresas por instalación: cada grupo o cliente la suya, con su oficina (ciudad, horario),
+su organigrama, su feed y su simulación. Decisiones de Álvaro:
+- **Un personaje distinto por persona y empresa.** El avatar es de la persona (el mismo en todas).
+- **Cualquiera con cuenta crea una empresa** y es su admin.
+- **Entrar:** con invitación (enlace con caducidad y número de usos) o pidiéndolo a una empresa
+  **pública** (opcionalmente a un cargo concreto); el admin acepta. Las privadas no se ven.
+- **Organigrama en árbol.** Para ocupar un cargo no hace falta que el de encima esté ocupado. Hay cargos
+  únicos (CEO…) y con plazas. Los huecos los ocupan **ficticios**, que se retiran cuando entra una
+  persona y vuelven si se va. **Solo los C-suite ficticios piensan con IA**; el resto, en piloto automático.
+- **Cargo único ocupado:** se le pide a quien lo tiene; si acepta, os intercambiáis los cargos.
+- **Carga de trabajo: solo la marca el admin** (por día: tranquila, normal, alta, a tope, con nota).
+  Las horas extra solo pueden darse con carga alta o a tope.
+- **Teletrabajo por empresa:** días por semana (0-5) y días de oficina obligatorios.
+- **Tablón «Se busca personal»:** vacantes de las empresas públicas que lo activen (lo decide el
+  admin), con una oferta de broma que la IA escribe una sola vez por vacante.
+- **Visitantes por reglas, sin IA:** repartidor (paquete para alguien), mantenimiento y limpieza.
+- **Abrirlo a gente de fuera** (enlace mágico por correo, quitar la contraseña común) depende del
+  estudio de viabilidad (`docs/negocio/estudio.md`): de momento, para Walmeric y colegas.
+
+### API
+
+Fuera de una empresa: `GET /api/me` (persona + `companies[]` con rol, personaje y cargo) ·
+`PUT /api/me/avatar` · `POST /api/companies {name, visibility}` · `GET /api/public/companies` ·
+`GET /api/jobs` (tablón) · `POST /api/companies/:cid/join {position_id?, message}` ·
+`GET|POST /api/invitations/:code` · registro con `invite` en `POST /api/auth/register`.
+
+Dentro (`/api/companies/:cid`, solo miembros; ⭐ = solo admin):
+`GET /` · ⭐`PUT / {name, visibility, settings: {remotePerWeek, officeDays, jobBoard}}` ·
+`GET /org` · ⭐`POST|PUT|DELETE /org/positions[/:id] {title, parent_id, csuite, is_unique, seats, place}` ·
+`GET /org/requests` · `POST /org/requests {position_id}` · `POST /org/requests/:id {accept}` ·
+`GET /workload` · ⭐`PUT|DELETE /workload/:day {level 0-3, note}` ·
+⭐`GET|POST|DELETE /invitations` · ⭐`GET /join-requests` · ⭐`POST /join-requests/:id {accept}` ·
+`GET|PUT /settings/location` (⭐ PUT) · `GET|PUT /settings/hours` (⭐ PUT) ·
+`GET /feed` · `GET /characters/:id` · `GET /characters/:id/history` · `GET /turns/:id` ·
+`/me`: `GET /` · `POST /position {position_id}` (409 `code: 'ocupado'`) · `POST /interview` ·
+`PUT /ficha` · `PUT /settings` · `GET|PUT /dream` · `POST /dream/help` · `GET /usage`.
+
+Directo: `io(..., { auth: { token, companyId } })`; `world` trae además `company {id, name}` y, en
+cada personaje, `position {id, title, csuite}`, `npc` y, en los visitantes, `visitor {kind, forId}`.
+
 ## Fases de implementación
 
 Alcance actual (decisión del 2026-11-11): **solo Álvaro**, con su suscripción de Claude (Haiku o
