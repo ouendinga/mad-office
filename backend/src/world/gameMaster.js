@@ -1,7 +1,7 @@
 // Game Master por reglas: la IA propone y esto decide. Nada de lo que devuelve el modelo
 // se usa sin pasar por aquí.
 
-const { BLOCKS, toMinutes, fromMinutes } = require('./clock');
+const { DEFAULT, toMinutes, fromMinutes } = require('./clock');
 const { PLACES } = require('./places');
 
 const HUMORES = ['euforico', 'contento', 'normal', 'mosqueado', 'agobiado', 'triste', 'dormido'];
@@ -34,7 +34,8 @@ function resolveCompanion(con, names, selfId) {
   return hit ? hit.id : null;
 }
 
-function validatePlan(raw, { block, names, selfId, remote = false, extra = false }) {
+function validatePlan(raw, { block, names, selfId, remote = false, extra = false, sch = DEFAULT }) {
+  const { BLOCKS } = sch;
   const range = block === 'tarde' && extra ? { from: BLOCKS.tarde.from, to: BLOCKS.extra.to } : BLOCKS[block];
   if (!range) throw new Error(`bloque desconocido: ${block}`);
   const list = Array.isArray(raw) ? raw : [];
@@ -124,6 +125,17 @@ function validateDreamHelp(out) {
   return { propuestas, comentario: clean(o.comentario, 200) };
 }
 
+function validateAd(out) {
+  const o = out && typeof out === 'object' ? out : {};
+  const ad = {
+    titulo: clean(o.titulo, 70),
+    texto: clean(o.texto, 300),
+    requisitos: (Array.isArray(o.requisitos) ? o.requisitos : []).map(x => clean(x, 100)).filter(Boolean).slice(0, 3),
+  };
+  if (!ad.titulo || !ad.texto) throw new Error('oferta vacía');
+  return ad;
+}
+
 // Ficha editada a mano por su dueño: mismos límites que la generada.
 function validateFichaEdit(ficha) {
   return validateProfile(ficha);
@@ -131,5 +143,5 @@ function validateFichaEdit(ficha) {
 
 module.exports = {
   HUMORES, MAX_ACTIONS, clean, fold, normHumor, resolveCompanion, validatePlan, validateWake,
-  validateDiary, validateProfile, validateDreamHelp, validateFichaEdit,
+  validateDiary, validateProfile, validateDreamHelp, validateFichaEdit, validateAd,
 };

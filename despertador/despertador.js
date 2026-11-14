@@ -103,6 +103,7 @@ function fake(turn) {
     tarde: { humor: 'normal', horas_extra: turn.id % 2 === 0, plan: turn.id % 2 === 0 ? [...plan, { hora: '19:10', lugar: 'mesa', con: '', que: 'Sigue con el marrón a deshoras', frase: '¿Quién apaga la luz?', externo: '', piensa: 'Mañana pido aumento' }] : plan },
     diario: { diario: 'Hoy ha sido un día de oficina como otro cualquiera. Nadie me ha robado el táper, lo cual ya es mucho.', humor: 'contento', trayecto: 'Se cruza con su jefe en el metro y finge leer' },
     perfil: { puesto: 'Desarrollador', personalidad: 'Optimista crónico con tendencia a la épica.', manias: ['Nombra las variables como sus gatos', 'Celebra cada deploy', 'Tararea mientras programa'], objetivo: 'Que su café no lo use nadie', muletillas: ['¡Al lío!', 'Eso es un bug de producto.', 'Funciona, no lo toques.', 'Café y seguimos.'] },
+    anuncio: { titulo: 'Se busca valiente para la máquina de café', texto: 'Ofrecemos sueldo competitivo (con la competencia de la cafetera), reuniones ilimitadas y una planta que no se riega sola.', requisitos: ['Saber reiniciar el router', 'Tolerancia al Comic Sans', 'Café sin azúcar'] },
     sueno_ayuda: { propuestas: ['Sueñas que la impresora te pide perdón y te ofrece un trato.', 'Sueñas que Paco te cede su taza para siempre.', 'Sueñas que eres jefe y nadie convoca reuniones.'], comentario: 'Encaja con su obsesión por el café.' },
   };
   if (turn.kind === 'despertar' && !turn.schema.properties.sueno) delete by.despertar.sueno;

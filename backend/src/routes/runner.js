@@ -11,7 +11,7 @@ function safeEqual(a, b) {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
-function router({ sim }) {
+function router({ world }) {
   const r = express.Router();
   const token = process.env.RUNNER_TOKEN;
 
@@ -39,6 +39,14 @@ function router({ sim }) {
     const t = await turns.finish(pool, req.params.id, { status: 'done', result: b.output, ...usage });
     if (!t) return res.status(409).json({ error: 'el turno ya no está en marcha' });
     try {
+      if (t.kind === 'anuncio') {
+        // La oferta del tablón: va al cargo, no a un personaje.
+        const ad = require('../world/gameMaster').validateAd(t.result);
+        await pool.query('UPDATE positions SET ad = $2 WHERE id = $1', [Number(t.request.positionId), ad]);
+        return res.json({ ok: true });
+      }
+      const sim = await world.forCharacter(t.character_id);
+      if (!sim) throw new Error('personaje sin empresa');
       await sim.applyTurn(t);
     } catch (e) {
       // La salida no pasó el Game Master: se marca fallido y sigue el piloto automático.

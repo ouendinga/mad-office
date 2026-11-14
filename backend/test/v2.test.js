@@ -136,7 +136,7 @@ test('cola: el despertar pedido a las 08:30 no caduca hasta pasada la mañana', 
   const expire = sql.find(x => /status = 'expired'/.test(x.q) && /despertar/.test(x.q));
   // La condición depende de los parámetros: a las 08:35 (515) con bloque «noche» no caduca.
   // El límite es el inicio de la tarde del horario configurado (14:00 por defecto).
-  assert.deepEqual(expire.params, ['2026-11-16', 'noche', 515, 840]);
+  assert.deepEqual(expire.params, ['2026-11-16', 'noche', 515, 840, null]);
   assert.match(expire.q, /\$2 = 'noche' AND \$3 >= \$4/);
 });
 
@@ -200,4 +200,35 @@ test('GM: como mucho dos pensamientos por bloque', () => {
   const raw = ['09:00', '10:00', '11:00', '12:00'].map(h => ({ hora: h, lugar: 'mesa', con: '', que: 'x', frase: '', piensa: `p${h}` }));
   const plan = gm.validatePlan(raw, { block: 'manana', names, selfId: 1 });
   assert.equal(plan.filter(a => a.piensa).length, 2);
+});
+
+test('visitantes: deterministas por día, dentro de la jornada, y la limpieza siempre', () => {
+  const { visitorsFor } = require('../src/world/visitors');
+  const chars = [{ id: 1, name: 'Ana' }, { id: 2, name: 'Bea' }];
+  const a = visitorsFor('2026-11-16', 1, clock.DEFAULT, chars);
+  assert.deepEqual(a, visitorsFor('2026-11-16', 1, clock.DEFAULT, chars));
+  assert.ok(a.some(v => v.kind === 'limpieza'));
+  for (const v of a) {
+    assert.ok(v.from >= clock.BLOCKS.manana.from && v.to <= clock.BLOCKS.extra.to, v.kind);
+    if (v.kind === 'repartidor') assert.ok([1, 2].includes(v.forId));
+  }
+  // A lo largo de un mes, a veces hay repartidor y a veces no.
+  const days = Array.from({ length: 30 }, (_, i) => `2026-11-${String(i + 1).padStart(2, '0')}`);
+  const withParcel = days.filter(d => visitorsFor(d, 1, clock.DEFAULT, chars).some(v => v.kind === 'repartidor')).length;
+  assert.ok(withParcel > 5 && withParcel < 28, String(withParcel));
+});
+
+test('prompt: con mucha gente, solo los C-suite, su equipo y poco más (tope)', () => {
+  const { Sim } = require('../src/world/sim');
+  const me = { id: 1, position_id: 10, position_parent: 5 };
+  const cast = [me,
+    { id: 2, csuite: true },
+    { id: 3, position_id: 5 }, // su jefe
+    { id: 4, position_parent: 5 }, // compañero de equipo
+    { id: 5, position_parent: 10 }, // subordinado
+    ...Array.from({ length: 40 }, (_, i) => ({ id: 100 + i, position_parent: 99 })),
+  ];
+  const out = Sim.prototype.relevantCast.call({}, me, cast);
+  assert.ok(out.length <= 13);
+  for (const id of [1, 2, 3, 4, 5]) assert.ok(out.some(x => x.id === id), String(id));
 });

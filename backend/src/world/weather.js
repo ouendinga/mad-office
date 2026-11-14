@@ -65,25 +65,41 @@ async function geocode(name, fetchImpl = fetch) {
   return { city: r.name, country: r.country || '', lat: r.latitude, lon: r.longitude };
 }
 
+// Caché compartida por coordenadas: dos empresas en la misma ciudad no piden dos veces.
+const cache = new Map(); // "lat,lon" -> { data, at, pending }
+
+async function cachedCurrent(loc) {
+  const key = `${Number(loc.lat).toFixed(2)},${Number(loc.lon).toFixed(2)}`;
+  const hit = cache.get(key);
+  if (hit && hit.data && Date.now() - hit.at < EVERY_MS) return hit.data;
+  if (hit && hit.pending) return hit.pending;
+  const pending = fetchCurrent(loc)
+    .then(data => { cache.set(key, { data, at: Date.now() }); return data; })
+    .catch(e => { cache.delete(key); throw e; });
+  cache.set(key, { ...(hit || {}), pending });
+  return pending;
+}
+
+// El tiempo de UNA empresa (su ubicación vive en companies.settings.location).
 class Weather {
-  constructor(pool) {
+  constructor(pool, companyId) {
     this.pool = pool;
+    this.companyId = companyId;
     this.location = DEFAULT_LOCATION;
     this.current = null;
   }
 
   async loadLocation() {
-    const r = await this.pool.query("SELECT value FROM settings WHERE key = 'office_location'");
-    if (r.rows[0]) {
-      try { this.location = JSON.parse(r.rows[0].value); } catch { /* se queda Madrid */ }
-    }
+    const r = await this.pool.query("SELECT settings->'location' AS loc FROM companies WHERE id = $1", [this.companyId]);
+    const loc = r.rows[0] && r.rows[0].loc;
+    if (loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lon)) this.location = loc;
     return this.location;
   }
 
   async setLocation(loc) {
     await this.pool.query(
-      `INSERT INTO settings (key, value) VALUES ('office_location', $1)
-       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`, [JSON.stringify(loc)]);
+      `UPDATE companies SET settings = jsonb_set(settings, '{location}', $2::jsonb) WHERE id = $1`,
+      [this.companyId, JSON.stringify(loc)]);
     this.location = loc;
     this.current = null;
     await this.refresh();
@@ -91,7 +107,7 @@ class Weather {
 
   async refresh() {
     try {
-      this.current = await fetchCurrent(this.location);
+      this.current = await cachedCurrent(this.location);
     } catch (e) {
       console.error('tiempo:', e.message); // sin tiempo, la oficina sigue: el prompt dice solo la estación
     }
@@ -100,6 +116,10 @@ class Weather {
   start() {
     this.loadLocation().then(() => this.refresh()).catch(e => console.error('tiempo:', e.message));
     this.timer = setInterval(() => this.refresh(), EVERY_MS);
+  }
+
+  stop() {
+    clearInterval(this.timer);
   }
 }
 

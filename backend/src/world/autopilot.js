@@ -1,7 +1,7 @@
 // Piloto automático: el día sin IA. No gasta nada. Lo usa el personaje mientras su turno
 // está en cola, si no hay despertador encendido o si se ha gastado el tope.
 
-const { fromMinutes, BLOCKS, SCHEDULE } = require('./clock');
+const { fromMinutes, DEFAULT } = require('./clock');
 
 // Generador determinista por personaje y día, para que el plan no cambie al reiniciar.
 function rng(seedStr) {
@@ -33,7 +33,7 @@ const TEMPLATES = {
 // Las plantillas están escritas para el horario por defecto (9-14 y 14-18, comida a las 14:00
 // de 60 min). Se llevan al horario configurado proporcionalmente: la comida, siempre al empezar
 // la tarde, y lo de después de comer repartido entre el final de la comida y la salida.
-function toSchedule(block, min) {
+function toSchedule(block, min, { BLOCKS, SCHEDULE } = DEFAULT) {
   if (block === 'manana') {
     return Math.round(BLOCKS.manana.from + ((min - 540) / 300) * (BLOCKS.manana.to - BLOCKS.manana.from));
   }
@@ -52,13 +52,14 @@ const REMOTE = {
   tarde: ['Come en la cocina de casa', 'Lucha contra la siesta', 'Pasea al perro (o al vecino)', 'Recta final con la cámara apagada'],
 };
 
-function autopilotPlan(character, day, block, { remote = false } = {}) {
+function autopilotPlan(character, day, block, { remote = false, sch = DEFAULT } = {}) {
+  const { BLOCKS } = sch;
   const r = rng(`${character.id}|${day}|${block}`);
   const muletillas = (character.ficha && character.ficha.muletillas) || [];
   return TEMPLATES[block].map((t, i) => {
     const variant = Math.floor(r() * 3);
     const jitter = i === 0 ? 0 : Math.floor(r() * 20) - 10;
-    const base = toSchedule(block, t.min);
+    const base = toSchedule(block, t.min, sch);
     const min = i === 0 ? base : Math.min(Math.max(base + jitter, BLOCKS[block].from + 1), BLOCKS[block].to - 15);
     const frase = muletillas.length && r() < 0.6 ? muletillas[Math.floor(r() * muletillas.length)] : '';
     if (remote) return { min, hora: fromMinutes(min), lugar: 'casa', con: null, que: REMOTE[block][i % REMOTE[block].length], frase };

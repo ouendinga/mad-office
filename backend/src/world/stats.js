@@ -1,4 +1,4 @@
-const { SCHEDULE, BLOCKS } = require('./clock');
+const { DEFAULT: DEFAULT_SCHEDULE } = require('./clock');
 
 // Estados del personaje, de 0 a 5 con un decimal: energía, ánimo, saciedad, social y calma.
 // Los mueven REGLAS según lo que hace (no la IA): comer llena, reunirse cansa y estresa, la
@@ -38,6 +38,7 @@ function add(s, delta) {
 
 // action: { lugar, con, externo, min }; ctx: { weather: { code, temp } | null }
 function applyAction(stats, action, ctx = {}) {
+  const { SCHEDULE, BLOCKS } = ctx.sch || DEFAULT_SCHEDULE;
   let s = add(normalize(stats), PLACE_EFFECT[action.lugar] || PLACE_EFFECT.mesa);
   // La comida de verdad: café/cocina a la hora de comer (con media hora de margen antes).
   if (action.lugar === 'cafe' && action.min >= SCHEDULE.lunch - 30 && action.min <= SCHEDULE.lunch + SCHEDULE.lunchMin) s = add(s, { saciedad: 1.2, animo: 0.2 });

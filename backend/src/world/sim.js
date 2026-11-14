@@ -2,13 +2,16 @@
 // según su plan y, al empezar cada bloque, deja en cola un turno de IA para planificarlo.
 // Mientras el turno no vuelve, el personaje va en piloto automático.
 //
+// Una Sim por empresa: su horario, su tiempo, su carga de trabajo y su política de teletrabajo.
+//
 // v2: cada día cada uno trabaja en la oficina o en casa (lo decide al despertar, a las 08:30,
 // con tope por reglas), va y vuelve por la calle, solo oye lo que pasa cerca, llama a
 // compañeros o a gente de fuera, piensa cosas que solo ve su dueño y tiene estados de 0 a 5.
 
 const clockLib = require('./clock');
 const { parts, blockOf, phaseOf, isWorkday, dreamWindowOpen, nextMorning, addDays } = clockLib;
-const { ACTION_FOR_PLACE, targetFor } = require('./places');
+const { ACTION_FOR_PLACE, targetFor, zonePos } = require('./places');
+const { visitorsFor } = require('./visitors');
 const { autopilotPlan } = require('./autopilot');
 const gm = require('./gameMaster');
 const stats = require('./stats');
@@ -27,16 +30,21 @@ const HUMOR_REPR = {
   dormido: 'somnoliento',
 };
 const BUBBLE_MS = 8000;
-const MAX_REMOTE_PER_WEEK = 2;
-const MAX_EXTRA_PER_WEEK = 1;
+const DEFAULT_REMOTE_PER_WEEK = 2;
+const MAX_CAST = 12; // compañeros que van en el prompt: su equipo, los C-suite y poco más
+const WORKLOAD_TEXT = ['tranquila', 'normal', 'alta', 'a tope'];
 const MAX_HEARD = 8;
 
 class Sim {
-  constructor({ pool, io, clock, weather = null, tickMs = 1000 }) {
+  constructor({ pool, io, clock, companyId = 1, tickMs = 1000 }) {
     this.pool = pool;
     this.io = io;
     this.clock = clock;
-    this.weather = weather;
+    this.companyId = companyId;
+    this.room = `company:${companyId}`;
+    this.sch = clockLib.makeSchedule();
+    this.weather = new weatherLib.Weather(pool, companyId);
+    this.company = { name: '', settings: {} };
     this.tickMs = tickMs;
     this.plans = new Map(); // `${id}|${day}|${block}` -> actions
     this.days = new Map(); // `${id}|${day}` -> { mode, ida, vuelta }
@@ -48,7 +56,18 @@ class Sim {
     this.running = false;
   }
 
-  start() {
+  async loadCompany() {
+    const r = await this.pool.query('SELECT name, visibility, settings FROM companies WHERE id = $1', [this.companyId]);
+    if (!r.rows[0]) return null;
+    this.company = r.rows[0];
+    const h = this.company.settings.hours;
+    if (h && this.sch.set(h)) console.error(`empresa ${this.companyId}: horario guardado no válido`);
+    return this.company;
+  }
+
+  async start() {
+    await this.loadCompany();
+    this.weather.start();
     this.timer = setInterval(() => {
       if (this.running) return;
       this.running = true;
@@ -58,6 +77,12 @@ class Sim {
 
   stop() {
     clearInterval(this.timer);
+    this.weather.stop();
+  }
+
+  // Piensan con IA las personas y los C-suite; el resto de ficticios, en piloto automático.
+  aiFor(c) {
+    return c.owner_user_id != null || c.csuite === true;
   }
 
   now() {
@@ -68,9 +93,14 @@ class Sim {
     if (!force && Date.now() - this.lastLoad < 5000) return this.chars;
     const r = await this.pool.query(
       `SELECT c.*, COALESCE(u.avatar_config, c.avatar_config) AS avatar,
-              COALESCE(c.owner_user_id, (SELECT id FROM users WHERE is_admin ORDER BY id LIMIT 1)) AS payer
-         FROM characters c LEFT JOIN users u ON u.id = c.owner_user_id
-        WHERE c.approved AND NOT c.paused ORDER BY c.id`,
+              p.title AS position_title, p.csuite, p.place, p.parent_id AS position_parent,
+              COALESCE(c.owner_user_id, (SELECT user_id FROM memberships WHERE company_id = c.company_id AND role = 'admin'
+                                          ORDER BY joined_at LIMIT 1)) AS payer
+         FROM characters c
+         LEFT JOIN users u ON u.id = c.owner_user_id
+         LEFT JOIN positions p ON p.id = c.position_id
+        WHERE c.company_id = $1 AND c.approved AND NOT c.paused AND NOT c.retired ORDER BY c.id`,
+      [this.companyId],
     );
     this.chars = r.rows.map(c => ({ ...c, stats: stats.normalize(c.stats) }));
     this.lastLoad = Date.now();
@@ -83,6 +113,22 @@ class Sim {
 
   weatherNow() {
     return this.weather ? this.weather.current : null;
+  }
+
+  // Los compañeros que entran en el prompt: C-suite, su jefe, sus compañeros de equipo y sus
+  // subordinados (hasta MAX_CAST). Con 50 personas, no se manda la lista entera.
+  relevantCast(c, cast) {
+    const pick = cast.filter(x => x.id === c.id || x.csuite
+      || (x.position_id && x.position_id === c.position_parent)
+      || (x.position_parent && x.position_parent === c.position_parent)
+      || (x.position_parent && x.position_parent === c.position_id));
+    const rest = cast.filter(x => !pick.includes(x));
+    return [...pick, ...rest].slice(0, MAX_CAST + 1);
+  }
+
+  async workload(day) {
+    const r = await this.pool.query('SELECT level, note FROM workload WHERE company_id = $1 AND day = $2', [this.companyId, day]);
+    return r.rows[0] || { level: 1, note: null };
   }
 
   weatherLine(day) {
@@ -117,21 +163,21 @@ class Sim {
   }
 
   // Tope por reglas: como mucho MAX_REMOTE_PER_WEEK días en casa por semana (lunes a viernes).
+  // Política de la empresa: días de teletrabajo por semana y días de oficina obligatorios.
   async canRemote(c, day, weekday) {
+    const set = this.company.settings || {};
+    const perWeek = Number.isInteger(set.remotePerWeek) ? set.remotePerWeek : DEFAULT_REMOTE_PER_WEEK;
+    if (perWeek <= 0 || (Array.isArray(set.officeDays) && set.officeDays.includes(weekday))) return false;
     const monday = addDays(day, -(weekday - 1));
     const r = await this.pool.query(
       `SELECT COUNT(*)::int AS n FROM day_status WHERE character_id = $1 AND day >= $2 AND day < $3 AND mode = 'remoto'`,
       [c.id, monday, day]);
-    return r.rows[0].n < MAX_REMOTE_PER_WEEK;
+    return r.rows[0].n < perWeek;
   }
 
-  // Horas extra: como mucho MAX_EXTRA_PER_WEEK días por semana.
-  async canExtra(c, day, weekday) {
-    const monday = addDays(day, -(weekday - 1));
-    const r = await this.pool.query(
-      `SELECT COUNT(*)::int AS n FROM day_status WHERE character_id = $1 AND day >= $2 AND day < $3 AND extra`,
-      [c.id, monday, day]);
-    return r.rows[0].n < MAX_EXTRA_PER_WEEK;
+  // Horas extra: solo con carga alta o a tope (la marca el admin de la empresa).
+  async canExtra(c, day) {
+    return (await this.workload(day)).level >= 2;
   }
 
   async saveStats(c, next) {
@@ -146,7 +192,7 @@ class Sim {
       'SELECT actions FROM plans WHERE character_id = $1 AND day = $2 AND block = $3', [c.id, day, block]);
     if (!r.rows.length) {
       const { mode } = await this.dayOf(c, day);
-      const actions = autopilotPlan(c, day, block, { remote: mode === 'remoto' });
+      const actions = autopilotPlan(c, day, block, { remote: mode === 'remoto', sch: this.sch });
       await this.pool.query(
         `INSERT INTO plans (character_id, day, block, source, actions) VALUES ($1, $2, $3, 'autopiloto', $4)
          ON CONFLICT DO NOTHING`, [c.id, day, block, JSON.stringify(actions)]);
@@ -168,8 +214,9 @@ class Sim {
     const [events, plan, d] = await Promise.all([
       this.pool.query(
         `SELECT id, character_id, con_id, lugar, min, text, kind, private FROM feed
-          WHERE office_day = $1 AND kind IN ('accion', 'llamada') AND (min IS NULL OR min <= $2) ORDER BY id`,
-        [day, untilMin]),
+          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita')
+            AND (min IS NULL OR min <= $2) ORDER BY id`,
+        [day, untilMin, this.companyId]),
       this.dayActions(c, day),
       this.pool.query('SELECT mode FROM day_status WHERE character_id = $1 AND day = $2', [c.id, day]),
     ]);
@@ -209,6 +256,7 @@ class Sim {
     const key = `${c.id}|${day}|${block}`;
     if (this.ensured.has(key)) return;
     this.ensured.add(key);
+    if (!this.aiFor(c)) return; // ficticio sin IA: piloto automático
     const prev = await this.pool.query(
       `SELECT kind, block FROM turns WHERE character_id = $1 AND office_day = $2 AND kind IN ('despertar', 'tarde')
          AND status IN ('queued', 'running', 'done')`, [c.id, day]);
@@ -225,14 +273,17 @@ class Sim {
     // Al despertar recuerda lo que oyó ayer; por la tarde, lo de esta mañana.
     const heard = kind === 'despertar'
       ? (ctx.prevDay ? await this.heard(c, ctx.prevDay) : [])
-      : await this.heard(c, day, clockLib.BLOCKS.tarde.from);
+      : await this.heard(c, day, this.sch.BLOCKS.tarde.from);
     let remoteRule = 'no';
     if (kind === 'despertar') remoteRule = (await this.canRemote(c, day, weekday)) ? 'puede' : 'no';
     else if (d.mode === 'remoto') remoteRule = 'remoto';
-    const extraRule = block === 'tarde' && (await this.canExtra(c, day, weekday)) ? 'puede' : 'no';
+    const extraRule = block === 'tarde' && (await this.canExtra(c, day)) ? 'puede' : 'no';
+    const wl = await this.workload(day);
+    const workloadLine = wl.level === 1 && !wl.note ? '' : `Carga de trabajo hoy: ${WORKLOAD_TEXT[wl.level]}${wl.note ? ` (${wl.note})` : ''}.`;
     const request = prompts.planRequest({
-      kind, character: c, cast, day, block, yesterdayDiary: ctx.yesterdayDiary, heard,
+      kind, character: c, cast: this.relevantCast(c, cast), day, block, yesterdayDiary: ctx.yesterdayDiary, heard,
       dream: kind === 'despertar' ? ctx.dream : null, weatherLine: this.weatherLine(day), remoteRule, extraRule,
+      sch: this.sch, workloadLine, company: this.company.name,
     });
     // Lo que el GM necesitará para validar la respuesta (ya decidido por reglas).
     request.rules = { canRemote: remoteRule === 'puede', remote: d.mode === 'remoto', canExtra: extraRule === 'puede' };
@@ -243,6 +294,7 @@ class Sim {
     const key = `${c.id}|${day}|diario`;
     if (this.ensured.has(key)) return;
     this.ensured.add(key);
+    if (!this.aiFor(c)) return;
     const todayActions = await this.dayActions(c, day);
     if (!todayActions.length) return;
     const done = await this.pool.query('SELECT 1 FROM diaries WHERE character_id = $1 AND day = $2', [c.id, day]);
@@ -251,7 +303,7 @@ class Sim {
     const d = await this.dayOf(c, day);
     const heard = await this.heard(c, day);
     const request = prompts.diaryRequest({
-      character: c, cast, day, todayActions, heard, mode: d.mode, weatherLine: this.weatherLine(day),
+      character: c, cast: this.relevantCast(c, cast), day, todayActions, heard, mode: d.mode, weatherLine: this.weatherLine(day),
     });
     await this.request('diario', c, day, null, request);
   }
@@ -259,26 +311,27 @@ class Sim {
   // Al feed. Lo privado (pensamientos) solo le llega al dueño del personaje (o al admin, si no tiene).
   async post(c, kind, text, day, meta = {}) {
     const r = await this.pool.query(
-      `INSERT INTO feed (character_id, kind, text, office_day, lugar, con_id, externo, min, private)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, character_id, kind, text, created_at, lugar, con_id, externo, min, private`,
+      `INSERT INTO feed (company_id, character_id, kind, text, office_day, lugar, con_id, externo, min, private)
+       VALUES ($10, $1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, company_id, character_id, kind, text, created_at, lugar, con_id, externo, min, private`,
       [c ? c.id : null, kind, text, day, meta.lugar || null, meta.con || null, meta.externo || null,
-        meta.min == null ? null : meta.min, !!meta.private]);
+        meta.min == null ? null : meta.min, !!meta.private, this.companyId]);
     const row = r.rows[0];
     if (row.private) {
       const ownerId = c.owner_user_id || c.payer;
       if (ownerId) this.io.to(`user:${ownerId}`).emit('feed', row);
     } else {
-      this.io.emit('feed', row);
+      this.io.to(this.room).emit('feed', row);
     }
   }
 
   async tick() {
     const p = this.now();
-    const block = blockOf(p);
-    const phase = phaseOf(p);
+    const block = blockOf(p, this.sch);
+    const phase = phaseOf(p, this.sch);
     const day = p.date;
-    await turns.maintain(this.pool, { day, block, minutes: p.minutes });
+    const B = this.sch.BLOCKS;
+    await turns.maintain(this.pool, { day, block, minutes: p.minutes, sch: this.sch, companyId: this.companyId });
     const chars = await this.loadCharacters();
     const cast = chars;
     const view = [];
@@ -286,7 +339,7 @@ class Sim {
     for (const c of chars) {
       const workday = isWorkday(p.weekday);
       // Quien hace horas extra sigue con su tarde (alargada) hasta las 20:00.
-      const inExtra = workday && p.minutes >= clockLib.BLOCKS.extra.from && p.minutes < clockLib.BLOCKS.extra.to
+      const inExtra = workday && p.minutes >= B.extra.from && p.minutes < B.extra.to
         && (await this.dayOf(c, day)).extra;
       if (block === 'noche' && !inExtra) {
         this.current.delete(c.id);
@@ -295,10 +348,10 @@ class Sim {
           await this.dayOf(c, day);
           await this.ensureTurn(c, day, 'manana', p.weekday);
         }
-        const d = workday && p.minutes >= clockLib.COMMUTE.ida ? await this.dayOf(c, day) : null;
-        const leaves = d && d.extra ? clockLib.BLOCKS.extra.to : clockLib.BLOCKS.tarde.to;
+        const d = workday && p.minutes >= this.sch.COMMUTE.ida ? await this.dayOf(c, day) : null;
+        const leaves = d && d.extra ? B.extra.to : B.tarde.to;
         if (workday && p.minutes >= leaves) await this.ensureDiary(c, day);
-        view.push(this.viewOf(c, null, cast, { phase: charPhase(p, phase, d), day: d }));
+        view.push(this.viewOf(c, null, cast, { phase: charPhase(p, phase, d, this.sch), day: d }));
         continue;
       }
       const d = await this.dayOf(c, day);
@@ -318,17 +371,19 @@ class Sim {
       view.push(this.viewOf(c, this.current.get(c.id), cast, { phase, day: d }));
     }
     linkCalls(view);
+    if (isWorkday(p.weekday)) view.push(...(await this.visitorViews(day, p.minutes, chars)));
 
     const loc = this.weather ? this.weather.location : weatherLib.DEFAULT_LOCATION;
     const w = this.weatherNow();
-    this.io.emit('world', {
+    this.io.to(this.room).emit('world', {
+      company: { id: this.companyId, name: this.company.name },
       clock: {
         date: day, hhmm: p.hhmm, weekday: p.weekday, block, phase,
         // Franja del trayecto en curso y horario, para que la calle y la UI no supongan 9-18.
-        commute: phase === 'ida' ? { from: clockLib.COMMUTE.ida, to: clockLib.BLOCKS.manana.from }
-          : phase === 'vuelta' ? { from: clockLib.BLOCKS.tarde.to, to: clockLib.COMMUTE.vuelta } : null,
-        schedule: { start: clockLib.fromMinutes(clockLib.SCHEDULE.start), end: clockLib.fromMinutes(clockLib.SCHEDULE.end) },
-        dreamOpen: dreamWindowOpen(p), nextMorning: nextMorning(p),
+        commute: phase === 'ida' ? { from: this.sch.COMMUTE.ida, to: B.manana.from }
+          : phase === 'vuelta' ? { from: B.tarde.to, to: this.sch.COMMUTE.vuelta } : null,
+        schedule: { start: clockLib.fromMinutes(this.sch.SCHEDULE.start), end: clockLib.fromMinutes(this.sch.SCHEDULE.end) },
+        dreamOpen: dreamWindowOpen(p, this.sch), nextMorning: nextMorning(p, this.sch),
         weather: w ? { temp: w.temp, code: w.code, desc: w.desc, precip: w.precip, wind: w.wind, isDay: w.isDay } : null,
         season: weatherLib.season(day, loc.lat),
         city: loc.city,
@@ -337,8 +392,29 @@ class Sim {
     });
   }
 
+  // Visitantes del día que están ahora en la oficina; al llegar, se anuncian en el feed.
+  async visitorViews(day, minutes, chars) {
+    const out = [];
+    for (const [i, e] of visitorsFor(day, this.companyId, this.sch, chars).entries()) {
+      if (minutes < e.from || minutes >= e.to) continue;
+      const fresh = !this.ensured.has(`visita|${e.key}`);
+      if (fresh) {
+        this.ensured.add(`visita|${e.key}`);
+        await this.post(null, 'visita', `${e.kind === 'repartidor' ? '📦' : e.kind === 'limpieza' ? '🧹' : '🔧'} ${e.name}: ${e.que} — «${e.frase}»`, day,
+          { lugar: e.place, con: e.forId || null, min: e.from });
+      }
+      const pos = e.place === 'mesa' ? zonePos('cafe', 90 + i) : zonePos(e.place, 90 + i);
+      out.push({
+        id: -(i + 1), name: e.name, owner_user_id: null, avatar_config: e.avatar, visitor: { kind: e.kind, forId: e.forId || null },
+        home: false, mode: 'oficina', x: pos.x, y: pos.y, lugar: e.place, que: e.que, action: 'paseando',
+        representation: null, bubble: minutes - e.from < 5 ? e.frase : null, call: null, trayecto: null, stats: null,
+      });
+    }
+    return out;
+  }
+
   async onActionStart(c, a, cast, day, d) {
-    await this.saveStats(c, stats.applyAction(c.stats, a, { weather: this.weatherNow() }));
+    await this.saveStats(c, stats.applyAction(c.stats, a, { weather: this.weatherNow(), sch: this.sch }));
     const cafe = a.lugar === 'cafe' ? Math.min(10, c.cafe + 4) : Math.max(0, c.cafe - 1);
     c.cafe = cafe;
     await this.pool.query('UPDATE characters SET cafe = $2 WHERE id = $1', [c.id, cafe]);
@@ -364,6 +440,8 @@ class Sim {
       cafe: c.cafe,
       model: c.model,
       stats: c.stats,
+      position: c.position_id ? { id: c.position_id, title: c.position_title, csuite: !!c.csuite } : null,
+      npc: c.owner_user_id == null,
       call: null,
       trayecto: null,
     };
@@ -386,7 +464,9 @@ class Sim {
     }
     const withDesk = a.con && cast ? (cast.find(x => x.id === a.con) || {}).desk_index : null;
     const lugar = a.lugar === 'mesa' && withDesk != null ? 'visita' : a.lugar;
-    const pos = targetFor({ lugar: a.lugar, deskIndex: c.desk_index, withDeskIndex: withDesk, slot: c.id });
+    // Quien tiene despacho o mostrador, «en su mesa» está allí.
+    const own = a.lugar === 'mesa' && withDesk == null && c.place && c.place !== 'mesa';
+    const pos = own ? zonePos(c.place, c.id) : targetFor({ lugar: a.lugar, deskIndex: c.desk_index, withDeskIndex: withDesk, slot: c.id });
     return {
       ...base,
       home: false,
@@ -415,13 +495,14 @@ class Sim {
       const rules = (turn.request && turn.request.rules) || {};
       const v = gm.validateWake(out, {
         block: turn.block, names: this.chars, selfId: c.id,
+        sch: this.sch,
         decideMode: turn.kind === 'despertar', canRemote: rules.canRemote === true, remote: rules.remote === true,
         canExtra: rules.canExtra === true,
       });
       if (turn.kind === 'despertar') await this.applyMode(c, day, v);
       if (turn.block === 'tarde' && v.extra) {
         await this.setDay(c, day, { extra: true });
-        await this.post(c, 'trayecto', `🌙 ${c.name} hoy se queda haciendo horas extra.`, day, { min: clockLib.BLOCKS.tarde.to });
+        await this.post(c, 'trayecto', `🌙 ${c.name} hoy se queda haciendo horas extra.`, day, { min: this.sch.BLOCKS.tarde.to });
       }
       await this.mergePlan(c, day, turn.block, v.plan);
       await this.pool.query('UPDATE characters SET humor = $2 WHERE id = $1', [c.id, v.humor]);
@@ -437,7 +518,7 @@ class Sim {
       const d = await this.dayOf(c, day);
       if (d.mode === 'oficina' && v.trayecto) {
         await this.setDay(c, day, { vuelta: v.trayecto });
-        const leftAt = d.extra ? clockLib.BLOCKS.extra.to : clockLib.BLOCKS.tarde.to;
+        const leftAt = d.extra ? this.sch.BLOCKS.extra.to : this.sch.BLOCKS.tarde.to;
         await this.post(c, 'trayecto', `🚶 ${c.name}, volviendo a casa: ${v.trayecto}`, day, { min: leftAt });
       }
       await this.post(c, 'diario', `📔 ${c.name} ha escrito su diario.`, day);
@@ -456,9 +537,9 @@ class Sim {
     const before = await this.dayOf(c, day);
     await this.setDay(c, day, { mode: v.mode, ida: v.mode === 'oficina' ? (v.trayecto || null) : null });
     if (v.mode === 'remoto') {
-      await this.post(c, 'trayecto', `🏠 ${c.name} hoy teletrabaja desde casa.`, day, { min: clockLib.COMMUTE.ida });
+      await this.post(c, 'trayecto', `🏠 ${c.name} hoy teletrabaja desde casa.`, day, { min: this.sch.COMMUTE.ida });
     } else if (v.trayecto) {
-      await this.post(c, 'trayecto', `🚶 ${c.name}, de camino a la oficina: ${v.trayecto}`, day, { min: clockLib.COMMUTE.ida });
+      await this.post(c, 'trayecto', `🚶 ${c.name}, de camino a la oficina: ${v.trayecto}`, day, { min: this.sch.COMMUTE.ida });
     }
     if (before.mode !== v.mode) {
       const r = await this.pool.query(
@@ -471,7 +552,8 @@ class Sim {
   async mergePlan(c, day, block, iaActions) {
     const p = this.now();
     // La tarde con horas extra sigue «en vivo» hasta las 20:00.
-    const live = p.date === day && (blockOf(p) === block || (block === 'tarde' && p.minutes >= clockLib.BLOCKS.tarde.from && p.minutes < clockLib.BLOCKS.extra.to));
+    const B = this.sch.BLOCKS;
+    const live = p.date === day && (blockOf(p, this.sch) === block || (block === 'tarde' && p.minutes >= B.tarde.from && p.minutes < B.extra.to));
     const nowMin = live ? p.minutes : -1;
     const old = await this.getPlan(c, day, block);
     const past = old.filter(a => a.min <= nowMin);
@@ -496,11 +578,12 @@ class Sim {
 }
 
 // Fase de cada uno: quien hace horas extra sigue en la oficina hasta las 20:00 y vuelve después.
-function charPhase(p, phase, d) {
+function charPhase(p, phase, d, sch = clockLib.DEFAULT) {
   if (!d || !d.extra) return phase;
   const m = p.minutes;
-  if (m >= clockLib.BLOCKS.extra.from && m < clockLib.BLOCKS.extra.to) return 'oficina';
-  if (m >= clockLib.BLOCKS.extra.to && m < clockLib.BLOCKS.extra.to + 30) return 'vuelta';
+  const { BLOCKS } = sch;
+  if (m >= BLOCKS.extra.from && m < BLOCKS.extra.to) return 'oficina';
+  if (m >= BLOCKS.extra.to && m < BLOCKS.extra.to + 30) return 'vuelta';
   return phase === 'vuelta' ? 'casa' : phase;
 }
 

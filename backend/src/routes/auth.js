@@ -42,13 +42,19 @@ function router({ onUsersChanged }) {
     const name = String(req.body.name || '').trim().slice(0, 40);
     if (!EMAIL_RE.test(email) || !name) return res.status(400).json({ error: 'Pon tu nombre y un correo válido.' });
     const count = (await pool.query('SELECT COUNT(*)::int AS n FROM users')).rows[0].n;
-    if (count > 0 && process.env.ALLOW_REGISTRATION !== 'true') {
-      return res.status(403).json({ error: 'La oficina está completa. Pide invitación a quien la lleva.' });
+    // Se entra con una invitación válida (o abierta por configuración, o si es el primero).
+    const { validInvite, useInvite, addMember } = require('./companies');
+    const inv = req.body.invite ? await validInvite(pool, req.body.invite) : null;
+    if (count > 0 && !inv && process.env.ALLOW_REGISTRATION !== 'true') {
+      return res.status(403).json({ error: 'Para entrar hace falta una invitación de alguien de dentro.' });
     }
     try {
       const u = (await pool.query(
         'INSERT INTO users (email, name, is_admin) VALUES ($1, $2, $3) RETURNING id, email, name, is_admin, avatar_config',
         [email, name, count === 0])).rows[0];
+      // El primero lleva la empresa de partida; quien viene invitado entra en la suya.
+      if (count === 0) await addMember(pool, 1, u.id, 'admin');
+      if (inv) await useInvite(pool, inv, u.id);
       onUsersChanged();
       res.status(201).json({ user: u, token: sign(u) });
     } catch (e) {

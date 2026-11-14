@@ -118,14 +118,27 @@ const SCHEMAS = {
     additionalProperties: false,
   },
 };
+SCHEMAS.anuncio = {
+  type: 'object',
+  properties: {
+    titulo: { type: 'string', description: 'titular de la oferta, máx 60 caracteres' },
+    texto: { type: 'string', description: 'la oferta, de broma, máx 280 caracteres' },
+    requisitos: { type: 'array', items: { type: 'string' }, maxItems: 3 },
+  },
+  required: ['titulo', 'texto', 'requisitos'],
+  additionalProperties: false,
+};
+
 SCHEMAS.despertar_sin_sueno = (() => {
   const { sueno, ...properties } = SCHEMAS.despertar.properties; // eslint-disable-line no-unused-vars
   return { ...SCHEMAS.despertar, properties, required: SCHEMAS.despertar.required.filter(k => k !== 'sueno') };
 })();
 
 // El texto del bloque sale del horario configurado.
-function blockText(block) {
-  const { BLOCKS, SCHEDULE, fromMinutes } = require('../world/clock');
+function blockText(block, sch) {
+  const clock = require('../world/clock');
+  const { BLOCKS, SCHEDULE } = sch || clock.DEFAULT;
+  const { fromMinutes } = clock;
   if (block === 'manana') return `mañana, de ${fromMinutes(BLOCKS.manana.from)} a ${fromMinutes(BLOCKS.manana.to)}`;
   return `tarde, de ${fromMinutes(BLOCKS.tarde.from)} a ${fromMinutes(BLOCKS.tarde.to)} (empieza con ${SCHEDULE.lunchMin} min para comer); si hace horas extra, hasta las ${fromMinutes(BLOCKS.extra.to)}`;
 }
@@ -142,12 +155,13 @@ function contextLines({ yesterdayDiary, heard, character, weatherLine }) {
 }
 
 // remoteRule: 'puede' | 'no' (tope de la semana) | 'remoto' (ya decidido: teletrabaja hoy)
-function planRequest({ kind, character, cast, day, block, yesterdayDiary, heard, dream, weatherLine, remoteRule, extraRule = 'no' }) {
+function planRequest({ kind, character, cast, day, block, yesterdayDiary, heard, dream, weatherLine, remoteRule, extraRule = 'no', sch, workloadLine = '', company = '' }) {
   let where = kind === 'despertar'
     ? (remoteRule === 'puede' ? 'Hoy puede elegir teletrabajar o ir a la oficina (que lo decida su carácter, el tiempo y lo que tenga entre manos).' : 'Hoy le toca ir a la oficina.')
     : (remoteRule === 'remoto' ? 'Hoy teletrabaja desde casa.' : '');
   const prompt = [
-    `Día ${day}. Bloque: ${blockText(block)}.`,
+    `${company ? `Empresa: ${company}. ` : ''}Día ${day}. Bloque: ${blockText(block, sch)}.`,
+    workloadLine,
     contextLines({ yesterdayDiary, heard, character, weatherLine }),
     where,
     kind === 'despertar' ? (dream ? `Esta noche soñó: <sueno>${dream}</sueno>` : 'Esta noche no soñó nada.') : '',
@@ -185,6 +199,15 @@ function profileRequest({ name, answers }) {
   };
 }
 
+// Oferta de empleo DE BROMA para el tablón «Se busca personal» (una vez por vacante).
+function adRequest({ company, title }) {
+  return {
+    system: `${TONO}\nEscribes ofertas de empleo de broma, al estilo de un portal de empleo, para una oficina ficticia. Responde solo con el JSON pedido.`,
+    prompt: `Empresa: ${company}. Puesto: ${title}. Escribe la oferta: titular, texto (máx 280) y 3 requisitos absurdos pero blancos.`,
+    schema: SCHEMAS.anuncio,
+  };
+}
+
 function dreamHelpRequest({ character, cast, diary, draft }) {
   return {
     system: systemFor(character, cast),
@@ -195,4 +218,4 @@ function dreamHelpRequest({ character, cast, diary, draft }) {
   };
 }
 
-module.exports = { TONO, SCHEMAS, systemFor, planRequest, diaryRequest, profileRequest, dreamHelpRequest };
+module.exports = { TONO, SCHEMAS, systemFor, planRequest, diaryRequest, profileRequest, dreamHelpRequest, adRequest };
