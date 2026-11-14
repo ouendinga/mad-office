@@ -1,0 +1,86 @@
+{
+  "idea": "Mad Office como SaaS por empresa: oficina pixel art con caricaturas IA autónomas de los compañeros, para team building/cachondeo de equipos (B2B, una empresa-cliente = una oficina).",
+  "fecha": "2026-11-14",
+  "horizonte_meses": 24,
+  "entradas": {
+    "precio_unitario": {
+      "valor": 40.5,
+      "origen": "supuesto",
+      "nota": "49 €/mes IVA incluido por empresa de hasta 20 personas (40,5 € sin IVA). Ancla de la banda: Gather 12-15 $/usuario/mes (support.gather.town), WorkAdventure desde 5 €/usuario/mes (workadventu.re/pricing), Kumospace 16-20 $/plaza/mes (G2). Mad Office NO es herramienta de trabajo sino juego: se coloca muy por debajo de 'por usuario'."
+    },
+    "unidades_cliente_mes": { "valor": 1, "origen": "calculo", "nota": "una suscripción por empresa" },
+    "coste_variable_unidad": {
+      "valor": 11.7,
+      "origen": "calculo",
+      "nota": "IA por API (la suscripción de Claude no se puede revender): 0,025 $/personaje/día MEDIDO con Haiku (3 turnos × ~0,0075-0,008 $) × 22 días = 0,55 $/personaje/mes; 20 personas + 3 C-suite ficticios = 23 × 0,55 = 12,65 $ ≈ 11,7 €. Sin IVA (el proveedor factura fuera)."
+    },
+    "recurrente": { "valor": true, "origen": "calculo" },
+    "churn_mensual": {
+      "valor": 0.12,
+      "origen": "supuesto",
+      "nota": "producto de novedad: la gracia se gasta. 12 %/mes = vida media ~8 meses. Sin dato de churn de juegos sociales de oficina; corazonada"
+    },
+    "meses_hasta_primer_cliente": {
+      "valor": 4,
+      "origen": "supuesto",
+      "nota": "falta: multiempresa real, enlace mágico, pagos, IA por API con tope por cliente, aviso legal/RGPD con contrato de encargado, landing"
+    },
+    "clientes_nuevos_mes": {
+      "valor": 2,
+      "origen": "supuesto",
+      "nota": "B2B a RRHH sin llamada en frío (prohibida) ni anuncios caros: solo orgánico (LinkedIn, boca a boca, vídeos como hace Sandia). 2/mes es optimista para un canal que hoy no existe"
+    },
+    "techo_clientes": {
+      "valor": 150,
+      "origen": "supuesto",
+      "nota": "alcanzable sin equipo comercial en 24 meses; corazonada"
+    },
+    "inversion_inicial": {
+      "valor": 300,
+      "origen": "calculo",
+      "nota": "madoffice.app ~10 € con IVA (8,20 $ Cloudflare) + marca OEPM en 3 clases (9, 41, 42): 125,36 + 2 × 81,21 = 287,78 € (tarifa 2026, a reverificar). El VPS ya está pagado"
+    },
+    "coste_fijo_mes": {
+      "valor": 8,
+      "origen": "supuesto",
+      "nota": "parte del VPS compartido + correo transaccional del enlace mágico + dominio prorrateado"
+    },
+    "horas_setup": {
+      "valor": 160,
+      "origen": "calculo",
+      "nota": "multiempresa y aislamiento 30 h + enlace mágico 12 h + IA por API con tope por cliente 15 h + pagos (Stripe) y desistimiento 20 h + panel de RRHH/consentimientos 20 h + legal y textos 15 h + landing y vídeos 25 h + pruebas 23 h"
+    },
+    "horas_mes": {
+      "valor": 25,
+      "origen": "calculo",
+      "nota": "soporte 5 h + contenido para captar (vídeos/LinkedIn) 12 h + mantenimiento 5 h + moderación/quejas 3 h"
+    },
+    "valor_hora": { "valor": 30, "origen": "supuesto", "nota": "coste de oportunidad frente a Kynex y Cartego, como en el resto de estudios" }
+  },
+  "rubrica": {
+    "hueco_real": {
+      "valor": 4,
+      "nota": "buscado por el hueco (coworkers as AI characters, AI NPC coworkers, digital twin employees game): no hay producto vendido que convierta a TUS compañeros en personajes IA autónomos. Hay demos open source (AgentOffice, Synergy Labs, agents-in-the-office) y la patente de 'employee digital twins', ninguna a la venta"
+    },
+    "dolor_comprador": {
+      "valor": 1,
+      "nota": "las empresas SÍ gastan en team building (presencial 16-45 €/persona en Yumping) y en cultura remota (Donut, Gather), pero esto es entretenimiento: no quita ningún dolor medible. Nadie lo pide; gusta si lo ves"
+    },
+    "acceso_comprador": {
+      "valor": 1,
+      "nota": "el comprador B2B es RRHH, y la llamada en frío está prohibida; anuncios en LinkedIn caros para 49 €/mes. Lo único barato es el boca a boca dentro de empresas tech y contenido viral"
+    },
+    "defensa": {
+      "valor": 1,
+      "nota": "el patrón 'pueblo de agentes' es público desde Smallville (Stanford 2023, código abierto) y hay forks gratis; la defensa sería el tono y el pulido, copiables"
+    },
+    "regulacion": {
+      "valor": 1,
+      "nota": "caricaturas de trabajadores reales dentro del entorno laboral: el empleador como responsable del tratamiento no puede apoyarse en el consentimiento (EDPB 05/2020, desequilibrio de poder), riesgo de acoso/humillación y derecho al honor e imagen (LO 1/1982). Para selección de personal: alto riesgo del AI Act (anexo III.4) = veto"
+    },
+    "tendencia": {
+      "valor": 3,
+      "nota": "el interés por los agentes 'compañeros' crece (Microsoft Build 2026, Block Builderlab nov-2026) y el coste de IA baja; pero el hartazgo con la IA en el trabajo también crece"
+    }
+  }
+}
