@@ -54,7 +54,8 @@ function router({ onUsersChanged }) {
     const inv = req.body.invite ? await validInvite(pool, req.body.invite) : null;
     if (req.gateOpen === false) {
       // Desde fuera de la puerta: solo con invitación, y con contraseña propia para poder volver.
-      if (!inv) return res.status(403).json({ error: 'Para entrar hace falta una invitación de alguien de dentro.' });
+      // code 'puerta': el frontend vuelve a enseñar la puerta (el dueño entra por ahí).
+      if (!inv) return res.status(403).json({ error: 'Para entrar hace falta una invitación de alguien de dentro (o la contraseña de la oficina).', code: 'puerta' });
       const pe = passwordError(password);
       if (pe) return res.status(400).json({ error: pe });
     } else if (count > 0 && !inv && process.env.ALLOW_REGISTRATION !== 'true') {

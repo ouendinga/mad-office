@@ -6,7 +6,7 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 
 // needPassword: se llega sin la contraseña común (enlace de invitación o «Ya tengo cuenta»): la cuenta
 // se crea con contraseña propia y se entra con ella.
-export default function Landing({ onAuth, invite, needPassword = false, startWith = null, onBack = null }) {
+export default function Landing({ onAuth, invite, needPassword = false, startWith = null, onBack = null, onGate = null }) {
   const [modal, setModal] = useState(startWith || (needPassword && invite ? 'register' : null)); // 'login' | 'register' | null
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +32,7 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
         body: JSON.stringify({ email, name, ...(password ? { password } : {}), ...(invite ? { invite } : {}) })
       });
       const data = await res.json();
+      if (res.status === 403 && data.code === 'puerta' && onGate) return onGate();
       if (!res.ok) throw new Error(data.error);
       onAuth(data.user, data.token);
     } catch (err) {

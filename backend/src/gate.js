@@ -70,14 +70,20 @@ async function setPassword(pool, password) {
 
 // ¿Trae una sesión de alguien con cuenta? Quien ya tiene cuenta no necesita la contraseña común
 // (entró con una invitación o con la puerta, y su sesión lo dice).
-function bearerOk(req) {
+// Ojo: además de firmada, la cuenta tiene que existir (una sesión vieja de una base borrada dejaba
+// pasar la puerta y luego no se podía crear la cuenta: 2026-11-14).
+async function bearerOk(req) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Bearer ')) return false;
+  let id;
   try {
-    return !!jwt.verify(h.slice(7), process.env.JWT_SECRET).userId;
+    id = jwt.verify(h.slice(7), process.env.JWT_SECRET).userId;
   } catch {
     return false;
   }
+  if (!id) return false;
+  const r = await req.app.get('db').query('SELECT 1 FROM users WHERE id = $1', [id]);
+  return r.rows.length > 0;
 }
 
 // Rutas que no pasan por la puerta: salud, la propia puerta, el despertador (tiene su token), ver a
@@ -86,12 +92,17 @@ function bearerOk(req) {
 const OPEN = [/^\/api\/health$/, /^\/api\/gate$/, /^\/api\/runner\//, /^\/api\/auth\/(login|register)$/];
 const OPEN_GET = [/^\/api\/invitations\/[\w-]+$/];
 
-function middleware(req, res, next) {
+async function middleware(req, res, next) {
   // originalUrl: montado en /api, req.path ya no lleva el prefijo.
   const path = req.originalUrl.split('?')[0];
   req.gateOpen = !ENABLED || cookieOk(req.headers.cookie);
-  if (req.gateOpen || bearerOk(req) || OPEN.some(re => re.test(path))
+  if (req.gateOpen || OPEN.some(re => re.test(path))
     || (req.method === 'GET' && OPEN_GET.some(re => re.test(path)))) return next();
+  try {
+    if (await bearerOk(req)) return next();
+  } catch (e) {
+    return next(e);
+  }
   res.status(401).json({ error: 'Hace falta la contraseña de la oficina.', code: 'gate' });
 }
 
@@ -116,7 +127,7 @@ function router(express) {
   r.get('/', async (req, res) => {
     res.json({
       required: ENABLED,
-      open: cookieOk(req.headers.cookie) || bearerOk(req),
+      open: cookieOk(req.headers.cookie) || (await bearerOk(req)),
       configured: ENABLED ? !!(await storedHash(req.app.get('db'))) : true,
     });
   });

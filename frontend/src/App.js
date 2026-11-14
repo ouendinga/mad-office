@@ -125,7 +125,8 @@ export default function App() {
   if (!me) {
     return <Landing onAuth={(u, t) => { setGate({ ...gate, open: true }); onAuth(u, t); }} invite={pendingInvite()}
       needPassword={outside} startWith={outside && gate.mode === 'cuenta' ? 'login' : null}
-      onBack={outside ? () => { clearInvite(); setGate({ ...gate, mode: null }); } : null} />;
+      onBack={outside ? () => { clearInvite(); setGate({ ...gate, mode: null }); } : null}
+      onGate={() => { setToken(null); setGate({ ...gate, open: false, mode: null }); }} />;
   }
   const ownerBar = owner && (
     <div className="owner-bar" role="status">
