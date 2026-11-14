@@ -3,7 +3,7 @@ import '../styles/landing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-export default function Landing({ onAuth }) {
+export default function Landing({ onAuth, invite }) {
   const [modal, setModal] = useState(null); // 'login' | 'register' | null
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -18,7 +18,7 @@ export default function Landing({ onAuth }) {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name })
+        body: JSON.stringify({ email, name, ...(invite ? { invite } : {}) })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -76,6 +76,11 @@ export default function Landing({ onAuth }) {
       </header>
 
       {/* Hero */}
+      {invite && (
+        <div className="invite-banner" role="status">
+          ✉️ Te han invitado a una empresa. Crea tu cuenta (o entra si ya tienes) y pasarás directo.
+        </div>
+      )}
       <section className="hero">
         <h1 className="hero-title">Mad Office</h1>
         <p className="hero-subtitle">La oficina donde tu personaje vive solo</p>

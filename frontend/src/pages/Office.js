@@ -6,7 +6,7 @@ import { augmentWorld, DEMO } from '../canvas/demo';
 import { weatherLabel } from '../canvas/weather';
 import HomeStrip from '../components/HomeStrip';
 import { characterSprite } from '../engine/Character';
-import { api, getToken, waitTurn, WS_URL, HUMOR_EMOJI } from '../api';
+import { capi, getToken, waitTurn, WS_URL, HUMOR_EMOJI } from '../api';
 import '../styles/office.css';
 import '../styles/history.css';
 import StatsPentagon from '../components/StatsPentagon';
@@ -83,7 +83,9 @@ function fmtMorning(date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
+export default function Office({ me, company, onLogout, onEditAvatar, onHistory, onCompanies, onOrg, onCompanySettings }) {
+  const isAdmin = company.role === 'admin';
+  const placeLog = useRef(new Map()); // minuto → sitio de mi personaje (para «lo que sabe»)
   const [showSettings, setShowSettings] = useState(false);
   const canvasRef = useRef(null);
   const worldRef = useRef(null);
@@ -101,16 +103,32 @@ export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
 
   // Directo por socket.
   useEffect(() => {
-    api('/feed').then(setFeed).catch(() => {});
-    const socket = io(WS_URL || window.location.origin, { auth: { token: getToken() }, transports: ['websocket', 'polling'] });
+    capi('/feed').then(setFeed).catch(() => {});
+    const socket = io(WS_URL || window.location.origin, { auth: { token: getToken(), companyId: company.id }, transports: ['websocket', 'polling'] });
     socket.on('connect', () => setOffline(false));
     socket.on('disconnect', () => setOffline(true));
     socket.on('connect_error', () => setOffline(true));
-    socket.on('world', w => { const aw = augmentWorld(w); worldRef.current = aw; setWorld(aw); });
+    socket.on('world', w => {
+      const aw = augmentWorld(w);
+      worldRef.current = aw;
+      setWorld(aw);
+      // Dónde está mi personaje a cada minuto de hoy: así se sabe qué ha podido oír.
+      const mine = aw.characters.find(c => c.owner_user_id === me.user.id && !c.visitor);
+      if (mine && aw.clock) {
+        const [h, m] = aw.clock.hhmm.split(':').map(Number);
+        const where = mine.mode === 'remoto' ? 'casa' : mine.mode === 'oficina' ? roomOfPlace(mine.lugar) : null;
+        if (where) placeLog.current.set(`${aw.clock.date}|${h * 60 + m}`, where);
+      }
+    });
     // Los pensamientos (privados) van al historial, no a la radio.
-    socket.on('feed', item => { if (!item.private) setFeed(prev => [...prev, item].slice(-80)); });
+    socket.on('feed', item => {
+      if (item.private) return;
+      // Lo que llega en directo no trae el día: es el de hoy en la oficina.
+      const day = worldRef.current && worldRef.current.clock ? worldRef.current.clock.date : null;
+      setFeed(prev => [...prev, { office_day: day, ...item }].slice(-80));
+    });
     return () => socket.disconnect();
-  }, []);
+  }, [company.id, me.user.id]);
 
   // Bucle de dibujo.
   useEffect(() => {
@@ -142,9 +160,10 @@ export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
   }, []);
 
   const openCharacter = useCallback(async id => {
+    if (id < 0) return; // los visitantes no tienen ficha
     selectedIdRef.current = id;
     try {
-      setSelected(await api(`/characters/${id}`));
+      setSelected(await capi(`/characters/${id}`));
     } catch {
       setSelected(null);
     }
@@ -177,7 +196,7 @@ export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const mine = world && world.characters.find(c => c.owner_user_id === me.user.id);
+  const mine = world && world.characters.find(c => c.owner_user_id === me.user.id && !c.visitor);
   const clock = world && world.clock;
   const focused = focus && focus.charId != null && world ? world.characters.find(c => c.id === focus.charId) : null;
   const inStreet = showStreet(world, view);
@@ -188,7 +207,9 @@ export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
     <div className="office-page">
       <header className="office-header">
         <div className="office-header-left">
-          <span className="office-logo pixel-font">Mad Office</span>
+          <button type="button" className="office-company" onClick={onCompanies} title="Cambiar de empresa">
+            <span className="office-logo pixel-font">{company.name}</span> <span aria-hidden="true">▾</span>
+          </button>
           {clock && (
             <span className="office-clock" title={clock.date}>
               {WEEKDAYS[clock.weekday]} {clock.hhmm}
@@ -198,7 +219,9 @@ export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
         </div>
         <div className="office-header-right">
           <span className="office-user-name">{me.user.name}</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowSettings(true)}>⚙️ Oficina</button>
+          <button className="btn btn-ghost btn-sm" onClick={onOrg}>🗂️ Organigrama</button>
+          <button className="btn btn-ghost btn-sm" onClick={onCompanySettings}>🏢 Empresa</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowSettings(true)}>🌦️ Oficina</button>
           <button className="btn btn-ghost btn-sm" onClick={onEditAvatar}>Avatar</button>
           <button className="btn btn-ghost btn-sm" onClick={onLogout}>Salir</button>
         </div>
@@ -239,7 +262,7 @@ export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
                 </div>
               </div>
               <div className="lupa-actions">
-                {focused && <button type="button" className="btn btn-ghost btn-sm" onClick={() => openCharacter(focused.id)}>Ficha y diario</button>}
+                {focused && !focused.visitor && <button type="button" className="btn btn-ghost btn-sm" onClick={() => openCharacter(focused.id)}>Ficha y diario</button>}
                 <button type="button" className="lupa-close" aria-label="Cerrar" onClick={() => changeFocus(null)}>×</button>
               </div>
             </div>
@@ -247,9 +270,9 @@ export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
         </div>
 
         <aside className="office-sidebar">
-          <MyCharacter mine={mine} me={me} onHistory={onHistory} onOpen={() => mine && openCharacter(mine.id)} />
+          <MyCharacter mine={mine} isAdmin={isAdmin} onHistory={onHistory} onOpen={() => mine && openCharacter(mine.id)} />
           <DreamPanel clock={clock} />
-          <Feed feed={feed} />
+          <Feed feed={feed} mine={mine} placeLog={placeLog} />
         </aside>
       </div>
 
@@ -275,7 +298,7 @@ export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
           </div>
         </div>
       )}
-      {showSettings && <OfficeSettings isAdmin={me.user.is_admin} onClose={() => setShowSettings(false)} />}
+      {showSettings && <OfficeSettings isAdmin={isAdmin} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
@@ -306,10 +329,10 @@ function Bar({ label, value }) {
   );
 }
 
-function MyCharacter({ mine, me, onOpen, onHistory }) {
+function MyCharacter({ mine, isAdmin, onOpen, onHistory }) {
   const [usage, setUsage] = useState(null);
   useEffect(() => {
-    const load = () => api('/me/usage').then(setUsage).catch(() => {});
+    const load = () => capi('/me/usage').then(setUsage).catch(() => {});
     load();
     const t = setInterval(load, 60000);
     return () => clearInterval(t);
@@ -330,7 +353,7 @@ function MyCharacter({ mine, me, onOpen, onHistory }) {
       {usage && (
         <p className="mine-usage" title="Lo que lleva gastado hoy tu suscripción en esta oficina">
           IA hoy: {usage.calls} llamadas · {Number(usage.spent).toFixed(3)} $ de {usage.cap} $
-          {me.user.is_admin ? ' (incluye a los compañeros ficticios)' : ''}
+          {isAdmin ? ' (incluye a los C-suite ficticios)' : ''}
         </p>
       )}
     </section>
@@ -346,7 +369,7 @@ function DreamPanel({ clock }) {
   const [error, setError] = useState('');
   const open = clock ? clock.dreamOpen : false;
 
-  const load = useCallback(() => api('/me/dream').then(s => {
+  const load = useCallback(() => capi('/me/dream').then(s => {
     setState(s);
     setText(s.text || '');
     setSaved(s.text || '');
@@ -358,7 +381,7 @@ function DreamPanel({ clock }) {
     setBusy(true);
     setError('');
     try {
-      const r = await api('/me/dream', { method: 'PUT', body: { text } });
+      const r = await capi('/me/dream', { method: 'PUT', body: { text } });
       setSaved(r.text);
     } catch (e) {
       setError(e.message);
@@ -372,7 +395,7 @@ function DreamPanel({ clock }) {
     setError('');
     setHelp(null);
     try {
-      const r = await api('/me/dream/help', { method: 'POST', body: { draft: text } });
+      const r = await capi('/me/dream/help', { method: 'POST', body: { draft: text } });
       setHelp(await waitTurn(r.turnId, { onSlow: () => setError('La musa tarda… ¿está encendido el despertador?') }));
       setError('');
     } catch (e) {
@@ -425,12 +448,38 @@ function DreamPanel({ clock }) {
   );
 }
 
-function Feed({ feed }) {
-  const items = [...feed].reverse();
+// El sitio «acústico» de un lugar: las mesas (y las visitas a una mesa) son el open space.
+function roomOfPlace(lugar) {
+  return lugar === 'mesa' || lugar === 'visita' ? 'openspace' : lugar;
+}
+
+// ¿Lo sabe mi personaje? Lo que hizo él, lo que le dijeron y lo que pasó en su mismo sitio y a la
+// misma hora (según dónde le hemos visto mientras miramos). Lo de antes de abrir la página, solo lo suyo.
+function knows(f, mine, placeLog) {
+  if (!mine) return false;
+  if (f.character_id === mine.id || f.con_id === mine.id) return true;
+  if (f.min == null || !f.lugar || !f.office_day) return false;
+  const day = String(f.office_day).slice(0, 10);
+  for (const m of [f.min, f.min + 1, f.min - 1]) {
+    const where = placeLog.current.get(`${day}|${m}`);
+    if (where) return where !== 'casa' && where === roomOfPlace(f.lugar);
+  }
+  return false;
+}
+
+function Feed({ feed, mine, placeLog }) {
+  const [onlyMine, setOnlyMine] = useState(false);
+  const all = [...feed].reverse();
+  const items = onlyMine ? all.filter(f => knows(f, mine, placeLog)) : all;
   return (
     <section className="sidebar-section feed">
-      <h3 className="sidebar-title">📻 Radio pasillo</h3>
-      {items.length === 0 && <p className="muted">Silencio en la oficina… de momento.</p>}
+      <h3 className="sidebar-title">📻 Todo lo que pasa</h3>
+      <label className="feed-toggle">
+        <input type="checkbox" checked={onlyMine} onChange={e => setOnlyMine(e.target.checked)} />
+        {' '}Solo lo que sabe mi personaje
+      </label>
+      <p className="muted feed-hint">{onlyMine ? 'Lo que ha visto, oído o le han contado. El resto no lo sabe… todavía.' : 'Tú te enteras de todo; tu personaje, solo de lo que pasa cerca de él.'}</p>
+      {items.length === 0 && <p className="muted">{onlyMine ? 'Tu personaje no se ha enterado de nada. Bendita ignorancia.' : 'Silencio en la oficina… de momento.'}</p>}
       <ul className="feed-list">
         {items.map(f => (
           <li key={f.id} className={`feed-item feed-${f.kind}`}>

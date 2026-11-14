@@ -221,3 +221,11 @@
   .home-window figcaption { font-size: 0.62rem; }
   .view-switch { top: auto; bottom: 8px; right: 8px; }
 }
+
+.office-company { background: none; border: 0; color: inherit; cursor: pointer; padding: 0; font: inherit; display: inline-flex; align-items: center; gap: 0.35rem; }
+.office-company:hover .office-logo { color: var(--secondary); }
+.feed-toggle { display: flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer; }
+.feed-toggle input { accent-color: var(--primary); }
+.feed-hint { font-size: 0.75rem; margin: 0.2rem 0 0.6rem; }
+.feed-visita { color: #F2C14E; }
+.office-header-right { flex-wrap: wrap; justify-content: flex-end; }

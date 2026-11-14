@@ -16,6 +16,7 @@
 import officeMap from '../assets/maps/office.json';
 import { buildStatic, objectSprite, objectDef, roomAt, setSeason, T } from '../engine/OfficeArt';
 import { renderAvatar } from '../engine/SpriteSheet';
+import { drawVisitorProps } from '../engine/VisitorProps';
 import { characterSprite } from '../engine/Character';
 import { makeCanvas } from '../engine/pixel';
 import { SW, SH, paintBack, paintFurniture, paintLight, slotsFor, sceneDef } from '../engine/RoomScenes';
@@ -142,8 +143,11 @@ function paintScene(world, animFrame, now) {
       people.push({ c, p });
       items.push({
         y: p.y,
-        draw: () => renderAvatar(ctx, c.avatar_config || {}, Math.round(p.x - 16), Math.round(p.y - 30), 1,
-          animFrame, p.moving ? 'paseando' : c.action, c.representation),
+        draw: () => {
+          renderAvatar(ctx, c.avatar_config || {}, Math.round(p.x - 16), Math.round(p.y - 30), 1,
+            animFrame, p.moving ? 'paseando' : c.action, c.representation);
+          if (c.visitor) drawVisitorProps(ctx, c.visitor.kind, Math.round(p.x - 16), Math.round(p.y - 30));
+        },
       });
     }
   }
@@ -321,7 +325,9 @@ function drawRoomLens(ctx, w, h, focus, world, people, now, animFrame) {
     lc.beginPath(); lc.ellipse(x, y, 8, 2, 0, 0, Math.PI * 2); lc.fill();
     const spr = characterSprite(c.avatar_config || {}, 'idle');
     lc.imageSmoothingEnabled = false;
-    lc.drawImage(spr, Math.round(x - 16), Math.round(y - 30 - (c.id % 2 ? breathe : 1 - breathe)));
+    const dy = Math.round(y - 30 - (Math.abs(c.id) % 2 ? breathe : 1 - breathe));
+    lc.drawImage(spr, Math.round(x - 16), dy);
+    if (c.visitor) drawVisitorProps(lc, c.visitor.kind, Math.round(x - 16), dy);
   };
   // fila de atrás → muebles de delante → fila de delante → luz
   const byDepth = (a, b) => a.y - b.y;

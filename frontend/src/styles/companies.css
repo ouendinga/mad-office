@@ -1,0 +1,74 @@
+/* Mis empresas, organigrama y ajustes de empresa */
+.cos { min-height: 100vh; background: var(--bg-dark); }
+.cos-head { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1.25rem; background: var(--bg-card); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.cos-logo { font-size: 0.75rem; color: var(--primary-light); }
+.cos-user { color: var(--text-secondary); font-size: 0.9rem; }
+.cos-spacer { flex: 1; }
+.cos-main { max-width: 960px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+.cos-title { font-size: 1.2rem; margin-bottom: 0.4rem; }
+.cos-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+.cos-notice { background: rgba(0, 184, 148, 0.12); border: 1px solid var(--success); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; margin-bottom: 1rem; }
+.cos-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+.cos-card { display: flex; align-items: center; gap: 0.75rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem 1rem; }
+.cos-card-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.cos-form { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; max-width: 560px; display: flex; flex-direction: column; gap: 0.9rem; }
+.cos-radio { border: 0; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.9rem; color: var(--text-secondary); }
+.cos-radio legend { font-weight: 600; color: var(--text-primary); margin-bottom: 0.3rem; }
+.cos-radio input { accent-color: var(--primary); margin-right: 0.35rem; }
+
+/* Tablón de empleo: anuncios de portal, de broma */
+.job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.9rem; }
+.job-card { background: #FFFDF6; color: #2A2333; border-radius: 6px; padding: 0.9rem 1rem; box-shadow: 0 0 0 2px #2A1F2D, 4px 4px 0 #2A1F2D; display: flex; flex-direction: column; gap: 0.35rem; }
+.job-company { font: 700 0.7rem Inter, sans-serif; text-transform: uppercase; letter-spacing: 1px; color: #8A5A2B; }
+.job-title { font-size: 1rem; line-height: 1.25; }
+.job-position { font-size: 0.8rem; font-weight: 600; color: #6C5CE7; }
+.job-text { font-size: 0.86rem; color: #463D52; }
+.job-reqs { margin: 0 0 0.4rem 1rem; font-size: 0.8rem; color: #463D52; }
+.job-card .muted { color: #8A8396; }
+.job-card .btn { align-self: flex-start; }
+
+/* Organigrama */
+.org-tree, .org-tree ul { list-style: none; }
+.org-tree ul { margin-left: 1.1rem; padding-left: 0.9rem; border-left: 2px dashed var(--border); }
+.org-node { margin: 0.45rem 0; }
+.org-card { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.55rem 0.75rem; }
+.org-card.is-mine { border-color: var(--secondary); box-shadow: 0 0 0 1px var(--secondary) inset; }
+.org-card.is-csuite { border-color: var(--warning); }
+.org-title { font-weight: 700; min-width: 140px; }
+.org-tags { font-size: 0.72rem; color: var(--text-muted); }
+.org-holders { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1; }
+.org-holder { display: inline-flex; align-items: center; gap: 0.3rem; background: var(--bg-surface); border-radius: 999px; padding: 0.1rem 0.55rem 0.1rem 0.15rem; font-size: 0.82rem; }
+.org-holder canvas { width: 24px; height: 24px; image-rendering: pixelated; }
+.org-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.org-requests { background: rgba(253, 203, 110, 0.1); border: 1px solid var(--warning); border-radius: var(--radius-sm); padding: 0.7rem 0.9rem; margin-bottom: 1rem; }
+.org-requests li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.3rem 0; list-style: none; }
+.org-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.6rem; background: var(--bg-surface); border-radius: var(--radius-sm); padding: 0.8rem; margin: 0.4rem 0 0.6rem; }
+.org-form label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: var(--text-secondary); }
+.org-form .org-check { flex-direction: row; align-items: center; gap: 0.4rem; }
+.org-form input, .org-form select { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 0.35rem 0.5rem; font: inherit; }
+
+/* Ajustes de empresa */
+.set-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; margin-bottom: 1rem; }
+.set-section h2 { font-size: 1rem; margin-bottom: 0.6rem; }
+.set-row { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: flex-end; margin-bottom: 0.6rem; }
+.set-row label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem; color: var(--text-secondary); }
+.set-row input[type=text], .set-row input[type=number], .set-row input[type=time], .set-row select {
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 0.4rem 0.55rem; font: inherit;
+}
+.set-days { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.cal { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.35rem; }
+.cal-head { font-size: 0.72rem; color: var(--text-muted); text-align: center; }
+.cal-day { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.35rem; min-height: 54px; text-align: left; background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 0.75rem; cursor: pointer; }
+.cal-day:disabled { cursor: default; }
+.cal-day.lvl-0 { background: rgba(0, 206, 201, 0.12); }
+.cal-day.lvl-2 { background: rgba(253, 203, 110, 0.22); border-color: var(--warning); }
+.cal-day.lvl-3 { background: rgba(225, 112, 85, 0.3); border-color: var(--danger); }
+.cal-day.is-today { box-shadow: 0 0 0 2px var(--primary) inset; }
+.cal-num { font-weight: 700; }
+.cal-note { display: block; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inv-link { font-family: monospace; font-size: 0.8rem; background: var(--bg-surface); padding: 0.2rem 0.4rem; border-radius: 4px; word-break: break-all; }
+
+@media (max-width: 640px) {
+  .org-title { min-width: 0; }
+  .cal-day { min-height: 44px; font-size: 0.68rem; }
+}
