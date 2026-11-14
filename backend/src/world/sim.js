@@ -324,6 +324,10 @@ class Sim {
     this.io.emit('world', {
       clock: {
         date: day, hhmm: p.hhmm, weekday: p.weekday, block, phase,
+        // Franja del trayecto en curso y horario, para que la calle y la UI no supongan 9-18.
+        commute: phase === 'ida' ? { from: clockLib.COMMUTE.ida, to: clockLib.BLOCKS.manana.from }
+          : phase === 'vuelta' ? { from: clockLib.BLOCKS.tarde.to, to: clockLib.COMMUTE.vuelta } : null,
+        schedule: { start: clockLib.fromMinutes(clockLib.SCHEDULE.start), end: clockLib.fromMinutes(clockLib.SCHEDULE.end) },
         dreamOpen: dreamWindowOpen(p), nextMorning: nextMorning(p),
         weather: w ? { temp: w.temp, code: w.code, desc: w.desc, precip: w.precip, wind: w.wind, isDay: w.isDay } : null,
         season: weatherLib.season(day, loc.lat),

@@ -7,34 +7,50 @@
  *
  * Coordenadas: el servidor manda píxeles de mundo (32 por casilla, los pies del personaje);
  * aquí se dividen entre 2.
+ *
+ * El tiempo (clock.weather) y la estación (clock.season) cambian el dibujo: cristales de las
+ * ventanas, terraza, árboles con viento. Al hacer clic en una sala se abre su vista de frente
+ * (engine/RoomScenes) dentro de un círculo, como una lupa.
  */
 
 import officeMap from '../assets/maps/office.json';
-import { buildStatic, objectSprite, objectDef, roomAt, T } from '../engine/OfficeArt';
+import { buildStatic, objectSprite, objectDef, roomAt, setSeason, T } from '../engine/OfficeArt';
 import { renderAvatar } from '../engine/SpriteSheet';
+import { characterSprite } from '../engine/Character';
 import { makeCanvas } from '../engine/pixel';
+import { SW, SH, paintBack, paintFurniture, paintLight, slotsFor, sceneDef } from '../engine/RoomScenes';
+import { weatherKind, isWindy, drawPrecip, drawOutdoorTint, drawWindowGlass, seasonOf } from './weather';
 
 export const ART_W = officeMap.cols * T;
 export const ART_H = officeMap.rows * T;
 const WORLD_TO_ART = 0.5;
+// La terraza y el césped (lo que está a la intemperie), en px de arte.
+const OUTDOOR = { x: 32 * T, y: 0, w: (officeMap.cols - 32) * T, h: ART_H };
 
 let staticLayer = null;
 let scene = null;
+let lensScene = null;
 let dynamicObjects = [];
 let overlayObjects = [];
+let windows = [];
 let lights = [];
 let view = { scale: 1, ox: 0, oy: 0 };
+let lens = null; // última lupa pintada (para los clics): {cx, cy, R, k, x0, y0, people:[{id, x, y}]}
 const shown = {}; // id -> {x, y, moving} en píxeles de arte
 
-function init() {
-  if (staticLayer) return;
+function rebuild() {
   staticLayer = buildStatic(officeMap);
+  dynamicObjects = [];
+  overlayObjects = [];
+  windows = [];
+  lights = [];
   const sctx = staticLayer.getContext('2d');
   officeMap.objects.forEach((o, i) => {
     const d = objectDef(o.type);
     if (!d) return;
     const base = { o, seed: i + 1, d, x: o.x * T, y: o.y * T, baseY: (o.y + (o.h || 1)) * T };
     if (d.light) lights.push({ x: o.x * T + d.light.dx, y: o.y * T + d.light.dy, r: d.light.r, color: d.light.color || '255,214,140' });
+    if (o.type === 'wall_window') windows.push({ x: o.x * T + 2, y: o.y * T + 2, w: (o.w || 1) * T - 4, h: 10 });
     if (d.flat || d.wall) {
       const s = objectSprite(o, i + 1);
       sctx.drawImage(s.canvas, base.x + s.dx, base.y + s.dy);
@@ -45,8 +61,14 @@ function init() {
       dynamicObjects.push(base);
     }
   });
-  // Ventanas: de noche dejan una luz azulada de la calle.
-  scene = makeCanvas(ART_W, ART_H);
+  if (!scene) scene = makeCanvas(ART_W, ART_H);
+}
+
+function ensure(world) {
+  const season = (world && world.clock && (world.clock.season || seasonOf(world.clock.date))) || 'otono';
+  const changed = setSeason(season);
+  if (!staticLayer || changed) rebuild();
+  if (!lensScene) lensScene = makeCanvas(SW, SH);
 }
 
 function step(c) {
@@ -65,24 +87,57 @@ function step(c) {
   return p;
 }
 
-function drawSprite(ctx, item, now) {
+function drawSprite(ctx, item, now, wind) {
   const frames = item.d.frames || 1;
   const frame = frames > 1 ? Math.floor(now / 650 + item.seed) % frames : 0;
   const s = objectSprite(item.o, item.seed, frame);
+  if (wind && item.o.type === 'tree') {
+    // con viento, la copa se mece: inclinación desde la base del tronco
+    const skew = Math.sin(now / 420 + item.seed) * 0.09 * wind;
+    const baseY = item.y + s.dy + s.canvas.height;
+    ctx.save();
+    ctx.translate(item.x + s.dx, baseY);
+    ctx.transform(1, 0, skew, 1, 0, 0);
+    ctx.drawImage(s.canvas, 0, -s.canvas.height);
+    ctx.restore();
+    return;
+  }
   ctx.drawImage(s.canvas, item.x + s.dx, item.y + s.dy);
+}
+
+function minutesOf(clock) {
+  const [h, m] = String((clock && clock.hhmm) || '12:00').split(':').map(Number);
+  return h * 60 + m;
+}
+
+// ¿Está en la oficina? Con el contrato nuevo manda `mode`; sin él, `home`.
+export function inOffice(c) {
+  if (c.mode) return c.mode === 'oficina' && c.x != null;
+  return !c.home && c.x != null;
 }
 
 function paintScene(world, animFrame, now) {
   const ctx = scene.ctx;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(staticLayer, 0, 0);
-  const night = !world || world.clock.block === 'noche';
+  const clock = world && world.clock;
+  const night = !world || clock.block === 'noche';
+  const w = clock && clock.weather;
+  const env = { w, season: clock && (clock.season || seasonOf(clock.date)), minutes: minutesOf(clock), now };
 
-  const items = dynamicObjects.map(o => ({ y: o.baseY, draw: () => drawSprite(ctx, o, now) }));
+  // cristales: cielo, nubes, lluvia… de verdad
+  for (const win of windows) {
+    drawWindowGlass(ctx, win.x, win.y, win.w, win.h, env);
+    ctx.fillStyle = '#F0E8D8';
+    ctx.fillRect(win.x + Math.floor(win.w / 2), win.y, 1, win.h);
+  }
+
+  const wind = isWindy(w) ? Math.min(2, Number(w.wind) / 30) : 0.25;
+  const items = dynamicObjects.map(o => ({ y: o.baseY, draw: () => drawSprite(ctx, o, now, wind) }));
   const people = [];
   if (world && !night) {
     for (const c of world.characters) {
-      if (c.home) continue;
+      if (!inOffice(c)) continue;
       const p = step(c);
       people.push({ c, p });
       items.push({
@@ -94,7 +149,11 @@ function paintScene(world, animFrame, now) {
   }
   items.sort((a, b) => a.y - b.y);
   for (const it of items) it.draw();
-  for (const o of overlayObjects) drawSprite(ctx, o, now);
+  for (const o of overlayObjects) drawSprite(ctx, o, now, 0);
+
+  // la intemperie: tinte del día, nieve acumulada, calor y lo que caiga
+  drawOutdoorTint(ctx, OUTDOOR, w, now);
+  drawPrecip(ctx, OUTDOOR, weatherKind(w), now, { wind: w ? w.wind : 0 });
 
   if (night) {
     ctx.fillStyle = 'rgba(14, 20, 62, 0.62)';
@@ -141,9 +200,9 @@ function wrap(ctx, text, maxW) {
 }
 
 // Bocadillo de cómic con borde «pixelado»: esquinas recortadas y rabito.
-function bubble(ctx, text, cx, bottom) {
-  ctx.font = '600 12px Inter, sans-serif';
-  const lines = wrap(ctx, text, 190);
+export function bubble(ctx, text, cx, bottom, { maxW = 190, thought = false } = {}) {
+  ctx.font = `${thought ? 'italic ' : ''}600 12px Inter, sans-serif`;
+  const lines = wrap(ctx, text, maxW);
   const w = Math.ceil(Math.max(...lines.map(l => ctx.measureText(l).width))) + 18;
   const h = lines.length * 15 + 12;
   const x = Math.round(Math.min(Math.max(cx - w / 2, 4), ctx.canvas.width - w - 4));
@@ -169,8 +228,16 @@ function bubble(ctx, text, cx, bottom) {
   lines.forEach((l, i) => ctx.fillText(l, x + 9, y + 18 + i * 15));
 }
 
-export function renderOffice(ctx, canvas, world, animFrame, selectedId) {
-  init();
+// Texto corto para el indicador de llamada.
+export function callText(c, world) {
+  if (!c.call) return null;
+  if (c.call.externo) return `📞 ${c.call.externo}`;
+  const o = world && world.characters.find(x => x.id === c.call.with);
+  return o ? `📞 con ${o.name}` : '📞 en llamada';
+}
+
+export function renderOffice(ctx, canvas, world, animFrame, focus) {
+  ensure(world);
   const now = performance.now();
   const w = canvas.width;
   const h = canvas.height;
@@ -195,50 +262,135 @@ export function renderOffice(ctx, canvas, world, animFrame, selectedId) {
     pill(ctx, r.label, x, y, { font: '700 10px Inter, sans-serif', bg: 'rgba(30,22,40,0.62)' });
   }
 
-  // Nombres y bocadillos
+  const focusId = focus && focus.charId;
+  // Nombres, llamadas y bocadillos
   for (const { c, p } of people) {
     const [x, y] = S(p.x, p.y);
-    const isSel = c.id === selectedId;
+    const isSel = c.id === focusId;
     pill(ctx, c.name, x, y + 3, {
       font: '700 10px Inter, sans-serif',
       bg: isSel ? 'rgba(242,193,78,0.95)' : 'rgba(30,22,40,0.72)',
       fg: isSel ? '#2A1F2D' : '#FFFFFF',
     });
+    const ct = callText(c, world);
+    if (ct) pill(ctx, ct, x, y - 33 * scale - 20, { font: '700 10px Inter, sans-serif', bg: 'rgba(46,138,90,0.92)' });
   }
-  for (const { c, p } of people) {
-    if (!c.bubble || c.id === selectedId) continue;
-    const [x, y] = S(p.x, p.y - 31);
-    bubble(ctx, c.bubble, x, y);
+  if (!focus) {
+    for (const { c, p } of people) {
+      if (!c.bubble) continue;
+      const [x, y] = S(p.x, p.y - 31);
+      bubble(ctx, c.bubble, x, y - (c.call ? 20 : 0));
+    }
   }
 
-  if (selectedId != null) {
-    const sel = people.find(x => x.c.id === selectedId);
-    if (sel) drawLupa(ctx, w, h, sel.p, scale);
-  }
+  lens = null;
+  if (focus && focus.room) drawRoomLens(ctx, w, h, focus, world, people, now, animFrame);
 }
 
-// La «lupa»: la sala vista de cerca, en un círculo, con el resto de la oficina en penumbra.
-function drawLupa(ctx, w, h, p, scale) {
-  const R = Math.round(Math.min(w, h) * 0.3);
+// Sala de un personaje según su posición en el mapa.
+export function roomIdOf(c) {
+  const s = shown[c.id] || { x: c.x * WORLD_TO_ART, y: c.y * WORLD_TO_ART };
+  const r = roomAt(officeMap, Math.floor(s.x / T), Math.floor((s.y - 1) / T));
+  if (r) return r.id;
+  return Math.floor(s.x / T) >= 32 ? 'terraza' : 'pasillo';
+}
+
+// La «lupa»: la sala vista de frente, en un círculo, con el resto de la oficina en penumbra.
+function drawRoomLens(ctx, w, h, focus, world, people, now, animFrame) {
+  const roomId = focus.room;
+  const clock = world && world.clock;
+  const env = {
+    w: clock && clock.weather,
+    season: clock && (clock.season || seasonOf(clock.date)),
+    minutes: minutesOf(clock),
+    now,
+    night: !world || (clock && clock.block === 'noche'),
+  };
+  const here = people.filter(x => roomIdOf(x.c) === roomId).map(x => x.c);
+  // el enfocado, primero (le toca el mejor sitio)
+  here.sort((a, b) => (a.id === focus.charId ? -1 : b.id === focus.charId ? 1 : a.id - b.id));
+  const def = sceneDef(roomId);
+  const slots = slotsFor(roomId, here.length);
+  const placed = here.map((c, i) => ({ c, x: slots[i][0], y: slots[i][1], seated: slots[i][2] === 0 && def.seatsBehind }));
+
+  const lc = lensScene.ctx;
+  paintBack(lc, roomId, env);
+  const breathe = Math.floor(now / 700) % 2;
+  const drawPerson = ({ c, x, y }) => {
+    lc.fillStyle = 'rgba(30,15,30,0.25)';
+    lc.beginPath(); lc.ellipse(x, y, 8, 2, 0, 0, Math.PI * 2); lc.fill();
+    const spr = characterSprite(c.avatar_config || {}, 'idle');
+    lc.imageSmoothingEnabled = false;
+    lc.drawImage(spr, Math.round(x - 16), Math.round(y - 30 - (c.id % 2 ? breathe : 1 - breathe)));
+  };
+  // fila de atrás → muebles de delante → fila de delante → luz
+  const byDepth = (a, b) => a.y - b.y;
+  placed.filter(p => p.seated).sort(byDepth).forEach(drawPerson);
+  paintFurniture(lc, roomId, env);
+  placed.filter(p => !p.seated).sort(byDepth).forEach(drawPerson);
+  paintLight(lc, roomId, env);
+
+  const R = Math.round(Math.min(w * 0.4, h * 0.44));
   const cx = Math.round(w / 2);
-  const cy = Math.round(h / 2 + R * 0.25);
-  const zoom = Math.max(scale * 2.2, 3); // px de pantalla por px de arte
-  const half = R / zoom;
+  const cy = Math.round(h / 2 + Math.min(40, h * 0.06));
+  const k = (2 * R) / SH; // px de pantalla por px de arte
+  const x0 = cx - (SW * k) / 2;
+  const y0 = cy - R;
   ctx.save();
-  ctx.fillStyle = 'rgba(10,8,20,0.45)';
+  ctx.fillStyle = 'rgba(10,8,20,0.55)';
   ctx.fillRect(0, 0, w, h);
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
   ctx.clip();
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(scene.canvas, p.x - half, p.y - 12 - half, half * 2, half * 2, cx - R, cy - R, R * 2, R * 2);
+  ctx.drawImage(lensScene.canvas, x0, y0, SW * k, SH * k);
   ctx.restore();
-  ctx.lineWidth = 6;
+  ctx.lineWidth = 7;
   ctx.strokeStyle = '#2A1F2D';
   ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.strokeStyle = '#F2C14E';
-  ctx.beginPath(); ctx.arc(cx, cy, R + 3, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R + 4, 0, Math.PI * 2); ctx.stroke();
+
+  // rótulo de la sala abajo del círculo
+  pill(ctx, def.label || 'Pasillo', cx, cy + R - 30, { font: '800 12px Inter, sans-serif', bg: 'rgba(30,22,40,0.85)' });
+
+  // nombres, llamadas y bocadillos a resolución de pantalla
+  const toScreen = (x, y) => [x0 + x * k, y0 + y * k];
+  for (const { c, x, y, seated } of placed) {
+    // a los que están sentados tras una mesa, el nombre encima de la cabeza (los pies no se ven)
+    const [sx, sy] = seated ? toScreen(x, y - 34) : toScreen(x, y);
+    const isSel = c.id === focus.charId;
+    pill(ctx, c.name, sx, sy + (seated ? -18 : 2), {
+      font: '700 11px Inter, sans-serif',
+      bg: isSel ? 'rgba(242,193,78,0.95)' : 'rgba(30,22,40,0.8)',
+      fg: isSel ? '#2A1F2D' : '#FFFFFF',
+    });
+  }
+  // de izquierda a derecha, alternando la altura para que los bocadillos no se pisen
+  placed.slice().sort((a, b) => a.x - b.x).forEach(({ c, x, y, seated }, i) => {
+    const [sx, sy0] = toScreen(x, y - 32);
+    const sy = sy0 - (seated ? 22 : 0);
+    const ct = callText(c, world);
+    const lift = (i % 2) * 40;
+    if (ct) pill(ctx, ct, sx, sy - 20, { font: '700 10px Inter, sans-serif', bg: 'rgba(46,138,90,0.92)' });
+    if (c.bubble) bubble(ctx, c.bubble, sx, sy - (ct ? 22 : 0) - lift, { maxW: 150 });
+  });
+  if (!placed.length) {
+    pill(ctx, 'Aquí no hay nadie ahora mismo', cx, cy - 10, { font: '700 12px Inter, sans-serif', bg: 'rgba(30,22,40,0.85)' });
+  }
+  lens = { cx, cy, R, people: placed.map(({ c, x, y }) => ({ id: c.id, ...(() => { const [sx, sy] = toScreen(x, y); return { sx, sy }; })() })), k };
+  void animFrame;
+}
+
+// Clic con la lupa abierta: dentro del círculo, ¿sobre quién? Fuera, null.
+export function pickInLens(sx, sy) {
+  if (!lens) return null;
+  if (Math.hypot(sx - lens.cx, sy - lens.cy) > lens.R) return { outside: true };
+  const hit = lens.people
+    .filter(p => Math.abs(sx - p.sx) <= 9 * lens.k && sy <= p.sy + 4 && sy >= p.sy - 32 * lens.k)
+    .sort((a, b) => b.sy - a.sy)[0];
+  return { charId: hit ? hit.id : null };
 }
 
 // Personaje bajo el ratón (coordenadas de pantalla del canvas).
@@ -246,7 +398,7 @@ export function pickAt(world, sx, sy) {
   if (!world) return null;
   const ax = (sx - view.ox) / view.scale;
   const ay = (sy - view.oy) / view.scale;
-  const hits = world.characters.filter(c => !c.home && shown[c.id]).filter(c => {
+  const hits = world.characters.filter(c => inOffice(c) && shown[c.id]).filter(c => {
     const s = shown[c.id];
     return Math.abs(ax - s.x) <= 10 && ay >= s.y - 30 && ay <= s.y + 6;
   });
@@ -254,9 +406,23 @@ export function pickAt(world, sx, sy) {
   return hits[0] || null;
 }
 
+// Sala bajo el ratón (id) o null si es pared o fuera del mapa.
+export function pickRoomAt(sx, sy) {
+  const ax = (sx - view.ox) / view.scale;
+  const ay = (sy - view.oy) / view.scale;
+  const tx = Math.floor(ax / T);
+  const ty = Math.floor(ay / T);
+  if (tx < 0 || ty < 0 || tx >= officeMap.cols || ty >= officeMap.rows) return null;
+  const r = roomAt(officeMap, tx, ty);
+  if (r) return r.id;
+  return tx >= 32 ? 'terraza' : null;
+}
+
 // Nombre de la sala donde está un personaje (para la caja de diálogo).
 export function roomLabelOf(c) {
-  const s = shown[c.id] || { x: c.x * WORLD_TO_ART, y: c.y * WORLD_TO_ART };
-  const r = roomAt(officeMap, Math.floor(s.x / T), Math.floor((s.y - 1) / T));
-  return r ? (r.label || 'Pasillo') : 'Pasillo';
+  return sceneDef(roomIdOf(c)).label || 'Pasillo';
+}
+
+export function roomLabel(roomId) {
+  return sceneDef(roomId).label || 'Pasillo';
 }
