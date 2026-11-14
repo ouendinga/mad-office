@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const clock = require('../src/world/clock');
 const gm = require('../src/world/gameMaster');
 const { autopilotPlan } = require('../src/world/autopilot');
+const { PLACES } = require('../src/world/places');
 
 const at = iso => clock.parts(Date.parse(iso));
 
@@ -97,7 +98,7 @@ test('piloto automático: determinista, dentro del bloque y con lugares válidos
   assert.deepEqual(a, autopilotPlan(c, '2026-11-12', 'manana'));
   assert.equal(a[0].hora, '09:00');
   for (const x of [...a, ...autopilotPlan(c, '2026-11-12', 'tarde')]) {
-    assert.ok(['mesa', 'cafe', 'reuniones', 'lavabo'].includes(x.lugar));
+    assert.ok(PLACES.includes(x.lugar));
   }
   assert.ok(autopilotPlan(c, '2026-11-12', 'tarde').every(x => x.min >= 840 - 10 && x.min < 1080));
 });

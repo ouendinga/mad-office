@@ -17,15 +17,15 @@ function rng(seedStr) {
 const TEMPLATES = {
   manana: [
     { min: 540, lugar: 'mesa', que: 'Llega y enciende el ordenador' },
-    { min: 630, lugar: 'cafe', que: 'Primer café del día' },
+    { min: 630, lugar: ['cafe', 'cafe', 'terraza'], que: ['Primer café del día', 'Café y cotilleo en la cocina', 'Café al sol en la terraza'] },
     { min: 660, lugar: 'mesa', que: 'Trabaja (más o menos)' },
-    { min: 735, lugar: ['reuniones', 'lavabo', 'cafe'], que: ['Reunión que podía ser un correo', 'Escapada estratégica', 'Segundo café, por si acaso'] },
+    { min: 735, lugar: ['reuniones', 'lavabo', 'recepcion', 'servidores'], que: ['Reunión que podía ser un correo', 'Escapada estratégica', 'Va a ver si ha llegado un paquete', 'Va a mirar por qué parpadea una luz'] },
     { min: 780, lugar: 'mesa', que: 'Hace como que contesta correos' },
   ],
   tarde: [
-    { min: 840, lugar: 'cafe', que: 'Come de táper' },
+    { min: 840, lugar: ['cafe', 'terraza', 'cafe'], que: ['Come de táper', 'Come al aire libre', 'Calienta el táper en el micro'] },
     { min: 900, lugar: 'mesa', que: 'Lucha contra la modorra' },
-    { min: 990, lugar: ['cafe', 'lavabo', 'reuniones'], que: ['Café de emergencia', 'Se pierde un rato', 'Reunión de seguimiento del seguimiento'] },
+    { min: 990, lugar: ['descanso', 'lavabo', 'reuniones', 'despacho'], que: ['Siestecilla en el puf', 'Se pierde un rato', 'Reunión de seguimiento del seguimiento', 'Le llaman al despacho del jefe'] },
     { min: 1020, lugar: 'mesa', que: 'Recta final del día' },
   ],
 };

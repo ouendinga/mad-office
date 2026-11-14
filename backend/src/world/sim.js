@@ -199,7 +199,8 @@ class Sim {
 
   async onActionStart(c, a, cast, day) {
     const cafe = a.lugar === 'cafe' ? Math.min(10, c.cafe + 4) : Math.max(0, c.cafe - 1);
-    const energia = a.lugar === 'cafe' ? Math.min(10, c.energia + 1) : Math.max(0, c.energia - 1);
+    // Cocina, sofás y terraza recargan; lo demás cansa.
+    const energia = ['cafe', 'descanso', 'terraza'].includes(a.lugar) ? Math.min(10, c.energia + 1) : Math.max(0, c.energia - 1);
     c.cafe = cafe;
     c.energia = energia;
     await this.pool.query('UPDATE characters SET cafe = $2, energia = $3 WHERE id = $1', [c.id, cafe, energia]);
