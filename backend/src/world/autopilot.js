@@ -1,7 +1,7 @@
 // Piloto automático: el día sin IA. No gasta nada. Lo usa el personaje mientras su turno
 // está en cola, si no hay despertador encendido o si se ha gastado el tope.
 
-const { fromMinutes } = require('./clock');
+const { fromMinutes, BLOCKS, SCHEDULE } = require('./clock');
 
 // Generador determinista por personaje y día, para que el plan no cambie al reiniciar.
 function rng(seedStr) {
@@ -30,18 +30,38 @@ const TEMPLATES = {
   ],
 };
 
+// Las plantillas están escritas para el horario por defecto (9-14 y 14-18, comida a las 14:00
+// de 60 min). Se llevan al horario configurado proporcionalmente: la comida, siempre al empezar
+// la tarde, y lo de después de comer repartido entre el final de la comida y la salida.
+function toSchedule(block, min) {
+  if (block === 'manana') {
+    return Math.round(BLOCKS.manana.from + ((min - 540) / 300) * (BLOCKS.manana.to - BLOCKS.manana.from));
+  }
+  if (min <= 840) return BLOCKS.tarde.from;
+  const after = BLOCKS.tarde.from + SCHEDULE.lunchMin;
+  return Math.round(after + ((min - 900) / 180) * (BLOCKS.tarde.to - after));
+}
+
 function pick(v, i) {
   return Array.isArray(v) ? v[i % v.length] : v;
 }
 
-function autopilotPlan(character, day, block) {
+// Día de teletrabajo sin IA: todo en casa.
+const REMOTE = {
+  manana: ['Abre el portátil en pijama', 'Café en su taza de casa', 'Trabaja con la tele de fondo', 'Pone la lavadora entre reunión y reunión', 'Contesta correos desde el sofá'],
+  tarde: ['Come en la cocina de casa', 'Lucha contra la siesta', 'Pasea al perro (o al vecino)', 'Recta final con la cámara apagada'],
+};
+
+function autopilotPlan(character, day, block, { remote = false } = {}) {
   const r = rng(`${character.id}|${day}|${block}`);
   const muletillas = (character.ficha && character.ficha.muletillas) || [];
   return TEMPLATES[block].map((t, i) => {
     const variant = Math.floor(r() * 3);
     const jitter = i === 0 ? 0 : Math.floor(r() * 20) - 10;
-    const min = t.min + jitter;
+    const base = toSchedule(block, t.min);
+    const min = i === 0 ? base : Math.min(Math.max(base + jitter, BLOCKS[block].from + 1), BLOCKS[block].to - 15);
     const frase = muletillas.length && r() < 0.6 ? muletillas[Math.floor(r() * muletillas.length)] : '';
+    if (remote) return { min, hora: fromMinutes(min), lugar: 'casa', con: null, que: REMOTE[block][i % REMOTE[block].length], frase };
     return { min, hora: fromMinutes(min), lugar: pick(t.lugar, variant), con: null, que: pick(t.que, variant), frase };
   });
 }

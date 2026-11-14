@@ -1,0 +1,40 @@
+.hist { min-height: 100vh; background: var(--bg-dark); }
+.hist-head { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; background: var(--bg-card); border-bottom: 1px solid var(--border); }
+.hist-title { font-size: 1.15rem; }
+.hist-layout { display: grid; grid-template-columns: 260px 1fr; gap: 1.5rem; max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+.hist-side { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
+.hist-puesto { color: var(--secondary); font-weight: 600; }
+.hist-objetivo { color: var(--text-secondary); font-size: 0.88rem; }
+.hist-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+.hist-day { margin-bottom: 1.6rem; }
+.hist-day-title { font-size: 0.95rem; text-transform: capitalize; color: var(--primary-light); margin-bottom: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+.hist-list { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; }
+.hist-item { display: grid; grid-template-columns: 44px 22px 1fr; gap: 0.3rem; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.45; }
+.hist-time { color: var(--text-muted); font-size: 0.75rem; padding-top: 0.15rem; }
+/* Los pensamientos, distintos: nube, cursiva y color propio */
+.hist-pensamiento .hist-text {
+  font-style: italic; color: #D9CCFF; background: rgba(162, 155, 254, 0.12);
+  border: 1px dashed rgba(162, 155, 254, 0.5); border-radius: 14px; padding: 0.2rem 0.65rem; justify-self: start;
+}
+.hist-le_dicen .hist-text { color: var(--text-primary); }
+.hist-llamada .hist-text { color: #9FE7E4; }
+.hist-trayecto .hist-text { color: #FFD9A0; }
+.hist-sueno .hist-text, .hist-dream { color: var(--primary-light); }
+.hist-dream { display: block; margin-bottom: 0.4rem; font-size: 0.88rem; }
+.hist-diary { margin-top: 0.6rem; border-left: 3px solid var(--warning); padding: 0.4rem 0.8rem; color: var(--text-primary); background: rgba(253, 203, 110, 0.06); font-size: 0.9rem; }
+
+.pentagon-ring { fill: none; stroke: var(--border); stroke-width: 1; }
+.pentagon-ring-outer { stroke: var(--text-muted); }
+.pentagon-axis { stroke: var(--border); stroke-width: 1; }
+.pentagon-shape { fill: rgba(0, 206, 201, 0.28); stroke: var(--secondary); stroke-width: 2; stroke-linejoin: round; }
+.pentagon-label { fill: var(--text-secondary); font-size: 9.5px; font-family: Inter, sans-serif; }
+.pentagon-value { fill: var(--text-primary); font-weight: 700; }
+
+@media (max-width: 760px) {
+  .hist-layout { grid-template-columns: 1fr; }
+}
+
+.settings-hours { margin-top: 1.2rem; }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin: 0.5rem 0; }
+.settings-grid label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem; color: var(--text-secondary); }
+.settings-grid input { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); padding: 0.4rem 0.5rem; font: inherit; }

@@ -1,6 +1,8 @@
 // Cola de turnos de IA. El servidor nunca llama al modelo: deja el turno aquí y un
 // conector (el despertador, con la suscripción del dueño) lo recoge y devuelve el JSON.
 
+const { BLOCKS } = require('../world/clock');
+
 const DAILY_CAP_USD = Number(process.env.DAILY_CAP_USD || 0.25);
 const CLAIM_TIMEOUT_MS = 3 * 60 * 1000;
 const MAX_ATTEMPTS = 2;
@@ -58,7 +60,7 @@ async function finish(pool, id, { status, result = null, error = null, cost = 0,
 }
 
 // Reintenta los turnos colgados y caduca los que ya no sirven (bloque pasado).
-async function maintain(pool, { day, block }) {
+async function maintain(pool, { day, block, minutes = 0 }) {
   await pool.query(
     `UPDATE turns SET status = CASE WHEN attempts >= $2 THEN 'failed' ELSE 'queued' END,
             error = CASE WHEN attempts >= $2 THEN 'sin respuesta del despertador' ELSE error END
@@ -68,8 +70,9 @@ async function maintain(pool, { day, block }) {
   await pool.query(
     `UPDATE turns SET status = 'expired', finished_at = NOW()
       WHERE status = 'queued' AND kind IN ('despertar', 'tarde')
-        AND (office_day < $1 OR (block = 'manana' AND $2 <> 'manana'))`,
-    [day, block],
+        AND (office_day < $1 OR (block = 'manana' AND ($2 = 'tarde' OR ($2 = 'noche' AND $3 >= $4))))`,
+    // El despertar se pide media hora antes de entrar (bloque «noche»): no caduca hasta pasada la mañana.
+    [day, block, minutes, BLOCKS.tarde.from],
   );
   await pool.query(
     `UPDATE turns SET status = 'expired', finished_at = NOW()

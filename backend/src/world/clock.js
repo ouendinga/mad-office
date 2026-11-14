@@ -3,10 +3,36 @@
 
 const TZ = process.env.OFFICE_TZ || 'Europe/Madrid';
 
-const BLOCKS = {
-  manana: { from: 9 * 60, to: 14 * 60, label: 'mañana' },
-  tarde: { from: 14 * 60, to: 18 * 60, label: 'tarde' },
-};
+// Horario de la oficina (configurable por el admin; por defecto, de 9 a 18 con una hora para
+// comer a las 14:00). Todo lo demás sale de aquí: la mañana va de la entrada a la comida, la tarde
+// de la comida a la salida (empieza comiendo), las horas extra dos horas más y los trayectos media
+// hora antes y después. Se cambian EN SU SITIO para que quien ya tiene la referencia vea lo nuevo.
+const SCHEDULE = { start: 9 * 60, end: 18 * 60, lunch: 14 * 60, lunchMin: 60 };
+const BLOCKS = { manana: { label: 'mañana' }, tarde: { label: 'tarde' }, extra: { label: 'horas extra' } };
+const COMMUTE = {};
+
+function applySchedule() {
+  Object.assign(BLOCKS.manana, { from: SCHEDULE.start, to: SCHEDULE.lunch });
+  Object.assign(BLOCKS.tarde, { from: SCHEDULE.lunch, to: SCHEDULE.end });
+  Object.assign(BLOCKS.extra, { from: SCHEDULE.end, to: Math.min(SCHEDULE.end + 120, 23 * 60) });
+  COMMUTE.ida = SCHEDULE.start - 30;
+  COMMUTE.vuelta = SCHEDULE.end + 30;
+}
+applySchedule();
+
+// Valida y aplica un horario { start, end, lunch, lunchMin } en minutos. Devuelve el error, o null.
+function setSchedule(next) {
+  const n = { ...SCHEDULE, ...next };
+  const ok = [n.start, n.end, n.lunch, n.lunchMin].every(Number.isInteger);
+  if (!ok) return 'Horario incompleto.';
+  if (n.start < 5 * 60 || n.end > 22 * 60) return 'La oficina abre entre las 05:00 y las 22:00.';
+  if (n.end - n.start < 4 * 60) return 'La jornada tiene que durar al menos 4 horas.';
+  if (n.lunchMin < 15 || n.lunchMin > 120) return 'La comida, entre 15 minutos y 2 horas.';
+  if (n.lunch < n.start + 60 || n.lunch + n.lunchMin > n.end - 30) return 'La comida tiene que caer dentro de la jornada (no pegada a la entrada ni a la salida).';
+  Object.assign(SCHEDULE, n);
+  applySchedule();
+  return null;
+}
 
 function makeClock({ speed = 1, start = null, now = () => Date.now() } = {}) {
   const realOrigin = now();
@@ -62,6 +88,15 @@ function blockOf(p) {
   return 'noche';
 }
 
+// Fase para la pantalla: en casa, de camino (media hora antes de entrar y después de salir) o en la oficina.
+function phaseOf(p) {
+  if (!isWorkday(p.weekday)) return 'casa';
+  if (p.minutes >= COMMUTE.ida && p.minutes < BLOCKS.manana.from) return 'ida';
+  if (p.minutes >= BLOCKS.manana.from && p.minutes < BLOCKS.tarde.to) return 'oficina';
+  if (p.minutes >= BLOCKS.tarde.to && p.minutes < COMMUTE.vuelta) return 'vuelta';
+  return 'casa';
+}
+
 // La mañana laborable en la que se despertará con el sueño que se mande ahora.
 function nextMorning(p) {
   if (isWorkday(p.weekday) && p.minutes < BLOCKS.manana.from) return p.date;
@@ -95,6 +130,6 @@ function fromMinutes(mins) {
 }
 
 module.exports = {
-  TZ, BLOCKS, makeClock, parts, addDays, isWorkday, blockOf, nextMorning,
+  TZ, BLOCKS, COMMUTE, SCHEDULE, setSchedule, phaseOf, makeClock, parts, addDays, isWorkday, blockOf, nextMorning,
   dreamWindowOpen, toMinutes, fromMinutes,
 };

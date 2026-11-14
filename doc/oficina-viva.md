@@ -216,12 +216,17 @@ Decisiones por defecto (cambiables):
 - **Estados (0-5):** energía, ánimo, saciedad, social y calma. Café aparte. Los mueven reglas según lo
   que hace (comer, reunirse, terraza, trabajar…) y el humor que da la IA.
 - **Tiempo:** Open-Meteo (sin clave) desde el servidor cada 30 min; la ubicación la pone el admin.
+- **Horario configurable** (admin, ⚙️ Oficina): entrada, salida, hora y duración de la comida. Por
+  defecto 9-18 con una hora para comer a las 14:00 (el de Álvaro). La mañana va de la entrada a la
+  comida, la tarde empieza comiendo, los trayectos son la media hora antes y después.
+- **Horas extra:** cualquier turno que planifica la tarde puede pedirlas (máx. 1 día por semana por
+  reglas); quien se queda sigue 2 horas más, cansa más y vuelve a casa al acabar.
 
 ### Contrato del directo (`world`, por socket)
 
 ```
 clock: { date, hhmm, weekday, block, dreamOpen, nextMorning,
-         phase: 'casa' | 'ida' | 'oficina' | 'vuelta',          // ida 08:30-09:00, vuelta 18:00-18:30
+         phase: 'casa' | 'ida' | 'oficina' | 'vuelta',          // media hora antes de entrar / después de salir
          weather: { temp, code, desc, precip, wind, isDay } | null,
          season: 'invierno' | 'primavera' | 'verano' | 'otono',
          city }

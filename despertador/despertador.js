@@ -88,20 +88,25 @@ function runClaude(turn) {
 // Respuestas de mentira con la forma correcta, para probar el circuito sin gastar.
 function fake(turn) {
   const plan = ['09:00', '10:30', '11:30', '13:00'].map((h, i) => ({
-    hora: turn.prompt.includes('14:00') ? `${14 + i}:${i ? '15' : '00'}` : h,
+    hora: turn.kind === 'tarde' ? `${14 + i}:${i ? '15' : '00'}` : h,
     lugar: ['mesa', 'cafe', 'reuniones', 'mesa'][i],
     con: '',
     que: ['Revisa el correo con cara de póker', 'Café y cotilleo', 'Reunión sin orden del día', 'Teclea fuerte para parecer ocupado'][i],
     frase: ['Buenos días, ¿no?', '¿Os habéis enterado?', 'Esto podría ser un correo.', ''][i],
+    externo: i === 3 ? 'un cliente de Bilbao' : '',
+    piensa: i === 1 ? 'Si no hay café, me vuelvo a casa' : '',
   }));
+  // A veces teletrabaja (para probar el modo remoto), según el id del turno.
+  const donde = turn.id % 3 === 0 ? 'casa' : 'oficina';
   const by = {
-    despertar: { sueno: { hace_caso: true, por_que: 'Ha sido muy vívido, algo de verdad tendrá.' }, humor: 'contento', plan },
-    tarde: { humor: 'normal', plan },
-    diario: { diario: 'Hoy ha sido un día de oficina como otro cualquiera. Nadie me ha robado el táper, lo cual ya es mucho.', humor: 'contento' },
+    despertar: { donde, trayecto: donde === 'oficina' ? 'El bus va tan lleno que acaba sujetando el paraguas de otro' : '', sueno: { hace_caso: true, por_que: 'Ha sido muy vívido, algo de verdad tendrá.' }, humor: 'contento', plan },
+    tarde: { humor: 'normal', horas_extra: turn.id % 2 === 0, plan: turn.id % 2 === 0 ? [...plan, { hora: '19:10', lugar: 'mesa', con: '', que: 'Sigue con el marrón a deshoras', frase: '¿Quién apaga la luz?', externo: '', piensa: 'Mañana pido aumento' }] : plan },
+    diario: { diario: 'Hoy ha sido un día de oficina como otro cualquiera. Nadie me ha robado el táper, lo cual ya es mucho.', humor: 'contento', trayecto: 'Se cruza con su jefe en el metro y finge leer' },
     perfil: { puesto: 'Desarrollador', personalidad: 'Optimista crónico con tendencia a la épica.', manias: ['Nombra las variables como sus gatos', 'Celebra cada deploy', 'Tararea mientras programa'], objetivo: 'Que su café no lo use nadie', muletillas: ['¡Al lío!', 'Eso es un bug de producto.', 'Funciona, no lo toques.', 'Café y seguimos.'] },
     sueno_ayuda: { propuestas: ['Sueñas que la impresora te pide perdón y te ofrece un trato.', 'Sueñas que Paco te cede su taza para siempre.', 'Sueñas que eres jefe y nadie convoca reuniones.'], comentario: 'Encaja con su obsesión por el café.' },
   };
   if (turn.kind === 'despertar' && !turn.schema.properties.sueno) delete by.despertar.sueno;
+  if (turn.schema.properties.horas_extra && turn.kind === 'despertar') Object.assign(by.despertar, by.tarde, { donde: by.despertar.donde, trayecto: by.despertar.trayecto });
   return { output: by[turn.kind], cost_usd: 0, input_tokens: 0, output_tokens: 0 };
 }
 

@@ -4,6 +4,9 @@ import { renderOffice, pickAt, roomLabelOf } from '../canvas/officeRenderer';
 import { characterSprite } from '../engine/Character';
 import { api, getToken, waitTurn, WS_URL, HUMOR_EMOJI } from '../api';
 import '../styles/office.css';
+import '../styles/history.css';
+import StatsPentagon from '../components/StatsPentagon';
+import OfficeSettings from '../components/OfficeSettings';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -71,7 +74,8 @@ function fmtMorning(date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-export default function Office({ me, onLogout, onEditAvatar }) {
+export default function Office({ me, onLogout, onEditAvatar, onHistory }) {
+  const [showSettings, setShowSettings] = useState(false);
   const canvasRef = useRef(null);
   const worldRef = useRef(null);
   const frameRef = useRef(0);
@@ -92,7 +96,7 @@ export default function Office({ me, onLogout, onEditAvatar }) {
     socket.on('disconnect', () => setOffline(true));
     socket.on('connect_error', () => setOffline(true));
     socket.on('world', w => { worldRef.current = w; setWorld(w); });
-    socket.on('feed', item => setFeed(prev => [...prev, item].slice(-80)));
+    socket.on('feed', item => { if (!item.private) setFeed(prev => [...prev, item].slice(-80)); });
     return () => socket.disconnect();
   }, []);
 
@@ -164,6 +168,7 @@ export default function Office({ me, onLogout, onEditAvatar }) {
         </div>
         <div className="office-header-right">
           <span className="office-user-name">{me.user.name}</span>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowSettings(true)}>⚙️ Oficina</button>
           <button className="btn btn-ghost btn-sm" onClick={onEditAvatar}>Avatar</button>
           <button className="btn btn-ghost btn-sm" onClick={onLogout}>Salir</button>
         </div>
@@ -192,7 +197,7 @@ export default function Office({ me, onLogout, onEditAvatar }) {
         </div>
 
         <aside className="office-sidebar">
-          <MyCharacter mine={mine} me={me} onOpen={() => mine && openCharacter(mine.id)} />
+          <MyCharacter mine={mine} me={me} onHistory={onHistory} onOpen={() => mine && openCharacter(mine.id)} />
           <DreamPanel clock={clock} />
           <Feed feed={feed} />
         </aside>
@@ -220,6 +225,7 @@ export default function Office({ me, onLogout, onEditAvatar }) {
           </div>
         </div>
       )}
+      {showSettings && <OfficeSettings isAdmin={me.user.is_admin} onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
@@ -233,7 +239,7 @@ function Bar({ label, value }) {
   );
 }
 
-function MyCharacter({ mine, me, onOpen }) {
+function MyCharacter({ mine, me, onOpen, onHistory }) {
   const [usage, setUsage] = useState(null);
   useEffect(() => {
     const load = () => api('/me/usage').then(setUsage).catch(() => {});
@@ -251,8 +257,9 @@ function MyCharacter({ mine, me, onOpen }) {
       <p className="mine-now">
         {mine.home ? 'En casa, durmiendo.' : `${mine.que} (${PLACE_TEXT[mine.lugar] || mine.lugar})`}
       </p>
-      <Bar label="Energía" value={mine.energia} />
+      {mine.stats && <StatsPentagon stats={mine.stats} size={180} />}
       <Bar label="Café" value={mine.cafe} />
+      <button type="button" className="btn btn-ghost btn-sm mine-history" onClick={() => onHistory && onHistory(mine.id)}>📜 Mi historial</button>
       {usage && (
         <p className="mine-usage" title="Lo que lleva gastado hoy tu suscripción en esta oficina">
           IA hoy: {usage.calls} llamadas · {Number(usage.spent).toFixed(3)} $ de {usage.cap} $

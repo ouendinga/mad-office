@@ -35,6 +35,7 @@ const ACTION_FOR_PLACE = {
   despacho: 'reunido',
   servidores: 'pizarra',
   lavabo: 'lavabo',
+  casa: 'sentado', // teletrabajo: no sale en el mapa de la oficina
   visita: 'paseando',
 };
 

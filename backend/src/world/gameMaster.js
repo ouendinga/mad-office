@@ -34,8 +34,8 @@ function resolveCompanion(con, names, selfId) {
   return hit ? hit.id : null;
 }
 
-function validatePlan(raw, { block, names, selfId }) {
-  const range = BLOCKS[block];
+function validatePlan(raw, { block, names, selfId, remote = false, extra = false }) {
+  const range = block === 'tarde' && extra ? { from: BLOCKS.tarde.from, to: BLOCKS.extra.to } : BLOCKS[block];
   if (!range) throw new Error(`bloque desconocido: ${block}`);
   const list = Array.isArray(raw) ? raw : [];
   const byMinute = new Map();
@@ -46,11 +46,17 @@ function validatePlan(raw, { block, names, selfId }) {
     if (m == null) continue;
     m = Math.min(Math.max(m, range.from), range.to - 15);
     if (byMinute.has(m)) continue;
-    const lugar = PLACES.includes(a.lugar) ? a.lugar : 'mesa';
+    // Quien teletrabaja está en casa haga lo que haga; con un compañero, es una llamada.
+    const lugar = remote ? 'casa' : (PLACES.includes(a.lugar) ? a.lugar : 'mesa');
     const conId = resolveCompanion(a.con, names, selfId);
     const que = clean(a.que, 90);
     if (!que) continue;
-    byMinute.set(m, { min: m, lugar, con: conId, que, frase: clean(a.frase, 140) });
+    const externo = conId ? '' : clean(a.externo, 60); // o compañero o alguien de fuera, no los dos
+    byMinute.set(m, {
+      min: m, lugar, con: conId, que, frase: clean(a.frase, 140),
+      ...(externo ? { externo } : {}),
+      ...(clean(a.piensa, 140) ? { piensa: clean(a.piensa, 140) } : {}),
+    });
     if (byMinute.size >= MAX_ACTIONS) break;
   }
 
@@ -58,9 +64,9 @@ function validatePlan(raw, { block, names, selfId }) {
   if (!actions.length || actions[0].min > range.from) {
     actions.unshift({
       min: range.from,
-      lugar: block === 'tarde' ? 'cafe' : 'mesa',
+      lugar: remote ? 'casa' : (block === 'tarde' ? 'cafe' : 'mesa'),
       con: null,
-      que: block === 'tarde' ? 'Vuelve de comer' : 'Llega a su mesa',
+      que: remote ? (block === 'tarde' ? 'Vuelve del sofá al portátil' : 'Abre el portátil en pijama') : (block === 'tarde' ? 'Vuelve de comer' : 'Llega a su mesa'),
       frase: '',
     });
   }
@@ -70,10 +76,17 @@ function validatePlan(raw, { block, names, selfId }) {
 function validateWake(out, ctx) {
   const o = out && typeof out === 'object' ? out : {};
   const s = o.sueno && typeof o.sueno === 'object' ? o.sueno : null;
+  // Dónde trabaja hoy: lo propone la IA y lo limitan las reglas (ctx.canRemote).
+  const remote = ctx.decideMode ? (o.donde === 'casa' && ctx.canRemote === true) : !!ctx.remote;
+  // Horas extra: solo en el turno de la tarde, si las pide Y las reglas las dejan.
+  const extra = ctx.block === 'tarde' && o.horas_extra === true && ctx.canExtra === true;
   return {
     humor: normHumor(o.humor),
-    plan: validatePlan(o.plan, ctx),
+    plan: validatePlan(o.plan, { ...ctx, remote, extra }),
+    extra,
     sueno: s ? { hace_caso: s.hace_caso === true, por_que: clean(s.por_que, 200) } : null,
+    mode: remote ? 'remoto' : 'oficina',
+    trayecto: remote ? '' : clean(o.trayecto, 160),
   };
 }
 
@@ -81,7 +94,7 @@ function validateDiary(out) {
   const o = out && typeof out === 'object' ? out : {};
   const diario = clean(o.diario, 600);
   if (!diario) throw new Error('diario vacío');
-  return { diario, humor: normHumor(o.humor) };
+  return { diario, humor: normHumor(o.humor), trayecto: clean(o.trayecto, 160) };
 }
 
 function validateProfile(out) {

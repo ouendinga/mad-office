@@ -5,12 +5,14 @@ import Onboarding from './pages/Onboarding';
 import Office from './pages/Office';
 import { api, getToken, setToken } from './api';
 import Gate from './pages/Gate';
+import History from './pages/History';
 
 // Recorrido: entrar → avatar → entrevista y ficha → oficina.
 export default function App() {
   const [me, setMe] = useState(null); // { user, character }
   const [loading, setLoading] = useState(!!getToken());
   const [editAvatar, setEditAvatar] = useState(false);
+  const [historyOf, setHistoryOf] = useState(null); // id del personaje cuyo historial se ve
   const [gate, setGate] = useState(null); // { required, open, configured }
 
   // La puerta va antes que todo (solo existe en el VPS).
@@ -67,5 +69,6 @@ export default function App() {
   if (!character || !character.approved) {
     return <Onboarding user={user} character={character} onDone={load} onBack={() => setEditAvatar(true)} />;
   }
-  return <Office me={me} onLogout={logout} onEditAvatar={() => setEditAvatar(true)} onRefresh={load} />;
+  if (historyOf) return <History characterId={historyOf} onBack={() => setHistoryOf(null)} />;
+  return <Office me={me} onLogout={logout} onEditAvatar={() => setEditAvatar(true)} onRefresh={load} onHistory={setHistoryOf} />;
 }
