@@ -342,3 +342,13 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
 - La dirección y el dominio del buzón de sueños.
 - Dónde se despliega: el roadmap decía Fly.io, pero la norma de la casa es el VPS propio con
   Coolify.
+
+## Pedido el 2026-11-15, por hacer
+
+- **Sitcom:** que entretenga como una serie. Cosas que pasan fuera provocan cosas en la oficina y
+  los personajes reaccionan a su manera. Ejemplos: corte de luz, nevada, final del fútbol, una
+  noticia, un cliente enfadado o una inspección. Ver cómo encaja con el ahorro de tokens: el
+  suceso lo elige una regla y la IA solo lo usa en el turno que ya hace.
+- **La espera de la ficha como una transformación** (estilo Sailor Moon o Power Rangers): una
+  escena en pixel art que va «formando el alma» del personaje con lo que la persona ha contado.
+  Ejemplo: «montaña» → una montaña en pixel art.
