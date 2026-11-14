@@ -292,8 +292,10 @@ Sonnet) y **sueños solo desde la app**. Lo demás llega después.
 | 1b. Asistente de perfil (entrevista → ficha editable) | ✅ 2026-11-11 |
 | 2. El sueño en la app, con su asistente | ✅ 2026-11-11 |
 | 3. Conector B, el despertador con `claude -p` (solo Claude) | ✅ 2026-11-11, con un solo despertador (el del admin) |
+| 3b. Oficina viva v2: zoom por salas, calle, teletrabajo, llamadas, oír de cerca, pensamientos, estados, tiempo real, horario, horas extra | ✅ 2026-11-14 |
+| 3c. Empresas: varias por instalación, invitaciones, organigrama con ficticios, tablón, carga de trabajo, visitantes | ✅ 2026-11-14 |
 | 4. Conector A: claves de API cifradas y endpoint compatible con OpenAI (Globant) | pendiente |
-| 5. Varios jugadores: enlace mágico, un despertador por persona que solo resuelve sus turnos | pendiente |
+| 5. Abrir a gente de fuera: enlace mágico por correo (quitar la contraseña común) y un despertador por persona que solo resuelva sus turnos | pendiente; el estudio lo pide antes de invitar a nadie |
 | 6. Visitantes con enlace caducable | pendiente |
 | 7. El sueño por correo | aparcado (Álvaro: «iremos mejorando») |
 | 8. Codex y Gemini en el despertador (antes, confirmar sus condiciones) | pendiente |
