@@ -45,14 +45,16 @@ function deskPos(index) {
 }
 
 // Posición estable dentro de una zona para que no se pisen: un hueco cada dos casillas en
-// horizontal (el sprite ocupa dos de ancho) y una por fila.
+// horizontal (el sprite ocupa dos de ancho) y otro cada dos filas.
 function zonePos(zoneName, slot) {
   const z = ZONES[zoneName];
+  // También una fila de cada dos: el personaje mide casilla y media y se montaban.
   const cols = Math.max(1, Math.ceil(z.w / 2));
-  const cells = cols * z.h;
+  const rows = Math.max(1, Math.ceil(z.h / 2));
+  const cells = cols * rows;
   const i = ((slot * 5) % cells + cells) % cells; // salto primo: se reparten
   const col = (i % cols) * 2;
-  const row = Math.floor(i / cols);
+  const row = Math.floor(i / cols) * 2;
   return { x: (z.x + col) * TILE + TILE / 2, y: (z.y + row) * TILE + TILE - 4 };
 }
 

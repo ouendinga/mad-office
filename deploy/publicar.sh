@@ -13,4 +13,4 @@ echo "Imágenes construidas; subiendo…" >&2
 ssh "$HOST" 'mkdir -p /opt/mad-office/copias && cd /opt/mad-office && if docker ps --format "{{.Names}}" | grep -qx mad-office-db; then docker exec mad-office-db pg_dump -U madoffice madoffice | gzip > copias/madoffice-$(date +%F-%H%M).sql.gz; ls -1t copias/*.sql.gz | tail -n +15 | xargs -r rm; fi'
 docker save mad-office-backend:local mad-office-frontend:local | gzip | ssh "$HOST" 'gunzip | docker load' >/dev/null
 scp -q deploy/docker-compose.yml "$HOST":/opt/mad-office/docker-compose.yml
-ssh "$HOST" 'cd /opt/mad-office && docker compose up -d && sleep 5 && docker logs --tail 3 mad-office-backend'
+ssh "$HOST" 'cd /opt/mad-office && docker compose up -d && docker compose up -d --no-deps --force-recreate backend frontend && sleep 5 && docker logs --tail 3 mad-office-backend'
