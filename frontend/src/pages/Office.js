@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { renderOffice, pickAt, roomLabelOf } from '../canvas/officeRenderer';
+import { renderOffice, pickAt, pickInLens, pickRoomAt, roomIdOf, roomLabel, callText } from '../canvas/officeRenderer';
+import { renderStreet, streetHasWalkers } from '../canvas/streetRenderer';
+import { augmentWorld, DEMO } from '../canvas/demo';
+import { weatherLabel } from '../canvas/weather';
+import HomeStrip from '../components/HomeStrip';
 import { characterSprite } from '../engine/Character';
 import { api, getToken, waitTurn, WS_URL, HUMOR_EMOJI } from '../api';
 import '../styles/office.css';
@@ -37,16 +41,21 @@ function useWeather() {
 
 function DayCard({ clock, weather }) {
   if (!clock) return null;
-  const [y, m, d] = clock.date.split('-').map(Number);
+  const [, m, d] = clock.date.split('-').map(Number);
   const night = clock.block === 'noche';
-  const [icon, label] = weather ? weatherText(weather.code) : [null, null];
+  // el tiempo del servidor (contrato v2) manda; si no viene, el que pide el navegador
+  const sw = clock.weather;
+  const [icon, label] = sw ? weatherLabel(sw) : weather ? weatherText(weather.code) : [null, null];
+  const temp = sw ? Math.round(sw.temp) : weather ? weather.t : null;
+  const phaseText = { ida: '🚶 Camino del trabajo', vuelta: '🚶 Volviendo a casa' }[clock.phase];
   return (
-    <div className={`day-card ${night ? 'is-night' : ''}`}>
+    <div className={`day-card ${night && !phaseText ? 'is-night' : ''}`}>
       <div className="day-card-date pixel-font">{WEEKDAYS[clock.weekday]} {d} {MONTHS[m - 1]}</div>
       <div className="day-card-meta">
         <span className="day-card-time">{clock.hhmm}</span>
-        {weather && <span>{icon} {label} · {weather.t} °C</span>}
-        {night && <span>🌙 Todos en casa</span>}
+        {icon && <span>{icon} {label} · {temp} °C</span>}
+        {clock.city && <span>📍 {clock.city}</span>}
+        {phaseText ? <span>{phaseText}</span> : night && <span>🌙 Todos en casa</span>}
       </div>
     </div>
   );
@@ -64,7 +73,7 @@ function Portrait({ config }) {
   }, [config]);
   return <canvas ref={ref} width={64} height={40} className="lupa-portrait" />;
 }
-const PLACE_TEXT = { mesa: 'en su mesa', cafe: 'en el café', reuniones: 'en reunión', lavabo: 'en el lavabo', visita: 'de visita' };
+const PLACE_TEXT = { mesa: 'en su mesa', cafe: 'en la cocina', reuniones: 'en reunión', lavabo: 'en el baño', visita: 'de visita', descanso: 'en la zona chill', terraza: 'en la terraza', recepcion: 'en recepción', despacho: 'en el despacho', servidores: 'con los servidores' };
 
 function fmtMorning(date) {
   const d = new Date(`${date}T12:00:00`);
@@ -80,8 +89,10 @@ export default function Office({ me, onLogout, onEditAvatar }) {
   const [offline, setOffline] = useState(false);
   const [selected, setSelected] = useState(null); // ficha abierta
   const selectedIdRef = useRef(null);
-  const focusRef = useRef(null); // a quién mira la lupa
-  const [focusId, setFocusId] = useState(null);
+  const focusRef = useRef(null); // la lupa: { room, charId }
+  const [focus, setFocus] = useState(null);
+  const viewRef = useRef('auto'); // 'auto' | 'office' | 'street'
+  const [view, setView] = useState('auto');
   const weather = useWeather();
 
   // Directo por socket.
@@ -91,7 +102,7 @@ export default function Office({ me, onLogout, onEditAvatar }) {
     socket.on('connect', () => setOffline(false));
     socket.on('disconnect', () => setOffline(true));
     socket.on('connect_error', () => setOffline(true));
-    socket.on('world', w => { worldRef.current = w; setWorld(w); });
+    socket.on('world', w => { const aw = augmentWorld(w); worldRef.current = aw; setWorld(aw); });
     socket.on('feed', item => setFeed(prev => [...prev, item].slice(-80)));
     return () => socket.disconnect();
   }, []);
@@ -103,7 +114,9 @@ export default function Office({ me, onLogout, onEditAvatar }) {
       const canvas = canvasRef.current;
       if (canvas) {
         frameRef.current++;
-        renderOffice(canvas.getContext('2d'), canvas, worldRef.current, Math.floor(frameRef.current / 8), focusRef.current);
+        const wd = worldRef.current;
+        if (showStreet(wd, viewRef.current)) renderStreet(canvas.getContext('2d'), canvas, wd, Math.floor(frameRef.current / 8));
+        else renderOffice(canvas.getContext('2d'), canvas, wd, Math.floor(frameRef.current / 8), focusRef.current);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -132,23 +145,39 @@ export default function Office({ me, onLogout, onEditAvatar }) {
     }
   }, []);
 
+  const changeFocus = f => { focusRef.current = f; setFocus(f); };
+  const changeView = v => { viewRef.current = v; setView(v); changeFocus(null); };
+
   const onCanvasClick = e => {
+    if (showStreet(worldRef.current, viewRef.current)) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const hit = pickAt(worldRef.current, e.clientX - rect.left, e.clientY - rect.top);
-    // Clic en alguien: la lupa le sigue. Clic en vacío: se cierra.
-    focusRef.current = hit ? hit.id : null;
-    setFocusId(focusRef.current);
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    // Con la lupa abierta: dentro, se elige a quién mirar; fuera, se cierra.
+    if (focusRef.current) {
+      const hit = pickInLens(sx, sy);
+      if (!hit || hit.outside) changeFocus(null);
+      else if (hit.charId) changeFocus({ ...focusRef.current, charId: hit.charId });
+      return;
+    }
+    const hit = pickAt(worldRef.current, sx, sy);
+    if (hit) return changeFocus({ room: roomIdOf(hit), charId: hit.id });
+    const room = pickRoomAt(sx, sy);
+    changeFocus(room && room !== 'pasillo' ? { room, charId: null } : null);
   };
 
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') { focusRef.current = null; setFocusId(null); } };
+    const onKey = e => { if (e.key === 'Escape') changeFocus(null); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   const mine = world && world.characters.find(c => c.owner_user_id === me.user.id);
   const clock = world && world.clock;
-  const focused = focusId != null && world ? world.characters.find(c => c.id === focusId && !c.home) : null;
+  const focused = focus && focus.charId != null && world ? world.characters.find(c => c.id === focus.charId) : null;
+  const inStreet = showStreet(world, view);
+  const streetTime = clock && (clock.phase === 'ida' || clock.phase === 'vuelta') && streetHasWalkers(world);
+  const roomPeople = focus && world ? world.characters.filter(c => c.mode !== 'remoto' && !c.home && c.x != null && roomIdOf(c) === focus.room) : [];
 
   return (
     <div className="office-page">
@@ -173,19 +202,39 @@ export default function Office({ me, onLogout, onEditAvatar }) {
         <div className="office-canvas-container">
           <canvas ref={canvasRef} className="office-canvas" onClick={onCanvasClick} />
           <DayCard clock={clock} weather={weather} />
-          {focused && (
+          {DEMO && <div className="demo-badge">DEMO</div>}
+          {streetTime && (
+            <div className="view-switch">
+              <button type="button" className={`btn btn-sm ${inStreet ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeView('street')}>🚶 La calle</button>
+              <button type="button" className={`btn btn-sm ${!inStreet ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeView('office')}>🏢 La oficina</button>
+            </div>
+          )}
+          {!inStreet && !focus && <HomeStrip world={world} />}
+          {focus && !inStreet && (
             <div className="lupa-box">
-              <Portrait config={focused.avatar_config} />
+              {focused ? <Portrait config={focused.avatar_config} /> : <div className="lupa-portrait lupa-room">🏢</div>}
               <div className="lupa-text">
-                <div className="lupa-name">{HUMOR_EMOJI[focused.humor] || ''} {focused.name}</div>
-                <div className="lupa-line">{focused.bubble ? `«${focused.bubble}»` : focused.que}</div>
+                {focused ? (
+                  <>
+                    <div className="lupa-name">{HUMOR_EMOJI[focused.humor] || ''} {focused.name}</div>
+                    <div className="lupa-line">{focused.bubble ? `«${focused.bubble}»` : focused.que}</div>
+                    {callText(focused, world) && <div className="lupa-line lupa-call">{callText(focused, world)}</div>}
+                  </>
+                ) : (
+                  <>
+                    <div className="lupa-name">{roomLabel(focus.room)}</div>
+                    <div className="lupa-line">
+                      {roomPeople.length ? `Aquí: ${roomPeople.map(c => c.name).join(', ')}. Toca a alguien para verle.` : 'Ahora mismo no hay nadie.'}
+                    </div>
+                  </>
+                )}
                 <div className="lupa-meta">
-                  {WEEKDAYS[clock.weekday]} · {clock.hhmm} · {roomLabelOf(focused)}
+                  {WEEKDAYS[clock.weekday]} · {clock.hhmm} · {roomLabel(focus.room)}
                 </div>
               </div>
               <div className="lupa-actions">
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => openCharacter(focused.id)}>Ficha y diario</button>
-                <button type="button" className="lupa-close" aria-label="Cerrar" onClick={() => { focusRef.current = null; setFocusId(null); }}>×</button>
+                {focused && <button type="button" className="btn btn-ghost btn-sm" onClick={() => openCharacter(focused.id)}>Ficha y diario</button>}
+                <button type="button" className="lupa-close" aria-label="Cerrar" onClick={() => changeFocus(null)}>×</button>
               </div>
             </div>
           )}
@@ -224,6 +273,23 @@ export default function Office({ me, onLogout, onEditAvatar }) {
   );
 }
 
+// Qué hace mi personaje, según dónde esté (contrato v2: mode).
+function mineText(m) {
+  if (m.mode === 'remoto') return `Teletrabaja desde casa: ${m.que || 'a su ritmo'}`;
+  if (m.mode === 'ida') return `De camino a la oficina${m.trayecto ? `: ${m.trayecto}` : ''}`;
+  if (m.mode === 'vuelta') return `Volviendo a casa${m.trayecto ? `: ${m.trayecto}` : ''}`;
+  if (m.mode === 'casa' || m.home) return 'En casa, durmiendo.';
+  return `${m.que} (${PLACE_TEXT[m.lugar] || m.lugar})`;
+}
+
+// ¿Toca enseñar la calle? Solo en las franjas de ida y vuelta y si hay alguien andando.
+function showStreet(world, view) {
+  if (view === 'office') return false;
+  const phase = world && world.clock && world.clock.phase;
+  if (phase !== 'ida' && phase !== 'vuelta') return false;
+  return view === 'street' || streetHasWalkers(world);
+}
+
 function Bar({ label, value }) {
   return (
     <div className="stat-row">
@@ -249,7 +315,7 @@ function MyCharacter({ mine, me, onOpen }) {
         {HUMOR_EMOJI[mine.humor] || ''} {mine.name} <span className="muted">· ver ficha y diario</span>
       </button>
       <p className="mine-now">
-        {mine.home ? 'En casa, durmiendo.' : `${mine.que} (${PLACE_TEXT[mine.lugar] || mine.lugar})`}
+        {mineText(mine)}
       </p>
       <Bar label="Energía" value={mine.energia} />
       <Bar label="Café" value={mine.cafe} />

@@ -9,6 +9,18 @@
 import { makeCanvas, shade, hash, brush, outline } from './pixel';
 
 export const T = 16;
+
+// Estación del año: cambia el césped, los árboles, las jardineras y las guirnaldas.
+// El renderer la pone con setSeason() y reconstruye la capa estática si cambia.
+let SEASON = 'otono';
+export function setSeason(season) {
+  const s = ['invierno', 'primavera', 'verano', 'otono'].includes(season) ? season : 'otono';
+  if (s === SEASON) return false;
+  SEASON = s;
+  cache.clear();
+  return true;
+}
+export function getSeason() { return SEASON; }
 const OUT = '#2A1F2D';
 
 // --- suelos: una función por tipo que da el color de cada píxel (coordenadas globales) ---
@@ -85,16 +97,27 @@ const FLOORS = {
     else if (X % 6 === 0) c = add(c, 12);
     if (Y % 40 === 0) c = add(c, -32);
     if ((Y % 40 === 3 || Y % 40 === 36) && X % 6 === 2) c = rgb('#6B4A30');
+    if (SEASON === 'otono' && hash(X, Y, 9) > 0.992) c = rgb(['#D9822B', '#C4561F', '#E8B23A'][Math.floor(hash(X, Y, 10) * 3)]);
     return c;
   },
   grass(X, Y) {
-    let c = rgb('#7CC453');
+    const pal = {
+      primavera: ['#7CC453', '#86CC5B', '#70B84A', '#5DA63D'],
+      verano: ['#6DBA43', '#7AC64C', '#5FAA3A', '#4E9A30'],
+      otono: ['#93B85A', '#A0BF62', '#86AC50', '#728F42'],
+      invierno: ['#A9BC8C', '#B4C597', '#9DB07F', '#8DA071'],
+    }[SEASON];
+    let c = rgb(pal[0]);
     const big = hash(Math.floor(X / 6), Math.floor(Y / 6), 4);
-    if (big > 0.7) c = rgb('#86CC5B');
-    if (big < 0.15) c = rgb('#70B84A');
+    if (big > 0.7) c = rgb(pal[1]);
+    if (big < 0.15) c = rgb(pal[2]);
     const n = hash(X, Y, 5);
-    if (n > 0.965) c = rgb('#5DA63D');
-    if (n > 0.997) c = rgb(['#FFFFFF', '#F7A8C8', '#FFE066'][Math.floor(hash(X, Y, 6) * 3)]);
+    if (n > 0.965) c = rgb(pal[3]);
+    const flowers = { primavera: 0.99, verano: 0.996, otono: 2, invierno: 2 }[SEASON];
+    if (n > flowers) c = rgb(['#FFFFFF', '#F7A8C8', '#FFE066', '#C9A7F2'][Math.floor(hash(X, Y, 6) * 4)]);
+    // otoño: hojas caídas; invierno: escarcha
+    if (SEASON === 'otono' && hash(X, Y, 7) > 0.975) c = rgb(['#D9822B', '#C4561F', '#E8B23A'][Math.floor(hash(X, Y, 8) * 3)]);
+    if (SEASON === 'invierno' && hash(X, Y, 7) > 0.97) c = rgb('#EEF4F7');
     return c;
   },
 };
@@ -436,9 +459,16 @@ def('rug', (b, w, h, o) => {
 
 def('planter', (b, w, h, o) => {
   b.r(1, 6, 14, 9, '#9A6640'); b.r(1, 6, 14, 1, '#B98055'); b.r(1, 10, 14, 1, '#7A4B2C');
-  leaves(b, 8, 2, 6, ['#2F7D3A', '#3F9C45', '#62C055'], o.seed);
-  const fl = ['#F7A8C8', '#FFE066', '#FFFFFF', '#F28C5B'];
-  for (let i = 0; i < 5; i++) b.p(3 + Math.floor(hash(i, o.seed, 14) * 10), -1 + Math.floor(hash(i, o.seed, 15) * 6), fl[(i + o.seed) % 4]);
+  const pal = {
+    primavera: ['#2F7D3A', '#3F9C45', '#62C055'],
+    verano: ['#246B31', '#358F3E', '#55B44C'],
+    otono: ['#7E6A2C', '#A08636', '#C9A040'],
+    invierno: ['#4F6B55', '#5F7D63', '#7A957C'],
+  }[SEASON];
+  leaves(b, 8, 2, SEASON === 'invierno' ? 4 : 6, pal, o.seed);
+  const fl = SEASON === 'otono' ? ['#D9822B', '#C4561F'] : ['#F7A8C8', '#FFE066', '#FFFFFF', '#F28C5B'];
+  const n = { primavera: 8, verano: 5, otono: 3, invierno: 0 }[SEASON];
+  for (let i = 0; i < n; i++) b.p(3 + Math.floor(hash(i, o.seed, 14) * 10), -1 + Math.floor(hash(i, o.seed, 15) * 6), fl[(i + o.seed) % fl.length]);
 }, { up: 4 });
 
 def('terrace_table', (b, w) => {
@@ -453,17 +483,38 @@ def('bench', (b, w) => {
 }, { up: 0 });
 
 def('tree', (b, w, h, o, ctx) => {
-  shadowOval(ctx, 16, 14, 13, 4, 0.25);
+  shadowOval(ctx, 16, 14, 13, 4, SEASON === 'invierno' ? 0.12 : 0.25);
   b.r(13, 2, 6, 13, '#7A4B2C'); b.r(13, 2, 2, 13, '#946236');
-  leaves(b, 16, -10, 13, ['#2B7339', '#3F9C45', '#6CC35A'], o.seed);
-  if (o.seed % 2) for (let i = 0; i < 5; i++) b.r(8 + Math.floor(hash(i, o.seed, 16) * 16), -18 + Math.floor(hash(i, o.seed, 17) * 14), 2, 2, '#E3584B');
+  if (SEASON === 'invierno') {
+    // ramas peladas
+    const br = '#6B4630';
+    b.r(15, -14, 2, 16, br);
+    for (let i = 0; i < 6; i++) {
+      const y = -12 + i * 2;
+      const len = 7 - Math.abs(i - 2);
+      const dir = i % 2 ? 1 : -1;
+      for (let k = 1; k <= len; k++) b.p(16 + dir * k, y - Math.floor(k / 2), br);
+    }
+    b.r(14, -16, 4, 2, br);
+    return;
+  }
+  const pal = {
+    primavera: ['#3B8A3F', '#55AE4F', '#86D06A'],
+    verano: ['#1F6A30', '#2F8A3A', '#4FB04A'],
+    otono: ['#A4471E', '#D9822B', '#F0B342'],
+  }[SEASON];
+  leaves(b, 16, -10, 13, pal, o.seed);
+  if (SEASON === 'primavera') for (let i = 0; i < 12; i++) b.r(6 + Math.floor(hash(i, o.seed, 16) * 20), -20 + Math.floor(hash(i, o.seed, 17) * 20), 2, 1, i % 3 ? '#F7B6D2' : '#FFFFFF');
+  if (SEASON === 'verano' && o.seed % 2) for (let i = 0; i < 5; i++) b.r(8 + Math.floor(hash(i, o.seed, 16) * 16), -18 + Math.floor(hash(i, o.seed, 17) * 14), 2, 2, '#E3584B');
+  if (SEASON === 'otono') for (let i = 0; i < 4; i++) b.p(4 + Math.floor(hash(i, o.seed, 18) * 24), 12 + Math.floor(hash(i, o.seed, 19) * 3), '#D9822B');
 }, { up: 24, wide: 2 });
 
 def('string_lights', (b, w, h, o) => {
   for (let x = 0; x < w; x++) {
     const sag = Math.round(Math.sin((x / w) * Math.PI) * 5);
     b.p(x, sag, '#3A3340');
-    if (x % 8 === 4) b.r(x, sag + 1, 2, 2, ['#FFE066', '#F7A8C8', '#8EC5FF', '#B6F28E'][(x / 8) % 4 | 0]);
+    const bulbs = SEASON === 'invierno' ? ['#E3584B', '#FFFFFF', '#3FAE5A', '#FFE066'] : ['#FFE066', '#F7A8C8', '#8EC5FF', '#B6F28E'];
+    if (x % 8 === 4) b.r(x, sag + 1, 2, 2, bulbs[(x / 8) % 4 | 0]);
   }
 }, { overlay: true, noOutline: true, lightRow: true });
 
@@ -505,7 +556,7 @@ const cache = new Map();
 export function objectSprite(o, seed, frame = 0) {
   const d = OBJ[o.type];
   if (!d) return null;
-  const key = `${o.type}|${o.w || 1}|${o.h || 1}|${o.color || ''}|${seed}|${frame}`;
+  const key = `${o.type}|${o.w || 1}|${o.h || 1}|${o.color || ''}|${seed}|${frame}|${SEASON}`;
   if (cache.has(key)) return cache.get(key);
   const w = (o.w || d.wide || 1) * T;
   const h = (o.h || 1) * T;

@@ -192,3 +192,31 @@
   .lupa-box { top: auto; bottom: 8px; }
   .day-card { top: 8px; left: 8px; padding: 6px 8px; }
 }
+
+/* Oficina viva v2: vista de calle, tira de casa, demo */
+.view-switch { position: absolute; top: 12px; right: 12px; display: flex; gap: 6px; }
+.demo-badge { position: absolute; bottom: 8px; right: 10px; font: 800 10px Inter, sans-serif; letter-spacing: 2px; color: #2A1F2D; background: #F2C14E; padding: 2px 6px; border-radius: 3px; pointer-events: none; }
+.lupa-room { display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+.lupa-call { color: #8FE3B0; font-size: 0.82rem; }
+.home-strip {
+  position: absolute; left: 12px; bottom: 12px; max-width: calc(100% - 24px);
+  background: rgba(30, 22, 40, 0.88); border: 2px solid #2A1F2D; box-shadow: 0 0 0 2px #E3884B inset;
+  border-radius: 4px; padding: 6px 8px 8px; color: #F6F2EA;
+}
+.home-strip-title { font: 800 11px Inter, sans-serif; letter-spacing: 1px; text-transform: uppercase; color: #F2C14E; margin-bottom: 4px; }
+.home-strip-list { display: flex; gap: 8px; overflow-x: auto; }
+.home-window { margin: 0; width: 132px; flex-shrink: 0; }
+.home-window canvas { width: 132px; height: 92px; image-rendering: pixelated; border: 2px solid #2A1F2D; display: block; background: #1B1626; }
+.home-window figcaption { display: flex; flex-direction: column; font-size: 0.72rem; line-height: 1.25; margin-top: 3px; }
+.home-window figcaption strong { color: #FFFFFF; }
+.home-window figcaption span { color: #CFC6DA; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 800px) {
+  .home-strip { left: 4px; bottom: 4px; padding: 3px; box-shadow: 0 0 0 1px #E3884B inset; }
+  .home-strip-title { display: none; }
+  .home-strip-list { gap: 4px; }
+  .home-window { width: 58px; }
+  .home-window canvas { width: 58px; height: 41px; }
+  .home-window figcaption span { display: none; }
+  .home-window figcaption { font-size: 0.62rem; }
+  .view-switch { top: auto; bottom: 8px; right: 8px; }
+}
