@@ -32,7 +32,7 @@ async function main() {
   // se conectaba sin empresa → companyId NaN → error de Postgres no capturado).
   io.use((socket, next) => {
     (async () => {
-      if (!gate.cookieOk(socket.handshake.headers.cookie)) return next(new Error('gate'));
+      // Sin comprobar la cookie de la puerta: hace falta sesión, y quien tiene sesión ya tiene cuenta.
       const a = socket.handshake.auth || {};
       const payload = auth.verify(a.token);
       if (!payload) return next(new Error('auth'));

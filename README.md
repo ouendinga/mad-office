@@ -76,6 +76,9 @@ cd tests && BASE_URL=http://localhost:8082 npx playwright test
 docker compose -p mad-office-pruebas --env-file pruebas.env down -v   # al acabar
 ```
 
+La puerta, la entrada por invitación con contraseña propia y el modo pruebas se prueban por API
+con `tests/puerta-y-pruebas.sh`, contra otra pila vacía con `GATE=on` (instrucciones dentro).
+
 ## Estructura
 
 ```

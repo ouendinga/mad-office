@@ -8,7 +8,7 @@ import History from './pages/History';
 import Companies from './pages/Companies';
 import OrgChart from './pages/OrgChart';
 import CompanySettings from './pages/CompanySettings';
-import { api, capi, getToken, setToken, getCompany, setCompany, pendingInvite, clearInvite } from './api';
+import { api, capi, getToken, setToken, getCompany, setCompany, pendingInvite, clearInvite, getOwner, setOwner } from './api';
 
 // Recorrido: entrar → elegir o crear empresa → avatar (una vez) → cargo en el organigrama →
 // entrevista y ficha → oficina. Con un enlace de invitación, se entra directo en esa empresa.
@@ -83,7 +83,30 @@ export default function App() {
     load();
   };
 
+  // Modo pruebas: entrar como un jugador de prueba y volver a la cuenta del dueño.
+  const [owner, setOwnerState] = useState(getOwner());
+  const become = (token, name) => {
+    const o = owner || { token: getToken(), company };
+    setOwner({ ...o, as: name });
+    setOwnerState({ ...o, as: name });
+    setToken(token);
+    setView('office');
+    setLoading(true);
+    load();
+  };
+  const backToOwner = () => {
+    setToken(owner.token);
+    setCompany(owner.company);
+    setActive(owner.company);
+    setOwner(null);
+    setOwnerState(null);
+    setView('office');
+    setLoading(true);
+    load();
+  };
+
   const logout = () => {
+    if (owner) return backToOwner();
     setToken(null);
     setMe(null);
     setCompany(null);
@@ -91,11 +114,25 @@ export default function App() {
   };
 
   if (!gate) return <div className="loading">Abriendo la oficina…</div>;
-  if (gate.required && !gate.open) {
-    return <Gate configured={gate.configured} onOpen={() => { setGate({ ...gate, open: true }); setLoading(!!getToken()); load(); }} />;
+  // Sin pasar la puerta se puede llegar igual: con un enlace de invitación (se crea la cuenta con
+  // contraseña propia) o con una cuenta que ya la tenga («Ya tengo cuenta»).
+  const outside = gate.required && !gate.open;
+  if (outside && !me && !pendingInvite() && gate.mode !== 'cuenta') {
+    return <Gate configured={gate.configured} onOpen={() => { setGate({ ...gate, open: true }); setLoading(!!getToken()); load(); }}
+      onAccount={() => setGate({ ...gate, mode: 'cuenta' })} />;
   }
   if (loading) return <div className="loading">Abriendo la oficina…</div>;
-  if (!me) return <Landing onAuth={onAuth} invite={pendingInvite()} />;
+  if (!me) {
+    return <Landing onAuth={(u, t) => { setGate({ ...gate, open: true }); onAuth(u, t); }} invite={pendingInvite()}
+      needPassword={outside} startWith={outside && gate.mode === 'cuenta' ? 'login' : null}
+      onBack={outside ? () => { clearInvite(); setGate({ ...gate, mode: null }); } : null} />;
+  }
+  const ownerBar = owner && (
+    <div className="owner-bar" role="status">
+      🧪 Estás como <strong>{owner.as}</strong> (jugador de prueba)
+      <button type="button" className="btn btn-primary btn-sm" onClick={backToOwner}>Volver a mi cuenta</button>
+    </div>
+  );
 
   const { user } = me;
   const hasAvatar = user.avatar_config && Object.keys(user.avatar_config).length > 0;
@@ -147,8 +184,10 @@ export default function App() {
   if (view === 'empresa') return <CompanySettings company={active} onChanged={load} onBack={() => setView('office')} />;
 
   return (
-    <Office
-      key={active.id}
+    <>{ownerBar}<Office
+      key={`${active.id}|${user.id}`}
+      owner={!!user.is_admin && !owner}
+      onBecome={become}
       me={me}
       company={active}
       onLogout={logout}
@@ -157,6 +196,6 @@ export default function App() {
       onCompanies={() => setView('companies')}
       onOrg={() => setView('org')}
       onCompanySettings={() => setView('empresa')}
-    />
+    /></>
   );
 }

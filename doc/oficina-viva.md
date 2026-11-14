@@ -256,15 +256,40 @@ su organigrama, su feed y su simulación. Decisiones de Álvaro:
 - **Tablón «Se busca personal»:** vacantes de las empresas públicas que lo activen (lo decide el
   admin), con una oferta de broma que la IA escribe una sola vez por vacante.
 - **Visitantes por reglas, sin IA:** repartidor (paquete para alguien), mantenimiento y limpieza.
-- **Abrirlo a gente de fuera** (enlace mágico por correo, quitar la contraseña común) depende del
-  estudio de viabilidad (`docs/negocio/estudio.md`): de momento, para Walmeric y colegas.
+- **Abrirlo a gente de fuera** (enlace mágico por correo) depende del estudio de viabilidad
+  (`docs/negocio/estudio.md`): de momento, para Walmeric y colegas.
+
+### Entrar sin la contraseña común (2026-11-14, como en Preventa)
+
+La web publicada lleva delante la contraseña común de los paneles de Álvaro (`gate.js`), que **no se
+le da a nadie**. Para compartirla:
+- **Enlace de invitación** (🏢 Empresa → invitar): quien lo abre se salta la puerta, ve a qué empresa
+  le invitan y crea su cuenta **con contraseña propia** (mín. 8). Sin invitación no se crea cuenta
+  desde fuera.
+- **«Ya tengo cuenta»** en la puerta: correo + su contraseña. 5 fallos por IP → 15 min de espera.
+- Quien tiene sesión (token de 30 días) ya no ve la puerta: la sesión basta, también en el directo.
+- Sin contraseña propia (Álvaro, el primero) se entra solo con el correo, **pero solo tras la puerta**.
+- Al compartir el enlace por WhatsApp sale una tarjeta con logo (`og.png`); la web es `noindex`.
+
+### Modo pruebas (solo el dueño)
+
+Para probar sin esperar a un día laborable. Lo ve solo `users.is_admin` (el primero que se registró)
+en las empresas que lleva, botón «🧪 Pruebas»:
+- **Reloj de la empresa:** saltar a una hora (en el día laborable más cercano), +1 h, velocidad
+  ×1-×60 y volver a la hora real. Se guarda en `companies.settings.reloj = {realAt, officeAt, speed}`;
+  las demás empresas siguen con la hora real. La oficina lo avisa («🧪 reloj de pruebas»).
+- **Jugadores de prueba** (máx. 12 por empresa): cuentas inventadas (`users.is_test`, correo
+  `@pruebas.invalid`, no pueden entrar por login) con personaje ya aprobado y la ficha de un ficticio.
+  **Sin IA por defecto** (`characters.sin_ia`, piloto automático, gratis); se puede encender.
+  «Entrar como» para jugar con su cuenta; una barra arriba lleva de vuelta a la del dueño.
 
 ### API
 
 Fuera de una empresa: `GET /api/me` (persona + `companies[]` con rol, personaje y cargo) ·
 `PUT /api/me/avatar` · `POST /api/companies {name, visibility}` · `GET /api/public/companies` ·
 `GET /api/jobs` (tablón) · `POST /api/companies/:cid/join {position_id?, message}` ·
-`GET|POST /api/invitations/:code` · registro con `invite` en `POST /api/auth/register`.
+`GET|POST /api/invitations/:code` · `POST /api/auth/register {email, name, password?, invite?}` ·
+`POST /api/auth/login {email, password?}` · `PUT /api/auth/password {password}`.
 
 Dentro (`/api/companies/:cid`, solo miembros; ⭐ = solo admin):
 `GET /` · ⭐`PUT / {name, visibility, settings: {remotePerWeek, officeDays, jobBoard}}` ·
@@ -276,6 +301,10 @@ Dentro (`/api/companies/:cid`, solo miembros; ⭐ = solo admin):
 `GET /feed` · `GET /characters/:id` · `GET /characters/:id/history` · `GET /turns/:id` ·
 `/me`: `GET /` · `POST /position {position_id}` (409 `code: 'ocupado'`) · `POST /interview` ·
 `PUT /ficha` · `PUT /settings` · `GET|PUT /dream` · `POST /dream/help` · `GET /usage`.
+Modo pruebas (solo el dueño, admin de la empresa): `GET /pruebas` ·
+`PUT /pruebas/reloj {hhmm, day:'laborable'} | {plus} | {speed} | {reset}` ·
+`POST /pruebas/jugadores {name?, position_id?, ia?}` · `PUT|DELETE /pruebas/jugadores/:uid` ·
+`POST /pruebas/jugadores/:uid/entrar` (token del jugador).
 
 Directo: `io(..., { auth: { token, companyId } })`; `world` trae además `company {id, name}` y, en
 cada personaje, `position {id, title, csuite}`, `npc` y, en los visitantes, `visitor {kind, forId}`.
@@ -295,7 +324,8 @@ Sonnet) y **sueños solo desde la app**. Lo demás llega después.
 | 3b. Oficina viva v2: zoom por salas, calle, teletrabajo, llamadas, oír de cerca, pensamientos, estados, tiempo real, horario, horas extra | ✅ 2026-11-14 |
 | 3c. Empresas: varias por instalación, invitaciones, organigrama con ficticios, tablón, carga de trabajo, visitantes | ✅ 2026-11-14 |
 | 4. Conector A: claves de API cifradas y endpoint compatible con OpenAI (Globant) | pendiente |
-| 5. Abrir a gente de fuera: enlace mágico por correo (quitar la contraseña común) y un despertador por persona que solo resuelva sus turnos | pendiente; el estudio lo pide antes de invitar a nadie |
+| 3d. Entrar por invitación con contraseña propia (sin la común), modo pruebas del dueño, logo y favicon | ✅ 2026-11-14 |
+| 5. Abrir a gente de fuera: enlace mágico por correo y un despertador por persona que solo resuelva sus turnos | pendiente (la invitación con contraseña propia ya permite invitar a compis sin dar la común) |
 | 6. Visitantes con enlace caducable | pendiente |
 | 7. El sueño por correo | aparcado (Álvaro: «iremos mejorando») |
 | 8. Codex y Gemini en el despertador (antes, confirmar sus condiciones) | pendiente |

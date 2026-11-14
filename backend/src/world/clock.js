@@ -60,6 +60,20 @@ function makeClock({ speed = 1, start = null, now = () => Date.now() } = {}) {
   };
 }
 
+// Reloj de pruebas de una empresa (modo pruebas del dueño): parte del reloj común y lo mueve.
+// reloj = { realAt, officeAt, speed }: en el instante común realAt la empresa marcaba officeAt, y
+// desde ahí corre a speed. Sin reloj (null), la empresa va con la hora de todos.
+function shiftedClock(base, reloj) {
+  if (!reloj || !Number.isFinite(reloj.realAt) || !Number.isFinite(reloj.officeAt)) return base;
+  const speed = Number(reloj.speed) > 0 ? Number(reloj.speed) : 1;
+  return {
+    speed: base.speed * speed,
+    shifted: true,
+    nowMs: () => reloj.officeAt + (base.nowMs() - reloj.realAt) * speed,
+    realMs: officeMs => base.realMs(officeMs) / speed,
+  };
+}
+
 const fmt = new Intl.DateTimeFormat('en-GB', {
   timeZone: TZ,
   year: 'numeric', month: '2-digit', day: '2-digit',
@@ -85,6 +99,21 @@ function addDays(date, n) {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
+}
+
+// Instante (ms) de una fecha y hora de Madrid: «2026-11-16», «09:00». Dos vueltas bastan para
+// cuadrar el horario de verano.
+function madridMs(date, hhmm) {
+  const [y, m, d] = date.split('-').map(Number);
+  const [h, mi] = hhmm.split(':').map(Number);
+  const want = Date.UTC(y, m - 1, d, h, mi);
+  let ms = want;
+  for (let i = 0; i < 2; i++) {
+    const p = parts(ms);
+    const [py, pm, pd] = p.date.split('-').map(Number);
+    ms += want - Date.UTC(py, pm - 1, pd, p.hour, p.minute);
+  }
+  return ms;
 }
 
 function isWorkday(weekday) {
@@ -143,6 +172,6 @@ function fromMinutes(mins) {
 }
 
 module.exports = {
-  TZ, DEFAULT, DEFAULT_HOURS, makeSchedule, validateSchedule, BLOCKS, COMMUTE, SCHEDULE, setSchedule, phaseOf, makeClock, parts, addDays, isWorkday, blockOf, nextMorning,
+  TZ, DEFAULT, DEFAULT_HOURS, makeSchedule, validateSchedule, BLOCKS, COMMUTE, SCHEDULE, setSchedule, phaseOf, makeClock, shiftedClock, madridMs, parts, addDays, isWorkday, blockOf, nextMorning,
   dreamWindowOpen, toMinutes, fromMinutes,
 };

@@ -68,17 +68,47 @@ async function setPassword(pool, password) {
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`, [hashPassword(password)]);
 }
 
-// Rutas que no pasan por la puerta: salud, la propia puerta y el despertador (tiene su token).
-const OPEN = [/^\/api\/health$/, /^\/api\/gate$/, /^\/api\/runner\//];
+// ¿Trae una sesión de alguien con cuenta? Quien ya tiene cuenta no necesita la contraseña común
+// (entró con una invitación o con la puerta, y su sesión lo dice).
+function bearerOk(req) {
+  const h = req.headers.authorization || '';
+  if (!h.startsWith('Bearer ')) return false;
+  try {
+    return !!jwt.verify(h.slice(7), process.env.JWT_SECRET).userId;
+  } catch {
+    return false;
+  }
+}
+
+// Rutas que no pasan por la puerta: salud, la propia puerta, el despertador (tiene su token), ver a
+// qué empresa invita un enlace, y entrar o crear cuenta (auth.js exige ahí invitación o contraseña
+// propia cuando no se ha pasado la puerta: mira req.gateOpen).
+const OPEN = [/^\/api\/health$/, /^\/api\/gate$/, /^\/api\/runner\//, /^\/api\/auth\/(login|register)$/];
+const OPEN_GET = [/^\/api\/invitations\/[\w-]+$/];
 
 function middleware(req, res, next) {
   // originalUrl: montado en /api, req.path ya no lleva el prefijo.
   const path = req.originalUrl.split('?')[0];
-  if (!ENABLED || OPEN.some(re => re.test(path)) || cookieOk(req.headers.cookie)) return next();
+  req.gateOpen = !ENABLED || cookieOk(req.headers.cookie);
+  if (req.gateOpen || bearerOk(req) || OPEN.some(re => re.test(path))
+    || (req.method === 'GET' && OPEN_GET.some(re => re.test(path)))) return next();
   res.status(401).json({ error: 'Hace falta la contraseña de la oficina.', code: 'gate' });
 }
 
 const fails = new Map(); // ip -> [timestamps]
+
+// Límite de intentos por IP (la puerta y las contraseñas propias): true si ya no deja.
+function tooMany(ip, key = 'gate') {
+  const now = Date.now();
+  const recent = (fails.get(`${key}|${ip}`) || []).filter(t => now - t < WINDOW_MS);
+  fails.set(`${key}|${ip}`, recent);
+  return recent.length >= MAX_FAILS;
+}
+function failed(ip, key = 'gate') {
+  const k = `${key}|${ip}`;
+  fails.set(k, [...(fails.get(k) || []), Date.now()]);
+}
+function cleared(ip, key = 'gate') { fails.delete(`${key}|${ip}`); }
 
 function router(express) {
   const r = express.Router();
@@ -86,7 +116,7 @@ function router(express) {
   r.get('/', async (req, res) => {
     res.json({
       required: ENABLED,
-      open: cookieOk(req.headers.cookie),
+      open: cookieOk(req.headers.cookie) || bearerOk(req),
       configured: ENABLED ? !!(await storedHash(req.app.get('db'))) : true,
     });
   });
@@ -94,19 +124,16 @@ function router(express) {
   r.post('/', async (req, res) => {
     if (!ENABLED) return res.json({ open: true });
     const ip = req.ip;
-    const now = Date.now();
-    const recent = (fails.get(ip) || []).filter(t => now - t < WINDOW_MS);
-    if (recent.length >= MAX_FAILS) {
+    if (tooMany(ip)) {
       return res.status(429).json({ error: 'Demasiados intentos. Espera un cuarto de hora.' });
     }
     const stored = await storedHash(req.app.get('db'));
     if (!stored) return res.status(503).json({ error: 'Aún no hay contraseña puesta (clave-paneles).' });
     if (!verifyPassword(String(req.body.password || ''), stored)) {
-      recent.push(now);
-      fails.set(ip, recent);
+      failed(ip);
       return res.status(401).json({ error: 'Esa no es.' });
     }
-    fails.delete(ip);
+    cleared(ip);
     currentFp = fingerprint(stored);
     const token = jwt.sign({ gate: true, fp: currentFp }, process.env.JWT_SECRET, { expiresIn: MAX_AGE_S });
     const secure = process.env.GATE_INSECURE_COOKIE === 'true' ? '' : '; Secure';
@@ -117,4 +144,4 @@ function router(express) {
   return r;
 }
 
-module.exports = { ENABLED, watch, fingerprint, hashPassword, verifyPassword, readCookie, cookieOk, setPassword, middleware, router };
+module.exports = { ENABLED, watch, fingerprint, hashPassword, verifyPassword, readCookie, cookieOk, bearerOk, tooMany, failed, cleared, setPassword, middleware, router };

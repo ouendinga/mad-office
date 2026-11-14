@@ -9,6 +9,7 @@ const org = require('../company/org');
 const { addMember } = require('./companies');
 const me = require('./me');
 const office = require('./office');
+const pruebas = require('./pruebas');
 
 const PLACES = ['mesa', 'despacho', 'recepcion'];
 const WEEKDAYS = [1, 2, 3, 4, 5];
@@ -101,7 +102,7 @@ function router({ world }) {
       'SELECT id, parent_id, title, csuite, is_unique, seats, place, sort FROM positions WHERE company_id = $1 ORDER BY sort, id',
       [req.companyId])).rows;
     const holders = (await db.query(
-      `SELECT c.id, c.name, c.position_id, c.owner_user_id, c.approved, c.npc_seat,
+      `SELECT c.id, c.name, c.position_id, c.owner_user_id, c.approved, c.npc_seat, c.sin_ia,
               COALESCE(u.avatar_config, c.avatar_config) AS avatar_config
          FROM characters c LEFT JOIN users u ON u.id = c.owner_user_id
         WHERE c.company_id = $1 AND c.position_id IS NOT NULL AND NOT c.retired AND NOT c.paused`, [req.companyId])).rows;
@@ -110,7 +111,7 @@ function router({ world }) {
         ...p,
         holders: holders.filter(h => h.position_id === p.id).map(h => ({
           character_id: h.id, name: h.name, human: h.owner_user_id != null, mine: h.owner_user_id === req.userId,
-          ai: h.owner_user_id != null || p.csuite, avatar_config: h.avatar_config,
+          ai: !h.sin_ia && (h.owner_user_id != null || p.csuite), avatar_config: h.avatar_config,
         })),
       })),
     });
@@ -323,6 +324,7 @@ function router({ world }) {
     res.json({ status: accept ? 'aceptada' : 'rechazada', position_id: j.position_id });
   });
 
+  r.use('/pruebas', pruebas.router({ world }));
   r.use('/me', me.router());
   r.use('/', office.router({ world }));
   return r;

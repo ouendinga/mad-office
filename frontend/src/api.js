@@ -20,6 +20,23 @@ export function setToken(token) {
   }
 }
 
+// Modo pruebas: al «entrar como» un jugador de prueba se guarda aquí la sesión del dueño para volver.
+const OWNER_KEY = 'mad_office_owner';
+export function getOwner() {
+  try {
+    const v = localStorage.getItem(OWNER_KEY);
+    return v ? JSON.parse(v) : null;
+  } catch {
+    return null;
+  }
+}
+export function setOwner(v) {
+  try {
+    if (v) localStorage.setItem(OWNER_KEY, JSON.stringify(v));
+    else localStorage.removeItem(OWNER_KEY);
+  } catch { /* sin almacenamiento: no hay vuelta automática */ }
+}
+
 // Empresa activa: la que se está mirando. Todo lo de «dentro» va a /api/companies/:cid/…
 const COMPANY_KEY = 'mad_office_company';
 let memCompany = null;

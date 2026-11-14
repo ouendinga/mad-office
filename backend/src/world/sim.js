@@ -39,7 +39,8 @@ class Sim {
   constructor({ pool, io, clock, companyId = 1, tickMs = 1000 }) {
     this.pool = pool;
     this.io = io;
-    this.clock = clock;
+    this.baseClock = clock;
+    this.clock = clock; // el de la empresa: el común, o el movido en modo pruebas (loadCompany)
     this.companyId = companyId;
     this.room = `company:${companyId}`;
     this.sch = clockLib.makeSchedule();
@@ -60,6 +61,7 @@ class Sim {
     const r = await this.pool.query('SELECT name, visibility, settings FROM companies WHERE id = $1', [this.companyId]);
     if (!r.rows[0]) return null;
     this.company = r.rows[0];
+    this.clock = clockLib.shiftedClock(this.baseClock, this.company.settings.reloj);
     const h = this.company.settings.hours;
     if (h && this.sch.set(h)) console.error(`empresa ${this.companyId}: horario guardado no válido`);
     return this.company;
@@ -82,6 +84,7 @@ class Sim {
 
   // Piensan con IA las personas y los C-suite; el resto de ficticios, en piloto automático.
   aiFor(c) {
+    if (c.sin_ia) return false; // jugador de prueba sin IA (modo pruebas)
     return c.owner_user_id != null || c.csuite === true;
   }
 
@@ -388,6 +391,8 @@ class Sim {
         weather: w ? { temp: w.temp, code: w.code, desc: w.desc, precip: w.precip, wind: w.wind, isDay: w.isDay } : null,
         season: weatherLib.season(day, loc.lat),
         city: loc.city,
+        // Modo pruebas: la empresa va con el reloj movido (se avisa en pantalla).
+        test: this.clock.shifted ? { speed: this.clock.speed / this.baseClock.speed } : null,
       },
       characters: view,
     });

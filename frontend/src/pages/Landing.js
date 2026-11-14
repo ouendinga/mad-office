@@ -4,9 +4,12 @@ import '../styles/landing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-export default function Landing({ onAuth, invite }) {
-  const [modal, setModal] = useState(null); // 'login' | 'register' | null
+// needPassword: se llega sin la contraseña común (enlace de invitación o «Ya tengo cuenta»): la cuenta
+// se crea con contraseña propia y se entra con ella.
+export default function Landing({ onAuth, invite, needPassword = false, startWith = null, onBack = null }) {
+  const [modal, setModal] = useState(startWith || (needPassword && invite ? 'register' : null)); // 'login' | 'register' | null
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +29,7 @@ export default function Landing({ onAuth, invite }) {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, ...(invite ? { invite } : {}) })
+        body: JSON.stringify({ email, name, ...(password ? { password } : {}), ...(invite ? { invite } : {}) })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -46,7 +49,7 @@ export default function Landing({ onAuth, invite }) {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email, ...(password ? { password } : {}) })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -63,6 +66,7 @@ export default function Landing({ onAuth, invite }) {
     setError('');
     setEmail('');
     setName('');
+    setPassword('');
   };
 
   const closeModal = () => setModal(null);
@@ -73,10 +77,11 @@ export default function Landing({ onAuth, invite }) {
       <header className="landing-header">
         <div className="landing-header-inner">
           <div className="logo">
-            <span className="logo-icon">&#x1F3E2;</span>
+            <img className="logo-img" src="/logo.svg" alt="" width="32" height="32" />
             <span className="logo-text pixel-font">Mad Office</span>
           </div>
           <div className="header-buttons">
+            {onBack && <button className="btn btn-ghost" onClick={onBack}>← Volver</button>}
             <button className="btn btn-ghost" onClick={() => openModal('login')}>Entrar</button>
             <button className="btn btn-primary" onClick={() => openModal('register')}>Crear cuenta</button>
           </div>
@@ -127,7 +132,7 @@ export default function Landing({ onAuth, invite }) {
       <footer className="landing-footer">
         <div className="footer-inner">
           <div className="logo">
-            <span className="logo-icon">&#x1F3E2;</span>
+            <img className="logo-img" src="/logo.svg" alt="" width="24" height="24" />
             <span className="logo-text pixel-font">Mad Office</span>
           </div>
           <p>Mad Office · comedia de oficina con personajes de IA</p>
@@ -151,6 +156,12 @@ export default function Landing({ onAuth, invite }) {
                   <label>Nombre</label>
                   <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Tu nombre" required />
                 </div>
+                <div className="form-group">
+                  <label>Contraseña{needPassword ? '' : ' (opcional)'}</label>
+                  <input type="password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="Mínimo 8 caracteres" minLength={8} required={needPassword} />
+                  <small className="form-hint">Con ella vuelves a entrar desde cualquier sitio.</small>
+                </div>
                 <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
                   {loading ? 'Creando...' : 'Crear cuenta'}
                 </button>
@@ -162,6 +173,11 @@ export default function Landing({ onAuth, invite }) {
                 <div className="form-group">
                   <label>Email</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" required />
+                </div>
+                <div className="form-group">
+                  <label>Contraseña</label>
+                  <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder={needPassword ? '' : 'Si te pusiste una'} required={needPassword} />
                 </div>
                 <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
                   {loading ? 'Entrando...' : 'Entrar'}

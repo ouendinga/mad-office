@@ -10,6 +10,7 @@ import { capi, getToken, waitTurn, WS_URL, HUMOR_EMOJI } from '../api';
 import '../styles/office.css';
 import '../styles/history.css';
 import StatsPentagon from '../components/StatsPentagon';
+import PruebasPanel from '../components/PruebasPanel';
 import OfficeSettings from '../components/OfficeSettings';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -83,10 +84,11 @@ function fmtMorning(date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-export default function Office({ me, company, onLogout, onEditAvatar, onHistory, onCompanies, onOrg, onCompanySettings }) {
+export default function Office({ me, company, owner, onBecome, onLogout, onEditAvatar, onHistory, onCompanies, onOrg, onCompanySettings }) {
   const isAdmin = company.role === 'admin';
   const placeLog = useRef(new Map()); // minuto → sitio de mi personaje (para «lo que sabe»)
   const [showSettings, setShowSettings] = useState(false);
+  const [showPruebas, setShowPruebas] = useState(false);
   const canvasRef = useRef(null);
   const worldRef = useRef(null);
   const frameRef = useRef(0);
@@ -215,10 +217,16 @@ export default function Office({ me, company, onLogout, onEditAvatar, onHistory,
               {WEEKDAYS[clock.weekday]} {clock.hhmm}
             </span>
           )}
+          {clock && clock.test && (
+            <span className="office-test" title="Reloj de pruebas: esta empresa no va con la hora real">
+              🧪 reloj de pruebas{clock.test.speed > 1 ? ` ×${clock.test.speed}` : ''}
+            </span>
+          )}
           {offline && <span className="office-offline">sin conexión…</span>}
         </div>
         <div className="office-header-right">
           <span className="office-user-name">{me.user.name}</span>
+          {owner && isAdmin && <button className="btn btn-ghost btn-sm" onClick={() => setShowPruebas(true)}>🧪 Pruebas</button>}
           <button className="btn btn-ghost btn-sm" onClick={onOrg}>🗂️ Organigrama</button>
           <button className="btn btn-ghost btn-sm" onClick={onCompanySettings}>🏢 Empresa</button>
           <button className="btn btn-ghost btn-sm" onClick={() => setShowSettings(true)}>🌦️ Oficina</button>
@@ -227,6 +235,7 @@ export default function Office({ me, company, onLogout, onEditAvatar, onHistory,
         </div>
       </header>
 
+      {showPruebas && <PruebasPanel onClose={() => setShowPruebas(false)} onBecome={(tk, n) => { setShowPruebas(false); onBecome(tk, n); }} />}
       <div className="office-layout">
         <div className="office-canvas-container">
           <canvas ref={canvasRef} className="office-canvas" onClick={onCanvasClick} />
