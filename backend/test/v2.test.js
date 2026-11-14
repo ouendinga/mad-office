@@ -195,3 +195,9 @@ test('horario: por defecto 9-18 con comida a las 14:00; se puede cambiar y todo 
     clock.setSchedule({ start: 540, end: 1080, lunch: 840, lunchMin: 60 });
   }
 });
+
+test('GM: como mucho dos pensamientos por bloque', () => {
+  const raw = ['09:00', '10:00', '11:00', '12:00'].map(h => ({ hora: h, lugar: 'mesa', con: '', que: 'x', frase: '', piensa: `p${h}` }));
+  const plan = gm.validatePlan(raw, { block: 'manana', names, selfId: 1 });
+  assert.equal(plan.filter(a => a.piensa).length, 2);
+});

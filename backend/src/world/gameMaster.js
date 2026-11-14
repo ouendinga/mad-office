@@ -61,6 +61,9 @@ function validatePlan(raw, { block, names, selfId, remote = false, extra = false
   }
 
   const actions = [...byMinute.values()].sort((x, y) => x.min - y.min);
+  // Como mucho dos pensamientos por bloque (aunque la IA meta más): el resto se descarta.
+  let thoughts = 0;
+  for (const a of actions) if (a.piensa && ++thoughts > 2) delete a.piensa;
   if (!actions.length || actions[0].min > range.from) {
     actions.unshift({
       min: range.from,

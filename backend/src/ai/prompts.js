@@ -151,7 +151,8 @@ function planRequest({ kind, character, cast, day, block, yesterdayDiary, heard,
     contextLines({ yesterdayDiary, heard, character, weatherLine }),
     where,
     kind === 'despertar' ? (dream ? `Esta noche soñó: <sueno>${dream}</sueno>` : 'Esta noche no soñó nada.') : '',
-    'Planifica de 4 a 6 momentos del bloque. Que pasen cosas con los compañeros y que tenga gracia.',
+    'Planifica de 4 a 6 momentos del bloque. Que pasen cosas con los compañeros y que tenga gracia. '
+      + '"piensa" solo en UNO o DOS momentos; en los demás, cadena vacía.',
   ].filter(Boolean).join('\n');
   if (block === 'tarde' && extraRule === 'no') where = `${where} Hoy no puede quedarse más tarde (horas_extra=false).`.trim();
   let schema = SCHEMAS.plan;
