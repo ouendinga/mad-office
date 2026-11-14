@@ -4,12 +4,19 @@ import AvatarGenerator from './pages/AvatarGenerator';
 import Onboarding from './pages/Onboarding';
 import Office from './pages/Office';
 import { api, getToken, setToken } from './api';
+import Gate from './pages/Gate';
 
 // Recorrido: entrar → avatar → entrevista y ficha → oficina.
 export default function App() {
   const [me, setMe] = useState(null); // { user, character }
   const [loading, setLoading] = useState(!!getToken());
   const [editAvatar, setEditAvatar] = useState(false);
+  const [gate, setGate] = useState(null); // { required, open, configured }
+
+  // La puerta va antes que todo (solo existe en el VPS).
+  useEffect(() => {
+    api('/gate').then(setGate).catch(() => setGate({ required: false, open: true }));
+  }, []);
 
   const load = useCallback(async () => {
     if (!getToken()) return setLoading(false);
@@ -36,6 +43,10 @@ export default function App() {
     setMe(null);
   };
 
+  if (!gate) return <div className="loading">Abriendo la oficina…</div>;
+  if (gate.required && !gate.open) {
+    return <Gate configured={gate.configured} onOpen={() => { setGate({ ...gate, open: true }); setLoading(!!getToken()); load(); }} />;
+  }
   if (loading) return <div className="loading">Abriendo la oficina…</div>;
   if (!me) return <Landing onAuth={onAuth} />;
 

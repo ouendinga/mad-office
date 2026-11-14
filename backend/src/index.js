@@ -9,6 +9,7 @@ const auth = require('./routes/auth');
 const me = require('./routes/me');
 const office = require('./routes/office');
 const runner = require('./routes/runner');
+const gate = require('./gate');
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:8081,http://localhost:3000').split(',');
 
@@ -21,7 +22,10 @@ async function main() {
   const io = new Server(server, { cors: { origin: allowedOrigins, credentials: true } });
 
   // Solo entra al directo quien tiene sesión.
-  io.use((socket, next) => (auth.verify(socket.handshake.auth && socket.handshake.auth.token) ? next() : next(new Error('auth'))));
+  io.use((socket, next) => {
+    if (!gate.cookieOk(socket.handshake.headers.cookie)) return next(new Error('gate'));
+    return auth.verify(socket.handshake.auth && socket.handshake.auth.token) ? next() : next(new Error('auth'));
+  });
 
   const clock = makeClock({
     speed: Number(process.env.CLOCK_SPEED || 1),
@@ -29,11 +33,15 @@ async function main() {
   });
   const sim = new Sim({ pool, io, clock });
 
+  // Detrás de nginx (y en el VPS, además, de Traefik): para que req.ip sea la del visitante.
+  app.set('trust proxy', Number(process.env.TRUST_PROXY || 1));
   app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(express.json({ limit: '64kb' }));
   app.set('db', pool);
 
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+  app.use('/api/gate', gate.router(express));
+  app.use('/api', gate.middleware);
   app.use('/api/auth', auth.router({ onUsersChanged: () => { sim.invalidate(); sim.ensured.clear(); } }));
   app.use('/api/me', me.router({ sim }));
   app.use('/api/runner', runner.router({ sim }));

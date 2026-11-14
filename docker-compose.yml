@@ -28,6 +28,9 @@ services:
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
       CLOCK_SPEED: ${CLOCK_SPEED:-1}
       CLOCK_START: ${CLOCK_START:-}
+      GATE: ${GATE:-off}
+      GATE_INSECURE_COOKIE: ${GATE_INSECURE_COOKIE:-false}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
     depends_on:
       postgres:
         condition: service_healthy

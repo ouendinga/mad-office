@@ -21,15 +21,17 @@ export function setToken(token) {
 }
 
 export class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, code) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
 export async function api(path, { method = 'GET', body } = {}) {
   const res = await fetch(`${API_URL}/api${path}`, {
     method,
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
       ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
@@ -37,7 +39,7 @@ export async function api(path, { method = 'GET', body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(data.error || 'No he podido hablar con la oficina. ¿Está encendida?', res.status);
+  if (!res.ok) throw new ApiError(data.error || 'No he podido hablar con la oficina. ¿Está encendida?', res.status, data.code);
   return data;
 }
 
