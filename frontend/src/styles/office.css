@@ -156,8 +156,39 @@
 @media (max-width: 800px) {
   .office-page { height: auto; min-height: 100vh; overflow: visible; }
   .office-layout { flex-direction: column; overflow: visible; }
-  .office-canvas-container { height: 60vh; flex: none; }
+  .office-canvas-container { height: auto; aspect-ratio: 40 / 26; flex: none; }
   .office-sidebar { width: 100%; border-left: 0; border-top: 1px solid var(--border); overflow: visible; }
   .office-header { padding: 0.5rem 1rem; flex-wrap: wrap; gap: 0.4rem; }
   .office-user-name { display: none; }
+}
+
+/* Tarjeta del día (arriba a la izquierda del mapa) */
+.office-canvas-container { position: relative; }
+.day-card {
+  position: absolute; top: 12px; left: 12px; pointer-events: none;
+  background: rgba(24, 40, 30, 0.88); border: 2px solid #2A1F2D; box-shadow: 0 0 0 2px #6FBF4A inset;
+  padding: 8px 12px; border-radius: 4px; color: #F6F2EA;
+}
+.day-card.is-night { background: rgba(18, 22, 52, 0.9); box-shadow: 0 0 0 2px #7A8CFF inset; }
+.day-card-date { font-size: 0.75rem; text-transform: uppercase; color: #F2C14E; letter-spacing: 1px; }
+.day-card-meta { display: flex; gap: 10px; font-size: 0.8rem; margin-top: 4px; flex-wrap: wrap; }
+.day-card-time { font-weight: 700; color: #FFFFFF; }
+
+/* Caja de diálogo de la lupa (arriba, centrada) */
+.lupa-box {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  width: min(560px, calc(100% - 24px)); display: flex; gap: 12px; align-items: center;
+  background: #1E2A22; border: 3px solid #2A1F2D; box-shadow: 0 0 0 2px #6FBF4A inset, 0 6px 20px rgba(0,0,0,0.4);
+  padding: 10px 12px; border-radius: 4px; color: #F6F2EA;
+}
+.lupa-portrait { width: 64px; height: 40px; image-rendering: pixelated; background: #2E3D33; border: 2px solid #2A1F2D; flex-shrink: 0; }
+.lupa-text { flex: 1; min-width: 0; }
+.lupa-name { color: #F2C14E; font-weight: 800; font-size: 0.9rem; }
+.lupa-line { font-size: 0.9rem; line-height: 1.35; margin: 2px 0; }
+.lupa-meta { font-size: 0.72rem; color: #A9C3AE; text-transform: capitalize; }
+.lupa-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.lupa-close { background: none; border: 0; color: #A9C3AE; font-size: 1.3rem; cursor: pointer; line-height: 1; }
+@media (max-width: 800px) {
+  .lupa-box { top: auto; bottom: 8px; }
+  .day-card { top: 8px; left: 8px; padding: 6px 8px; }
 }

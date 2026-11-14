@@ -1,10 +1,69 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { renderOffice, pickAt } from '../canvas/officeRenderer';
+import { renderOffice, pickAt, roomLabelOf } from '../canvas/officeRenderer';
+import { characterSprite } from '../engine/Character';
 import { api, getToken, waitTurn, WS_URL, HUMOR_EMOJI } from '../api';
 import '../styles/office.css';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+// El tiempo de verdad (Open-Meteo, sin clave). Si falla, la tarjeta sale sin él.
+const WEATHER_LAT = process.env.REACT_APP_WEATHER_LAT || '40.4168';
+const WEATHER_LON = process.env.REACT_APP_WEATHER_LON || '-3.7038';
+function weatherText(code) {
+  if (code === 0) return ['☀️', 'Despejado'];
+  if (code <= 2) return ['🌤️', 'Algo nuboso'];
+  if (code === 3) return ['☁️', 'Nublado'];
+  if (code <= 48) return ['🌫️', 'Niebla'];
+  if (code <= 67 || (code >= 80 && code <= 82)) return ['🌧️', 'Lluvia'];
+  if (code <= 77 || code === 85 || code === 86) return ['❄️', 'Nieve'];
+  return ['⛈️', 'Tormenta'];
+}
+function useWeather() {
+  const [w, setW] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&current=temperature_2m,weather_code&timezone=Europe%2FMadrid`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d && d.current) setW({ t: Math.round(d.current.temperature_2m), code: d.current.weather_code }); })
+      .catch(() => {});
+    load();
+    const t = setInterval(load, 30 * 60 * 1000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  return w;
+}
+
+function DayCard({ clock, weather }) {
+  if (!clock) return null;
+  const [y, m, d] = clock.date.split('-').map(Number);
+  const night = clock.block === 'noche';
+  const [icon, label] = weather ? weatherText(weather.code) : [null, null];
+  return (
+    <div className={`day-card ${night ? 'is-night' : ''}`}>
+      <div className="day-card-date pixel-font">{WEEKDAYS[clock.weekday]} {d} {MONTHS[m - 1]}</div>
+      <div className="day-card-meta">
+        <span className="day-card-time">{clock.hhmm}</span>
+        {weather && <span>{icon} {label} · {weather.t} °C</span>}
+        {night && <span>🌙 Todos en casa</span>}
+      </div>
+    </div>
+  );
+}
+
+function Portrait({ config }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, 64, 64);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(characterSprite(config || {}), 0, 0, 32, 20, 0, 0, 64, 40);
+  }, [config]);
+  return <canvas ref={ref} width={64} height={40} className="lupa-portrait" />;
+}
 const PLACE_TEXT = { mesa: 'en su mesa', cafe: 'en el café', reuniones: 'en reunión', lavabo: 'en el lavabo', visita: 'de visita' };
 
 function fmtMorning(date) {
@@ -21,6 +80,9 @@ export default function Office({ me, onLogout, onEditAvatar }) {
   const [offline, setOffline] = useState(false);
   const [selected, setSelected] = useState(null); // ficha abierta
   const selectedIdRef = useRef(null);
+  const focusRef = useRef(null); // a quién mira la lupa
+  const [focusId, setFocusId] = useState(null);
+  const weather = useWeather();
 
   // Directo por socket.
   useEffect(() => {
@@ -41,7 +103,7 @@ export default function Office({ me, onLogout, onEditAvatar }) {
       const canvas = canvasRef.current;
       if (canvas) {
         frameRef.current++;
-        renderOffice(canvas.getContext('2d'), canvas, worldRef.current, Math.floor(frameRef.current / 8), selectedIdRef.current);
+        renderOffice(canvas.getContext('2d'), canvas, worldRef.current, Math.floor(frameRef.current / 8), focusRef.current);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -73,11 +135,20 @@ export default function Office({ me, onLogout, onEditAvatar }) {
   const onCanvasClick = e => {
     const rect = canvasRef.current.getBoundingClientRect();
     const hit = pickAt(worldRef.current, e.clientX - rect.left, e.clientY - rect.top);
-    if (hit) openCharacter(hit.id);
+    // Clic en alguien: la lupa le sigue. Clic en vacío: se cierra.
+    focusRef.current = hit ? hit.id : null;
+    setFocusId(focusRef.current);
   };
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') { focusRef.current = null; setFocusId(null); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const mine = world && world.characters.find(c => c.owner_user_id === me.user.id);
   const clock = world && world.clock;
+  const focused = focusId != null && world ? world.characters.find(c => c.id === focusId && !c.home) : null;
 
   return (
     <div className="office-page">
@@ -101,6 +172,23 @@ export default function Office({ me, onLogout, onEditAvatar }) {
       <div className="office-layout">
         <div className="office-canvas-container">
           <canvas ref={canvasRef} className="office-canvas" onClick={onCanvasClick} />
+          <DayCard clock={clock} weather={weather} />
+          {focused && (
+            <div className="lupa-box">
+              <Portrait config={focused.avatar_config} />
+              <div className="lupa-text">
+                <div className="lupa-name">{HUMOR_EMOJI[focused.humor] || ''} {focused.name}</div>
+                <div className="lupa-line">{focused.bubble ? `«${focused.bubble}»` : focused.que}</div>
+                <div className="lupa-meta">
+                  {WEEKDAYS[clock.weekday]} · {clock.hhmm} · {roomLabelOf(focused)}
+                </div>
+              </div>
+              <div className="lupa-actions">
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => openCharacter(focused.id)}>Ficha y diario</button>
+                <button type="button" className="lupa-close" aria-label="Cerrar" onClick={() => { focusRef.current = null; setFocusId(null); }}>×</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <aside className="office-sidebar">
