@@ -27,7 +27,7 @@ test('una persona nueva tiene personaje en menos de 5 minutos y sin leer instruc
   const crear = page.getByRole('button', { name: 'Crear mi personaje' });
   await expect(crear).toBeDisabled();
   await page.getByRole('button', { name: /No sé qué poner/ }).click();
-  await page.getByPlaceholder('Backend, Product Owner, Señor de los Excels…').fill('Desarrollador full stack');
+  await page.getByPlaceholder('Operaciones, Sistemas, Account manager, Finanzas, Recepción…').fill('Account manager');
   await page.screenshot({ path: `${SHOTS}/2-entrevista.png`, fullPage: true });
   await crear.click();
 

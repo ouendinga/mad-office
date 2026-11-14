@@ -89,7 +89,7 @@ const SCHEMAS = {
     type: 'object',
     properties: {
       puesto: { type: 'string' },
-      personalidad: { type: 'string', description: 'máx 250 caracteres' },
+      personalidad: { type: 'string', description: '2-3 frases, máx 250 caracteres' },
       manias: { type: 'array', items: { type: 'string' }, maxItems: 3 },
       objetivo: { type: 'string', description: 'objetivo cómico en la oficina' },
       muletillas: { type: 'array', items: { type: 'string' }, maxItems: 8 },
@@ -152,8 +152,8 @@ function profileRequest({ name, answers }) {
   const qa = Object.entries(answers || {})
     .map(([q, a]) => `- ${q}: ${a}`).join('\n');
   return {
-    system: `${TONO}\nCreas la ficha de un personaje que es la caricatura cariñosa de una persona real a partir de lo que ella misma cuenta. Exagera lo gracioso, nunca lo hiriente. Responde solo con el JSON pedido.`,
-    prompt: `Nombre: ${name}\nSus respuestas:\n${qa}\nCrea la ficha: puesto, personalidad (máx 250, en tercera persona y sin repetir su nombre), 3 manías, un objetivo cómico en la oficina y 6-8 muletillas cortas NUEVAS, que diría en voz alta (no copies las respuestas).`,
+    system: `${TONO}\nCreas la ficha de un personaje que es la caricatura cariñosa de una persona real a partir de lo que ella misma cuenta. Puede tener cualquier trabajo (operaciones, sistemas, clientes, finanzas…): respeta el suyo y no lo conviertas en programador. Si añade algo libre, úsalo, que es lo que más la retrata. Exagera lo gracioso, nunca lo hiriente. Responde solo con el JSON pedido.`,
+    prompt: `Nombre: ${name}\nSus respuestas:\n${qa}\nCrea la ficha: puesto, personalidad (2-3 frases cortas, MÁXIMO 250 caracteres, en tercera persona y sin repetir su nombre), 3 manías, un objetivo cómico en la oficina y 6-8 muletillas cortas NUEVAS, que diría en voz alta (no copies las respuestas).`,
     schema: SCHEMAS.perfil,
   };
 }

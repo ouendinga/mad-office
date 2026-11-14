@@ -4,14 +4,18 @@ import '../styles/onboarding.css';
 
 // La entrevista: casi todo de elegir, para que nadie se quede en blanco.
 const QUESTIONS = [
-  { q: '¿Tu puesto? (de verdad o inventado)', free: 'Backend, Product Owner, Señor de los Excels…' },
-  { q: '¿Qué haces cuando se cae producción?', options: ['Echo la culpa a la caché', 'Reinicio todo y rezo', 'Me hago el muerto', 'Abro un ticket y me voy a por café'] },
+  { q: '¿A qué te dedicas? (de verdad o inventado)', free: 'Operaciones, Sistemas, Account manager, Finanzas, Recepción…' },
+  { q: 'Cuando algo se tuerce en el trabajo…', options: ['Mantengo la calma (por fuera)', 'Convoco una reunión', 'Culpo a Mercurio retrógrado', 'Me voy a por café y ya veremos'] },
   { q: '¿Tu relación con la máquina de café?', options: ['Tóxica pero estable', 'Le hablo con cariño', 'Té, gracias', 'Le debo la vida'] },
-  { q: '¿Qué manía tuya conoce toda la oficina?', free: '40 pestañas abiertas, silbar al compilar…' },
+  { q: '¿Qué manía tuya conoce toda la oficina?', free: 'Agenda de colores, silbar, 40 pestañas abiertas…' },
   { q: '¿Cómo saludas por la mañana?', options: ['¡Buenos días, equipo!', 'Un gruñido', 'Un meme en el chat', 'No saludo hasta el segundo café'] },
+  { q: 'Tu frase de batalla', options: ['Esto lo saco yo', '¿Lo vemos en una call?', 'Según mi Excel…', 'Ahora mismo no te sabría decir'] },
   { q: '¿Qué quieres conseguir en la oficina?', options: ['Que nadie toque mi silla', 'Ser jefe sin hacer nada', 'Ganar la porra', 'Un viernes sin reuniones'] },
-  { q: 'Tu superpoder secreto', free: 'Encontrar el bug con solo mirarlo…' },
+  { q: 'Tu superpoder secreto', free: 'Encontrar cualquier cosa en el Drive, calmar a un cliente furioso…' },
 ];
+
+// Campo libre: lo que cada uno quiera que salga en su personaje.
+const FREE_Q = 'Lo que quieras añadir';
 
 const FIELDS_EMPTY = { puesto: '', personalidad: '', manias: ['', '', ''], objetivo: '', muletillas: [] };
 
@@ -83,7 +87,7 @@ export default function Onboarding({ user, character, onDone, onBack }) {
           <>
             <h1 className="pixel-font onb-title">La entrevista</h1>
             <p className="onb-sub">
-              Contesta como quieras (mínimo 3). Con esto la IA hará una caricatura cariñosa de ti, {user.name}.
+              Contesta lo que quieras (mínimo 3) o tira el dado. Con esto la IA hará una caricatura cariñosa de ti, {user.name}, sea cual sea tu trabajo.
               Luego la retocas tú.
             </p>
             {QUESTIONS.map(it => (
@@ -110,6 +114,16 @@ export default function Onboarding({ user, character, onDone, onBack }) {
                 />
               </div>
             ))}
+            <div className="onb-q">
+              <label>{FREE_Q} <span className="onb-optional">(opcional)</span></label>
+              <textarea
+                rows={3}
+                maxLength={400}
+                value={answers[FREE_Q] || ''}
+                placeholder="Lo que te haga gracia que salga: tus aficiones, tu planta, tu archienemiga la impresora, ese cliente que siempre llama a las 17:59…"
+                onChange={e => setAnswers({ ...answers, [FREE_Q]: e.target.value })}
+              />
+            </div>
             {error && <div className="modal-error">{error}</div>}
             {slow && <div className="onb-hint">Tarda más de la cuenta… ¿está encendido el despertador?</div>}
             <div className="onb-actions">

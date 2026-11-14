@@ -48,3 +48,4 @@
 .onb-chip.is-on { background: var(--primary); color: #fff; border-color: var(--primary); }
 
 .onb-actions { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.5rem; }
+.onb-optional { color: var(--text-muted); font-weight: 400; font-size: 0.8rem; }

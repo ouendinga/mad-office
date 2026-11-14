@@ -49,7 +49,7 @@ function router({ sim }) {
     const answers = {};
     for (const [q, a] of Object.entries(req.body.answers || {}).slice(0, 10)) {
       const k = gm.clean(q, 80);
-      const v = gm.clean(a, 160);
+      const v = gm.clean(a, 400); // el campo libre admite más
       if (k && v) answers[k] = v;
     }
     if (Object.keys(answers).length < 3) return res.status(400).json({ error: 'Contesta al menos 3 preguntas.' });
