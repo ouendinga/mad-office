@@ -196,6 +196,43 @@ Nadie sabe escribir una buena ficha en blanco, así que la app **entrevista** a 
   El texto que llega del sueño se trata como **dato del personaje**, nunca como instrucción
   del sistema.
 
+## Oficina viva v2 (pedido del 2026-11-14)
+
+Lo que pidió Álvaro: zoom por salas (vista de frente), que cada uno **solo oiga lo que pasa cerca**,
+cosas en el **trayecto** a casa, **teletrabajo** (y que se vea), llamadas entre los de casa y los de la
+oficina, llamadas con **gente de fuera** (clientes), **tiempo real** (lluvia, frío, calor, estación)
+según **dónde esté la oficina** (lo elige él), **historial** de su personaje (conversaciones, cosas que
+le pasan y **pensamientos**, que se ven distintos) y un **pentágono de estados** de 0 a 5 con decimales.
+
+Decisiones por defecto (cambiables):
+- **Nada de llamadas nuevas a la IA.** Todo cabe en los turnos que ya existen: el despertar (ahora a las
+  08:30, antes de salir de casa) decide dónde trabaja hoy y cuenta el trayecto de ida; el diario cuenta
+  el de vuelta; cada plan puede llevar 1-2 pensamientos y llamadas. Coste estimado: unos 80 tokens de
+  salida más por turno (≈ +0,0004 $), a medir.
+- **Teletrabajo:** lo decide el personaje al despertar, con tope por reglas (máx. 2 días por semana).
+- **Oír:** un personaje solo recibe en su prompt lo que se dijo en el mismo sitio a la vez que él estaba
+  allí, lo que le dijeron a él y sus llamadas. El open space cuenta como un sitio.
+- **Pensamientos:** solo los ve el dueño del personaje.
+- **Estados (0-5):** energía, ánimo, saciedad, social y calma. Café aparte. Los mueven reglas según lo
+  que hace (comer, reunirse, terraza, trabajar…) y el humor que da la IA.
+- **Tiempo:** Open-Meteo (sin clave) desde el servidor cada 30 min; la ubicación la pone el admin.
+
+### Contrato del directo (`world`, por socket)
+
+```
+clock: { date, hhmm, weekday, block, dreamOpen, nextMorning,
+         phase: 'casa' | 'ida' | 'oficina' | 'vuelta',          // ida 08:30-09:00, vuelta 18:00-18:30
+         weather: { temp, code, desc, precip, wind, isDay } | null,
+         season: 'invierno' | 'primavera' | 'verano' | 'otono',
+         city }
+characters[]: { id, name, owner_user_id, avatar_config, desk_index, humor, energia, cafe, model,
+         mode: 'oficina' | 'remoto' | 'ida' | 'vuelta' | 'casa',
+         x, y, lugar, que, action, representation, bubble,      // x/y solo con mode 'oficina'
+         call: { with: <id> | null, externo: <texto> | null } | null,
+         trayecto: <texto> | null,                               // con mode 'ida'/'vuelta'
+         stats: { energia, animo, saciedad, social, calma } }    // 0-5, un decimal
+```
+
 ## Fases de implementación
 
 Alcance actual (decisión del 2026-11-11): **solo Álvaro**, con su suscripción de Claude (Haiku o
