@@ -349,6 +349,9 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
   los personajes reaccionan a su manera. Ejemplos: corte de luz, nevada, final del fútbol, una
   noticia, un cliente enfadado o una inspección. Ver cómo encaja con el ahorro de tokens: el
   suceso lo elige una regla y la IA solo lo usa en el turno que ya hace.
-- **La espera de la ficha como una transformación** (estilo Sailor Moon o Power Rangers): una
-  escena en pixel art que va «formando el alma» del personaje con lo que la persona ha contado.
-  Ejemplo: «montaña» → una montaña en pixel art.
+- ✅ **La espera de la ficha como una transformación** (estilo Sailor Moon): `Transformacion.js`.
+  Las respuestas, por palabras clave (`engine/motifs.js`), dan motivos en pixel art («montaña» →
+  montaña) que giran alrededor de la silueta; al llegar la ficha, fogonazo y «¡X ha nacido!».
+- ✅ **¡Contratado!** Al aprobar la ficha por primera vez: escena en casa, la noticia llega por carta,
+  SMS, correo o paloma mensajera (al azar), con empresa y cargo, y se anuncia en la oficina
+  («📰 X se incorpora a … como …»). Sin IA.

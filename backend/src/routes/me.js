@@ -80,7 +80,15 @@ function router() {
     // Al aprobarse, la persona ocupa de verdad su cargo: el ficticio de ese hueco se retira.
     if (row.position_id) await rebalance(pool, row.position_id);
     req.sim.invalidate();
-    res.json(row);
+    // La primera vez: ¡contratado! Se anuncia en la oficina y el frontend enseña la escena.
+    let hired = null;
+    if (approve && !c.approved) {
+      const pos = row.position_id ? (await pool.query('SELECT title FROM positions WHERE id = $1', [row.position_id])).rows[0] : null;
+      const comp = (await pool.query('SELECT name FROM companies WHERE id = $1', [req.companyId])).rows[0];
+      hired = { company: comp.name, position: pos ? pos.title : row.ficha.puesto };
+      await req.sim.post(row, 'sistema', `📰 ${row.name} se incorpora a ${comp.name} como ${hired.position}. ¡Que alguien le enseñe dónde está el café!`, today(req).date);
+    }
+    res.json({ ...row, hired });
   });
 
   r.put('/settings', async (req, res) => {

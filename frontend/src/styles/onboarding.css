@@ -54,3 +54,22 @@
 .gate-card { margin: auto; text-align: center; }
 .gate-logo { image-rendering: pixelated; display: block; margin: 0 auto 0.5rem; }
 .gate-note { font-size: 0.8rem; opacity: 0.75; margin-top: 1rem; }
+
+/* Transformación (mientras la IA escribe la ficha) y «¡Contratado!» */
+.transfo-card, .contrato { max-width: 560px; align-self: center; margin: auto; text-align: center; }
+.transfo { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; }
+.transfo-title { color: var(--primary-light); font-size: 0.9rem; }
+.transfo-canvas {
+  width: 100%; max-width: 480px; aspect-ratio: 4 / 3; image-rendering: pixelated;
+  border-radius: 10px; border: 2px solid #5b3f9c; box-shadow: 0 0 40px rgba(162, 155, 254, 0.25);
+}
+.transfo-caption { min-height: 2.6em; color: var(--text-secondary, #c8c8d8); animation: transfo-in 0.5s ease; }
+@keyframes transfo-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.contrato-carta {
+  margin-top: 1rem; background: #fdf6e3; color: #3b2f1e; border-radius: 8px; padding: 1rem 1.1rem;
+  text-align: left; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); animation: transfo-in 0.5s ease;
+}
+.contrato-head { font-weight: 700; margin-bottom: 0.4rem; }
+.contrato-carta p { margin: 0 0 0.9rem; line-height: 1.45; }
+.contrato-carta .btn { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .transfo-caption, .contrato-carta { animation: none; } }

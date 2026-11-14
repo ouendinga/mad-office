@@ -9,9 +9,17 @@ El diseño completo y sus decisiones están en [doc/oficina-viva.md](doc/oficina
 
 ## Publicada
 
-<https://mad-office.alvarosolis.dev>, detrás de la contraseña común de los paneles. Cómo se
-publica: [deploy/README.md](deploy/README.md). Para que los personajes piensen allí:
-`./despertador/arrancar.sh --prod`.
+<https://madoffice.alvarosolis.dev>, detrás de la contraseña común de los paneles. Cómo se
+publica: [deploy/README.md](deploy/README.md). Para que los personajes piensen allí hace falta el
+despertador en tu ordenador, con tu Claude. Mejor como servicio de usuario (arranca solo):
+
+```bash
+ln -sf ~/projects/mad-office/despertador/mad-office-despertador.service ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now mad-office-despertador
+journalctl --user -u mad-office-despertador -f   # qué hace
+```
+
+O a mano, en una terminal: `./despertador/arrancar.sh --prod`.
 
 ## Arrancarlo (local)
 

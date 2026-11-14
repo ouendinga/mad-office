@@ -42,9 +42,14 @@ test('una persona nueva monta su empresa y tiene personaje en menos de 5 minutos
   await page.getByPlaceholder('Operaciones, Sistemas, Account manager, Finanzas, Recepción…').fill('Account manager');
   await crear.click();
 
-  // Ficha generada por la IA, editable
+  // La transformación mientras la IA escribe la ficha, y luego la ficha editable
+  await expect(page.getByText('Transformación en curso')).toBeVisible();
   await expect(page.getByText('Tu personaje')).toBeVisible({ timeout: 120000 });
   await page.getByRole('button', { name: /Que viva/ }).click();
+
+  // ¡Contratado! (la noticia le llega a casa) y a la oficina
+  await expect(page.getByRole('heading', { name: '¡Contratado!' })).toBeVisible();
+  await page.getByRole('button', { name: /A la oficina/ }).click({ timeout: 15000 });
 
   // La oficina de SU empresa
   await expect(page.getByText('Todo lo que pasa')).toBeVisible();

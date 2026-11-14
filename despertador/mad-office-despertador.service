@@ -1,0 +1,25 @@
+# Despertador de la oficina PUBLICADA (madoffice.alvarosolis.dev), como servicio de usuario: resuelve
+# los turnos de IA con la suscripción de Claude de este ordenador, y arranca solo con él.
+# Instalar (lo ejecuta Álvaro, una vez):
+#   ln -sf ~/projects/mad-office/despertador/mad-office-despertador.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now mad-office-despertador
+# Ver qué hace:  journalctl --user -u mad-office-despertador -f
+[Unit]
+Description=Mad Office: despertador de la oficina publicada (turnos de IA con tu Claude)
+Documentation=file://%h/projects/mad-office/README.md
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/mad-office
+# systemd no carga el PATH de la shell: claude y node, con su ruta.
+Environment=PATH=%h/.local/bin:%h/.nvm/versions/node/v22.22.3/bin:/usr/local/bin:/usr/bin:/bin
+Environment=LANG=es_ES.UTF-8
+ExecStart=%h/projects/mad-office/despertador/arrancar.sh --prod
+# /home va sobre eCryptfs: al arrancar la máquina puede no estar montado todavía; se reintenta.
+Restart=always
+RestartSec=15
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

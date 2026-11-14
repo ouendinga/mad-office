@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { capi, waitTurn } from '../api';
+import Transformacion from '../components/Transformacion';
+import Contratacion from '../components/Contratacion';
 import '../styles/onboarding.css';
 
 // La entrevista: casi todo de elegir, para que nadie se quede en blanco.
@@ -35,6 +37,9 @@ export default function Onboarding({ user, character, company, onDone, onBack })
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState('');
   const [attemptsLeft, setAttemptsLeft] = useState(null);
+  const [transforming, setTransforming] = useState(false); // la escena mientras escribe la IA
+  const [pending, setPending] = useState(null); // la ficha ya llegada, esperando al final de la escena
+  const [hired, setHired] = useState(null); // { company, position } tras aprobar la primera vez
 
   const answered = Object.values(answers).filter(v => v && v.trim()).length;
 
@@ -50,13 +55,16 @@ export default function Onboarding({ user, character, company, onDone, onBack })
     setBusy(true);
     setSlow(false);
     setError('');
+    setPending(null);
+    setTransforming(true);
+    window.scrollTo(0, 0);
     try {
       const r = await capi('/me/interview', { method: 'POST', body: { answers } });
       setAttemptsLeft(r.attemptsLeft);
       const out = await waitTurn(r.turnId, { onSlow: () => setSlow(true) });
-      setFicha(normalize(out));
-      setStep('ficha');
+      setPending(normalize(out)); // la escena termina con su fogonazo y luego enseña la ficha
     } catch (e) {
+      setTransforming(false);
       setError(e.message);
     } finally {
       setBusy(false);
@@ -67,11 +75,12 @@ export default function Onboarding({ user, character, company, onDone, onBack })
     setBusy(true);
     setError('');
     try {
-      await capi('/me/ficha', {
+      const r = await capi('/me/ficha', {
         method: 'PUT',
         body: { approve: true, ficha: { ...ficha, manias: ficha.manias.filter(Boolean) } },
       });
-      onDone();
+      if (r.hired) setHired(r.hired);
+      else onDone();
     } catch (e) {
       setError(e.message);
       setBusy(false);
@@ -79,6 +88,29 @@ export default function Onboarding({ user, character, company, onDone, onBack })
   };
 
   const set = (k, v) => setFicha({ ...ficha, [k]: v });
+
+  const endTransform = () => {
+    setFicha(pending);
+    setPending(null);
+    setTransforming(false);
+    setStep('ficha');
+  };
+
+  if (hired) {
+    return <Contratacion avatar={user.avatar_config} name={(character && character.name) || user.name}
+      company={hired.company} position={hired.position} onDone={onDone} />;
+  }
+  if (transforming) {
+    return (
+      <div className="onb">
+        <div className="onb-card transfo-card">
+          <Transformacion avatar={user.avatar_config} answers={answers} name={(character && character.name) || user.name}
+            done={!!pending} onFinish={endTransform} />
+          {slow && !pending && <div className="onb-hint">Tarda más de la cuenta… ¿está encendido el despertador?</div>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="onb">
