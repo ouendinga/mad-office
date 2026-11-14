@@ -1,13 +1,15 @@
-// Recorrido completo de una persona nueva: entrar → avatar → entrevista → ficha → oficina.
-// Necesita la pila levantada y un despertador corriendo (con --fake para no gastar).
-// Ojo: el primer registro de una base vacía se queda de admin.
+// Recorrido completo de una persona nueva: entrar → avatar → crear su empresa → elegir cargo en
+// el organigrama → entrevista → ficha → oficina. Necesita la pila levantada con
+// ALLOW_REGISTRATION=true y un despertador corriendo (con --fake para no gastar).
 
 const { test, expect } = require('@playwright/test');
 
 const SHOTS = process.env.SHOTS_DIR || 'test-results';
 
-test('una persona nueva tiene personaje en menos de 5 minutos y sin leer instrucciones', async ({ page }) => {
+test('una persona nueva monta su empresa y tiene personaje en menos de 5 minutos', async ({ page }) => {
   test.setTimeout(180000);
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
   const email = `prueba-${Date.now()}@madoffice.test`;
 
   await page.goto('/');
@@ -17,10 +19,20 @@ test('una persona nueva tiene personaje en menos de 5 minutos y sin leer instruc
   await page.getByPlaceholder('Tu nombre').fill('Álvaro');
   await page.locator('form').getByRole('button', { name: 'Crear cuenta' }).click();
 
-  // Avatar
+  // Avatar (una vez por persona)
   await expect(page.getByText('Así te verán en la oficina')).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/1-avatar.png` });
-  await page.locator('.avatar-generator button.btn-primary, button.btn-primary.btn-lg').last().click();
+  await page.getByRole('button', { name: 'Guardar' }).click();
+
+  // Sin empresas: directo a crear la suya
+  await expect(page.getByLabel('Nombre de la empresa')).toBeVisible();
+  await page.getByLabel('Nombre de la empresa').fill('Pruebas Recorrido');
+  await page.getByRole('button', { name: 'Crear empresa' }).click();
+
+  // Elegir cargo en el organigrama
+  await expect(page.getByText('¿Qué eres en esta empresa?')).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/2-cargo.png`, fullPage: true });
+  await page.locator('.org-card', { hasText: 'Desarrollo' }).getByRole('button', { name: 'Quiero este' }).click();
 
   // Entrevista: el botón de crear no se activa hasta tener 3 respuestas
   await expect(page.getByText('La entrevista')).toBeVisible();
@@ -28,17 +40,17 @@ test('una persona nueva tiene personaje en menos de 5 minutos y sin leer instruc
   await expect(crear).toBeDisabled();
   await page.getByRole('button', { name: /No sé qué poner/ }).click();
   await page.getByPlaceholder('Operaciones, Sistemas, Account manager, Finanzas, Recepción…').fill('Account manager');
-  await page.screenshot({ path: `${SHOTS}/2-entrevista.png`, fullPage: true });
   await crear.click();
 
   // Ficha generada por la IA, editable
   await expect(page.getByText('Tu personaje')).toBeVisible({ timeout: 120000 });
-  await page.screenshot({ path: `${SHOTS}/3-ficha.png`, fullPage: true });
   await page.getByRole('button', { name: /Que viva/ }).click();
 
-  // La oficina
-  await expect(page.getByText('Radio pasillo')).toBeVisible();
+  // La oficina de SU empresa
+  await expect(page.getByText('Todo lo que pasa')).toBeVisible();
+  await expect(page.getByText('Pruebas Recorrido')).toBeVisible();
   await expect(page.getByText('El sueño de esta noche')).toBeVisible();
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(3000);
   await page.screenshot({ path: `${SHOTS}/4-oficina.png` });
+  expect(errors).toEqual([]);
 });

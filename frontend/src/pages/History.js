@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { api, HUMOR_EMOJI } from '../api';
+import { capi, HUMOR_EMOJI } from '../api';
 import StatsPentagon from '../components/StatsPentagon';
 import '../styles/history.css';
 
@@ -27,7 +27,7 @@ export default function History({ characterId, onBack }) {
 
   const load = useCallback(async before => {
     try {
-      const r = await api(`/characters/${characterId}/history${before ? `?before=${before}` : ''}`);
+      const r = await capi(`/characters/${characterId}/history${before ? `?before=${before}` : ''}`);
       setData(prev => (before
         ? { ...r, items: [...prev.items, ...r.items], diaries: [...prev.diaries, ...r.diaries], dreams: [...prev.dreams, ...r.dreams] }
         : r));
@@ -37,7 +37,7 @@ export default function History({ characterId, onBack }) {
   }, [characterId]);
 
   useEffect(() => {
-    api(`/characters/${characterId}`).then(setCh).catch(e => setError(e.message));
+    capi(`/characters/${characterId}`).then(setCh).catch(e => setError(e.message));
     load();
   }, [characterId, load]);
 

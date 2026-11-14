@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../api';
+import { capi } from '../api';
 
 // Dónde está la oficina (para el tiempo de verdad). Solo la cambia el admin.
 export default function OfficeSettings({ isAdmin, onClose }) {
@@ -8,35 +8,16 @@ export default function OfficeSettings({ isAdmin, onClose }) {
   const [city, setCity] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [hours, setHours] = useState(null);
-  const [hoursMsg, setHoursMsg] = useState('');
-
   useEffect(() => {
-    api('/settings/location').then(r => { setLoc(r.location); setWeather(r.weather); }).catch(e => setError(e.message));
-    api('/settings/hours').then(setHours).catch(() => {});
+    capi('/settings/location').then(r => { setLoc(r.location); setWeather(r.weather); }).catch(e => setError(e.message));
   }, []);
-
-  const saveHours = async e => {
-    e.preventDefault();
-    setBusy(true);
-    setError('');
-    setHoursMsg('');
-    try {
-      setHours(await api('/settings/hours', { method: 'PUT', body: hours }));
-      setHoursMsg('Horario guardado ✓');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const save = async e => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      const r = await api('/settings/location', { method: 'PUT', body: { city } });
+      const r = await capi('/settings/location', { method: 'PUT', body: { city } });
       setLoc(r.location);
       setWeather(r.weather);
       setCity('');
@@ -66,20 +47,7 @@ export default function OfficeSettings({ isAdmin, onClose }) {
             <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !city.trim()}>{busy ? 'Buscando…' : 'Mover la oficina'}</button>
           </form>
         ) : <p className="muted">Solo quien lleva la oficina puede moverla.</p>}
-        {hours && (
-          <form onSubmit={saveHours} className="settings-hours">
-            <h3 className="char-h3">🕘 Horario</h3>
-            <div className="settings-grid">
-              <label>Entrada<input type="time" value={hours.start} disabled={!isAdmin} onChange={e => setHours({ ...hours, start: e.target.value })} /></label>
-              <label>Salida<input type="time" value={hours.end} disabled={!isAdmin} onChange={e => setHours({ ...hours, end: e.target.value })} /></label>
-              <label>Comida<input type="time" value={hours.lunch} disabled={!isAdmin} onChange={e => setHours({ ...hours, lunch: e.target.value })} /></label>
-              <label>Minutos para comer<input type="number" min={15} max={120} step={5} value={hours.lunchMin} disabled={!isAdmin} onChange={e => setHours({ ...hours, lunchMin: e.target.value })} /></label>
-            </div>
-            <p className="muted">Vienen media hora antes de entrar y se van al salir. Quien hace horas extra se queda dos horas más.</p>
-            {isAdmin && <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Guardar horario</button>}
-            {hoursMsg && <span className="muted"> {hoursMsg}</span>}
-          </form>
-        )}
+        <p className="muted" style={{ marginTop: '0.8rem' }}>El horario, el teletrabajo y la carga de trabajo están en «🏢 Empresa».</p>
         {error && <div className="modal-error">{error}</div>}
       </div>
     </div>

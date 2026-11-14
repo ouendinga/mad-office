@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api, waitTurn } from '../api';
+import { capi, waitTurn } from '../api';
 import '../styles/onboarding.css';
 
 // La entrevista: casi todo de elegir, para que nadie se quede en blanco.
@@ -26,7 +26,7 @@ function normalize(ficha) {
   return { ...f, manias: manias.slice(0, 3), muletillas: f.muletillas || [] };
 }
 
-export default function Onboarding({ user, character, onDone, onBack }) {
+export default function Onboarding({ user, character, company, onDone, onBack }) {
   const hasFicha = character && character.ficha && character.ficha.puesto;
   const [step, setStep] = useState(hasFicha ? 'ficha' : 'entrevista');
   const [answers, setAnswers] = useState(() => (character && character.interview) || {});
@@ -51,7 +51,7 @@ export default function Onboarding({ user, character, onDone, onBack }) {
     setSlow(false);
     setError('');
     try {
-      const r = await api('/me/interview', { method: 'POST', body: { answers } });
+      const r = await capi('/me/interview', { method: 'POST', body: { answers } });
       setAttemptsLeft(r.attemptsLeft);
       const out = await waitTurn(r.turnId, { onSlow: () => setSlow(true) });
       setFicha(normalize(out));
@@ -67,7 +67,7 @@ export default function Onboarding({ user, character, onDone, onBack }) {
     setBusy(true);
     setError('');
     try {
-      await api('/me/ficha', {
+      await capi('/me/ficha', {
         method: 'PUT',
         body: { approve: true, ficha: { ...ficha, manias: ficha.manias.filter(Boolean) } },
       });
@@ -87,7 +87,7 @@ export default function Onboarding({ user, character, onDone, onBack }) {
           <>
             <h1 className="pixel-font onb-title">La entrevista</h1>
             <p className="onb-sub">
-              Contesta lo que quieras (mínimo 3) o tira el dado. Con esto la IA hará una caricatura cariñosa de ti, {user.name}, sea cual sea tu trabajo.
+              Contesta lo que quieras (mínimo 3) o tira el dado. Con esto la IA hará una caricatura cariñosa de ti, {user.name}, para {company ? company.name : 'la oficina'}, sea cual sea tu trabajo.
               Luego la retocas tú.
             </p>
             {QUESTIONS.map(it => (
