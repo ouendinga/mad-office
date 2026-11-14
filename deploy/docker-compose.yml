@@ -31,7 +31,7 @@ services:
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET}
       RUNNER_TOKEN: ${RUNNER_TOKEN:?falta RUNNER_TOKEN}
-      ALLOWED_ORIGINS: https://mad-office.alvarosolis.dev
+      ALLOWED_ORIGINS: https://mad-office.alvarosolis.dev,https://madoffice.alvarosolis.dev
       DAILY_CAP_USD: ${DAILY_CAP_USD:-0.25}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
       GATE: "on"
@@ -53,12 +53,12 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=coolify
-      - traefik.http.routers.madoffice-web.rule=Host(`mad-office.alvarosolis.dev`)
+      - traefik.http.routers.madoffice-web.rule=Host(`mad-office.alvarosolis.dev`) || Host(`madoffice.alvarosolis.dev`)
       - traefik.http.routers.madoffice-web.entrypoints=https
       - traefik.http.routers.madoffice-web.tls=true
       - traefik.http.routers.madoffice-web.tls.certresolver=letsencrypt
       - traefik.http.services.madoffice-web.loadbalancer.server.port=80
-      - traefik.http.routers.madoffice-web-http.rule=Host(`mad-office.alvarosolis.dev`)
+      - traefik.http.routers.madoffice-web-http.rule=Host(`mad-office.alvarosolis.dev`) || Host(`madoffice.alvarosolis.dev`)
       - traefik.http.routers.madoffice-web-http.entrypoints=http
       - traefik.http.routers.madoffice-web-http.middlewares=madoffice-https
       - traefik.http.middlewares.madoffice-https.redirectscheme.scheme=https
