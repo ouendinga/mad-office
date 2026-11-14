@@ -1,0 +1,72 @@
+# Mad Office en el VPS (/opt/mad-office), colgado del Traefik de Coolify, como Olfateo y Preventa.
+# Las imágenes se construyen en el portátil y se suben con deploy/publicar.sh (no se compila en el VPS).
+# Claves en /opt/mad-office/.env (600), nunca en el repo.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mad-office-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: madoffice
+      POSTGRES_USER: madoffice
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+    volumes:
+      - datos:/var/lib/postgresql/data
+    networks: [interna]
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U madoffice"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: mad-office-backend:local
+    container_name: mad-office-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      TZ: Europe/Madrid
+      DATABASE_URL: postgres://madoffice:${DB_PASSWORD}@postgres:5432/madoffice
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET}
+      RUNNER_TOKEN: ${RUNNER_TOKEN:?falta RUNNER_TOKEN}
+      ALLOWED_ORIGINS: https://mad-office.alvarosolis.dev
+      DAILY_CAP_USD: ${DAILY_CAP_USD:-0.25}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+      GATE: "on"
+      # Visitante → Traefik → nginx → backend: dos saltos de proxy de confianza.
+      TRUST_PROXY: 2
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [interna]
+    mem_limit: 256m
+
+  frontend:
+    image: mad-office-frontend:local
+    container_name: mad-office-web
+    restart: unless-stopped
+    depends_on: [backend]
+    networks: [interna, coolify]
+    mem_limit: 64m
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.madoffice-web.rule=Host(`mad-office.alvarosolis.dev`)
+      - traefik.http.routers.madoffice-web.entrypoints=https
+      - traefik.http.routers.madoffice-web.tls=true
+      - traefik.http.routers.madoffice-web.tls.certresolver=letsencrypt
+      - traefik.http.services.madoffice-web.loadbalancer.server.port=80
+      - traefik.http.routers.madoffice-web-http.rule=Host(`mad-office.alvarosolis.dev`)
+      - traefik.http.routers.madoffice-web-http.entrypoints=http
+      - traefik.http.routers.madoffice-web-http.middlewares=madoffice-https
+      - traefik.http.middlewares.madoffice-https.redirectscheme.scheme=https
+
+networks:
+  interna: {}
+  coolify:
+    external: true
+
+volumes:
+  datos:

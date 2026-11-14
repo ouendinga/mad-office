@@ -7,6 +7,12 @@ el personaje decide si le hace caso.
 
 El diseño completo y sus decisiones están en [doc/oficina-viva.md](doc/oficina-viva.md).
 
+## Publicada
+
+<https://mad-office.alvarosolis.dev>, detrás de la contraseña común de los paneles. Cómo se
+publica: [deploy/README.md](deploy/README.md). Para que los personajes piensen allí:
+`./despertador/arrancar.sh --prod`.
+
 ## Arrancarlo (local)
 
 Hace falta Docker y, para que los personajes piensen, Claude Code con tu suscripción.

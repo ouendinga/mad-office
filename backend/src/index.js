@@ -32,6 +32,7 @@ async function main() {
     start: process.env.CLOCK_START ? Date.parse(process.env.CLOCK_START) : null,
   });
   const sim = new Sim({ pool, io, clock });
+  if (gate.ENABLED) gate.watch(pool);
 
   // Detrás de nginx (y en el VPS, además, de Traefik): para que req.ip sea la del visitante.
   app.set('trust proxy', Number(process.env.TRUST_PROXY || 1));

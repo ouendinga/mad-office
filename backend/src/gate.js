@@ -33,12 +33,25 @@ function readCookie(header, name) {
   return null;
 }
 
+// Huella de la contraseña vigente: va dentro de la cookie, así que cambiar la contraseña
+// cierra todas las sesiones abiertas (como en los demás paneles). Se relee cada minuto,
+// porque la cambia otro proceso (`node src/cli.js clave`).
+let currentFp = null;
+const fingerprint = hash => (hash ? crypto.createHash('sha256').update(hash).digest('hex').slice(0, 16) : null);
+
+function watch(pool, everyMs = 60000) {
+  const load = () => storedHash(pool).then(h => { currentFp = fingerprint(h); }).catch(() => {});
+  load();
+  return setInterval(load, everyMs);
+}
+
 function cookieOk(header) {
   if (!ENABLED) return true;
   const token = readCookie(header, COOKIE);
-  if (!token) return false;
+  if (!token || !currentFp) return false;
   try {
-    return jwt.verify(token, process.env.JWT_SECRET).gate === true;
+    const p = jwt.verify(token, process.env.JWT_SECRET);
+    return p.gate === true && p.fp === currentFp;
   } catch {
     return false;
   }
@@ -94,7 +107,8 @@ function router(express) {
       return res.status(401).json({ error: 'Esa no es.' });
     }
     fails.delete(ip);
-    const token = jwt.sign({ gate: true }, process.env.JWT_SECRET, { expiresIn: MAX_AGE_S });
+    currentFp = fingerprint(stored);
+    const token = jwt.sign({ gate: true, fp: currentFp }, process.env.JWT_SECRET, { expiresIn: MAX_AGE_S });
     const secure = process.env.GATE_INSECURE_COOKIE === 'true' ? '' : '; Secure';
     res.setHeader('Set-Cookie', `${COOKIE}=${encodeURIComponent(token)}; Max-Age=${MAX_AGE_S}; Path=/; HttpOnly; SameSite=Lax${secure}`);
     res.json({ open: true });
@@ -103,4 +117,4 @@ function router(express) {
   return r;
 }
 
-module.exports = { ENABLED, hashPassword, verifyPassword, readCookie, cookieOk, setPassword, middleware, router };
+module.exports = { ENABLED, watch, fingerprint, hashPassword, verifyPassword, readCookie, cookieOk, setPassword, middleware, router };
