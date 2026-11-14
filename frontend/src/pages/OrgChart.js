@@ -27,6 +27,8 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [ask, setAsk] = useState(null); // { position, holder } tras un 409
+  const panelRef = useRef(null);
+  const scrollRef = useRef(null);
   const [editing, setEditing] = useState(null); // { id?, parent_id, ... }
   const [confirmDel, setConfirmDel] = useState(null);
   const isAdmin = company.role === 'admin';
@@ -125,6 +127,22 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
     }
   };
 
+  // Al abrir un panel (pedir, editar), que se vea; al cargar, el árbol centrado en mi cargo (o en la raíz).
+  useEffect(() => {
+    if ((ask || editing) && panelRef.current) panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [ask, editing]);
+  const centered = useRef(false);
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!data || !box || centered.current) return;
+    centered.current = true;
+    const mine = data.positions.find(p => p.holders.some(h => h.mine));
+    requestAnimationFrame(() => {
+      const card = box.querySelector(mine ? `[data-pos="${mine.id}"]` : '.org-card');
+      if (card) box.scrollLeft = card.getBoundingClientRect().left - box.getBoundingClientRect().left + box.scrollLeft + card.offsetWidth / 2 - box.clientWidth / 2;
+    });
+  }, [data]);
+
   const positions = data ? data.positions : [];
   const mineId = positions.find(p => p.holders.some(h => h.mine))?.id;
   const children = pid => positions.filter(p => (p.parent_id || null) === pid);
@@ -157,52 +175,55 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
     )
   );
 
+  // Árbol de arriba abajo: cada cargo es una tarjeta y sus hijos cuelgan debajo, unidos con
+  // líneas (CSS). Si no cabe, se desplaza de lado dentro de su caja, nunca la página.
   const node = p => (
-    <li key={p.id} className="org-node">
-      <div className={`org-card ${p.id === mineId ? 'is-mine' : ''} ${p.csuite ? 'is-csuite' : ''}`}>
-        <div>
-          <div className="org-title">{p.csuite ? '⭐ ' : ''}{p.title}</div>
-          <div className="org-tags">{p.is_unique ? 'una persona' : 'varias personas'} · {PLACE[p.place]}</div>
-        </div>
+    <li key={p.id}>
+      <div className={`org-card ${p.id === mineId ? 'is-mine' : ''} ${p.csuite ? 'is-csuite' : ''}`} data-pos={p.id}>
+        <div className="org-title">{p.csuite ? '⭐ ' : ''}{p.title}</div>
+        <div className="org-tags">{p.is_unique ? 'una persona' : p.seats === 1 ? '1 plaza' : `${p.seats} plazas`} · {PLACE[p.place]}</div>
         <div className="org-holders">
           {p.holders.length === 0 && <span className="muted">vacante</span>}
           {p.holders.map(h => (
             <span key={h.character_id} className="org-holder" title={h.human ? 'Persona' : h.ai ? 'Ficticio con IA' : 'Ficticio'}>
-              <Mini config={h.avatar_config} />{h.human ? '👤' : '🤖'} {h.name}{h.mine ? ' (tú)' : ''}
+              <Mini config={h.avatar_config} />
+              <span className="org-hname">{h.human ? '👤' : '🤖'} {h.name}{h.mine ? ' (tú)' : ''}</span>
             </span>
           ))}
         </div>
         <div className="org-actions">
-          {p.id === mineId ? <span className="muted">Tu cargo</span> : (
+          {p.id === mineId ? <span className="org-mine">Tu cargo</span> : (
             <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => take(p)}>
-              {mode === 'choose' ? 'Quiero este' : 'Cambiarme aquí'}
+              {mode === 'choose' ? 'Quiero este' : 'Cambiarme'}
             </button>
           )}
           {isAdmin && mode === 'manage' && (
-            <>
+            <span className="org-admin">
               <button type="button" className="btn btn-ghost btn-sm" aria-label={`Editar ${p.title}`} onClick={() => setEditing({ ...p, parent_id: p.parent_id ?? '' })}>✏️</button>
               <button type="button" className="btn btn-ghost btn-sm" aria-label={`Añadir cargo bajo ${p.title}`}
                 onClick={() => setEditing({ title: '', parent_id: p.id, csuite: false, is_unique: false, seats: 1, place: 'mesa' })}>➕</button>
               <button type="button" className="btn btn-ghost btn-sm" aria-label={`Borrar ${p.title}`} onClick={() => remove(p)}>
-                {confirmDel === p.id ? '¿Seguro? 🗑️' : '🗑️'}
+                {confirmDel === p.id ? '¿Seguro?' : '🗑️'}
               </button>
-            </>
+            </span>
           )}
         </div>
       </div>
-      {ask && ask.position.id === p.id && (
-        <div className="org-requests">
-          {ask.holderName || 'Otra persona'} ya es {p.title}. {mineId
-            ? <>¿Se lo pides? Si acepta, os intercambiáis.{' '}
-              <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={askFor}>Pedírselo</button></>
-            : 'Elige antes otro cargo libre y luego se lo pides desde el organigrama.'}
-        </div>
-      )}
-      {editing && editing.id === p.id && form}
-      {editing && !editing.id && editing.parent_id === p.id && form}
       {children(p.id).length > 0 && <ul>{children(p.id).map(node)}</ul>}
     </li>
   );
+
+  // Lo que sale al tocar una tarjeta (pedir un cargo ocupado, editar o crear) va encima del árbol.
+  const askPanel = ask && (
+    <div className="org-requests" ref={panelRef}>
+      {ask.holderName || 'Otra persona'} ya es {ask.position.title}. {mineId
+        ? <>¿Se lo pides? Si acepta, os intercambiáis.{' '}
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={askFor}>Pedírselo</button></>
+        : 'Elige antes otro cargo libre y luego se lo pides desde el organigrama.'}
+    </div>
+  );
+  const editTitle = editing && (editing.id ? `Editar «${editing.title}»`
+    : editing.parent_id != null && editing.parent_id !== '' ? `Nuevo cargo bajo «${(positions.find(x => x.id === editing.parent_id) || {}).title}»` : 'Nuevo cargo arriba del todo');
 
   return (
     <div className="cos">
@@ -242,9 +263,12 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
             ➕ Cargo arriba del todo
           </button>
         )}
-        {editing && !editing.id && editing.parent_id == null && form}
+        {askPanel}
+        {editing && <div ref={panelRef}><h2 className="org-edit-title">{editTitle}</h2>{form}</div>}
         {!data && !error && <p className="muted">Dibujando el organigrama…</p>}
-        <ul className="org-tree">{children(null).map(node)}</ul>
+        <div className="org-scroll" ref={scrollRef}>
+          <div className="org-tree"><ul>{children(null).map(node)}</ul></div>
+        </div>
       </main>
     </div>
   );

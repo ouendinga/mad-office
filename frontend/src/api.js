@@ -69,6 +69,7 @@ export class ApiError extends Error {
 }
 
 export async function api(path, { method = 'GET', body } = {}) {
+  // Sin red o con el servidor reiniciándose (una publicación), fetch revienta con «Failed to fetch».
   const res = await fetch(`${API_URL}/api${path}`, {
     method,
     credentials: 'same-origin',
@@ -77,6 +78,8 @@ export async function api(path, { method = 'GET', body } = {}) {
       ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
+  }).catch(() => {
+    throw new ApiError('Se ha cortado la conexión con la oficina. Prueba otra vez en un momento.', 0, 'red');
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(data.error || 'No he podido hablar con la oficina. ¿Está encendida?', res.status, data.code);
@@ -115,7 +118,14 @@ export async function waitTurn(turnId, { onSlow, timeoutMs = 120000 } = {}) {
   const t0 = Date.now();
   let warned = false;
   for (;;) {
-    const t = await capi(`/turns/${turnId}`);
+    let t;
+    try {
+      t = await capi(`/turns/${turnId}`);
+    } catch (e) {
+      // Un corte de unos segundos (el servidor reiniciándose) no tira la espera: se reintenta.
+      if (e.code !== 'red' && e.status < 500) throw e;
+      t = { status: 'queued' };
+    }
     if (t.status === 'done') return t.result;
     if (t.status === 'failed' || t.status === 'expired') {
       throw new ApiError('A la IA no le ha salido. Prueba otra vez.', 500);

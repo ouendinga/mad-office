@@ -48,6 +48,18 @@ export default function AvatarGenerator({ user, onAvatarSaved, onCancel, cancelL
     }));
   };
 
+  // 🎲 Uno al azar (distinto del actual).
+  const randomize = () => {
+    const r = n => Math.floor(Math.random() * n);
+    setConfig(prev => {
+      let next;
+      do {
+        next = { skinTone: r(SKIN_TONES.length), hairStyle: r(HAIR_STYLES.length), hairColor: r(HAIR_COLORS.length), clothes: r(CLOTHES.length), accessory: r(ACCESSORIES.length) };
+      } while (JSON.stringify(next) === JSON.stringify(prev));
+      return next;
+    });
+  };
+
   return (
     <div className="avatar-gen">
       <div className="avatar-gen-container">
@@ -58,6 +70,7 @@ export default function AvatarGenerator({ user, onAvatarSaved, onCancel, cancelL
           <div className="avatar-preview-section">
             <canvas ref={canvasRef} width={128} height={128} className="avatar-canvas" />
             <p className="avatar-name">{user.name}</p>
+            <button type="button" className="btn btn-ghost btn-sm avatar-random" onClick={randomize}>🎲 Al azar</button>
           </div>
 
           <div className="avatar-options">

@@ -120,3 +120,4 @@
 }
 
 .avatar-gen-actions { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
+.avatar-random { margin-top: 0.5rem; }
