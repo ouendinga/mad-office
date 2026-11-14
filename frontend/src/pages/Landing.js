@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '../api';
 import '../styles/landing.css';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
@@ -9,6 +10,13 @@ export default function Landing({ onAuth, invite }) {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState(null); // { company } | { error }
+
+  // A qué empresa invita el enlace (se puede ver sin haber entrado).
+  useEffect(() => {
+    if (!invite) return;
+    api(`/invitations/${encodeURIComponent(invite)}`).then(setInviteInfo).catch(e => setInviteInfo({ error: e.message }));
+  }, [invite]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -78,7 +86,9 @@ export default function Landing({ onAuth, invite }) {
       {/* Hero */}
       {invite && (
         <div className="invite-banner" role="status">
-          ✉️ Te han invitado a una empresa. Crea tu cuenta (o entra si ya tienes) y pasarás directo.
+          {inviteInfo && inviteInfo.error
+            ? <>⚠️ {inviteInfo.error}</>
+            : <>✉️ Te han invitado a <strong>{inviteInfo && inviteInfo.company ? inviteInfo.company.name : 'una empresa'}</strong>. Crea tu cuenta (o entra si ya tienes) y pasarás directo.</>}
         </div>
       )}
       <section className="hero">

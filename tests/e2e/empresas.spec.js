@@ -83,10 +83,13 @@ test('empresas de punta a punta', async ({ request }) => {
   }, { timeout: 60000 }).toBeGreaterThan(0);
   const jobs = await json(await request.get('/api/jobs', { headers: C }));
   expect(jobs.some(j => j.company.id === co.id && j.position.id === ceo.id)).toBe(false); // el CEO ya no está vacante
-  const qa = jobs.find(j => j.company.id === co.id && j.position.title === 'QA');
-  await json(await request.post(`${base}/join`, { headers: C, data: { position_id: qa.position.id, message: '¡Sé usar emojis!' } }));
+  // Como mucho 4 ofertas por empresa (rotan cada día): se postula a una de las que salen.
+  const mine = jobs.filter(j => j.company.id === co.id);
+  expect(mine.length).toBeLessThanOrEqual(4);
+  const offer = mine[0];
+  await json(await request.post(`${base}/join`, { headers: C, data: { position_id: offer.position.id, message: '¡Sé usar emojis!' } }));
   const reqs = await json(await request.get(`${base}/join-requests`, { headers: A }));
-  expect(reqs[0].position).toBe('QA');
+  expect(reqs[0].position).toBe(offer.position.title);
   await json(await request.post(`${base}/join-requests/${reqs[0].id}`, { headers: A, data: { accept: true } }));
   expect((await request.get(base, { headers: C })).status()).toBe(200);
 });

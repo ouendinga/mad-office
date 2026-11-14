@@ -118,8 +118,15 @@ function router({ world }) {
     const companies = (await db.query(
       `SELECT id, name FROM companies WHERE visibility = 'publica' AND (settings->>'jobBoard')::boolean ORDER BY id LIMIT 50`)).rows;
     const out = [];
+    // Como mucho 4 ofertas por empresa (si no, una empresa de 14 cargos inunda el tablón); cuáles,
+    // rota cada día.
+    const day = new Date().toISOString().slice(0, 10);
+    const { rng } = require('../world/autopilot');
     for (const c of companies) {
-      for (const v of await vacancies(db, c.id)) {
+      const all = await vacancies(db, c.id);
+      const r = rng(`tablon|${c.id}|${day}`);
+      const picked = all.map(v => ({ v, k: r() })).sort((a, b) => a.k - b.k).slice(0, 4).map(x => x.v);
+      for (const v of picked) {
         out.push({
           company: { id: c.id, name: c.name },
           position: { id: v.id, title: v.title, csuite: v.csuite },
