@@ -44,6 +44,17 @@ async function vacancies(db, companyId) {
   return r.rows.filter(p => !(p.is_unique && p.humans > 0));
 }
 
+// A qué empresa invita un enlace: se ve sin haber entrado (solo el nombre), para la portada.
+function publicRouter() {
+  const r = express.Router();
+  r.get('/invitations/:code', async (req, res) => {
+    const inv = await validInvite(req.app.get('db'), req.params.code);
+    if (!inv) return res.status(404).json({ error: 'Esta invitación no vale (caducada, usada o anulada). Pide otra.' });
+    res.json({ company: { id: inv.company_id, name: inv.company_name } });
+  });
+  return r;
+}
+
 function router({ world }) {
   const r = express.Router();
   r.use(requireUser);
@@ -156,4 +167,4 @@ function router({ world }) {
   return r;
 }
 
-module.exports = { router, validInvite, useInvite, addMember, vacancies };
+module.exports = { router, publicRouter, validInvite, useInvite, addMember, vacancies };

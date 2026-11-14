@@ -57,6 +57,7 @@ async function main() {
   app.use('/api/auth', auth.router({ onUsersChanged: () => { for (const s of world.sims.values()) { s.invalidate(); s.ensured.clear(); } } }));
   app.use('/api/runner', runner.router({ world }));
   // Primero lo de fuera de una empresa (crear, públicas, tablón, invitaciones, pedir entrar)…
+  app.use('/api', companies.publicRouter());
   app.use('/api', companies.router({ world }));
   // …y luego lo de dentro de una.
   app.use('/api/companies/:cid', member.router({ world }));

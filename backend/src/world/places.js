@@ -59,6 +59,19 @@ function zonePos(zoneName, slot) {
   return { x: (z.x + col) * TILE + TILE / 2, y: (z.y + row) * TILE + TILE - 4 };
 }
 
+// Hueco número k de una zona, en orden (sin saltos): primero una rejilla cada dos casillas; si se
+// llena, otra encima desplazada media casilla y luego otra (se tapan un poco, pero no se montan).
+function zoneSpot(zoneName, k) {
+  const z = ZONES[zoneName];
+  const cols = Math.max(1, Math.ceil(z.w / 2));
+  const rows = Math.max(1, Math.ceil(z.h / 2));
+  const cells = cols * rows;
+  const layer = Math.floor(k / cells) % 3;
+  const i = k % cells;
+  const off = layer * (TILE / 2);
+  return { x: (z.x + (i % cols) * 2) * TILE + TILE / 2 + off, y: (z.y + Math.floor(i / cols) * 2) * TILE + TILE - 4 + off / 2 };
+}
+
 function targetFor({ lugar, deskIndex, withDeskIndex, slot }) {
   if (lugar === 'mesa' && withDeskIndex != null) {
     // De visita: de pie al lado de la mesa del otro, delante.
@@ -69,4 +82,4 @@ function targetFor({ lugar, deskIndex, withDeskIndex, slot }) {
   return zonePos(lugar, slot);
 }
 
-module.exports = { TILE, DESKS, ZONES, PLACES, ACTION_FOR_PLACE, deskPos, zonePos, targetFor };
+module.exports = { TILE, DESKS, ZONES, PLACES, ACTION_FOR_PLACE, deskPos, zonePos, zoneSpot, targetFor };

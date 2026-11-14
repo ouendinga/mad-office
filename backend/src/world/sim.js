@@ -10,7 +10,7 @@
 
 const clockLib = require('./clock');
 const { parts, blockOf, phaseOf, isWorkday, dreamWindowOpen, nextMorning, addDays } = clockLib;
-const { ACTION_FOR_PLACE, targetFor, zonePos } = require('./places');
+const { ACTION_FOR_PLACE, targetFor, zonePos, zoneSpot, deskPos, ZONES } = require('./places');
 const { visitorsFor } = require('./visitors');
 const { autopilotPlan } = require('./autopilot');
 const gm = require('./gameMaster');
@@ -313,7 +313,7 @@ class Sim {
     const r = await this.pool.query(
       `INSERT INTO feed (company_id, character_id, kind, text, office_day, lugar, con_id, externo, min, private)
        VALUES ($10, $1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, company_id, character_id, kind, text, created_at, lugar, con_id, externo, min, private`,
+       RETURNING id, company_id, character_id, kind, text, created_at, lugar, con_id, externo, min, private, office_day`,
       [c ? c.id : null, kind, text, day, meta.lugar || null, meta.con || null, meta.externo || null,
         meta.min == null ? null : meta.min, !!meta.private, this.companyId]);
     const row = r.rows[0];
@@ -371,6 +371,7 @@ class Sim {
       view.push(this.viewOf(c, this.current.get(c.id), cast, { phase, day: d }));
     }
     linkCalls(view);
+    spreadZones(view);
     if (isWorkday(p.weekday)) view.push(...(await this.visitorViews(day, p.minutes, chars)));
 
     const loc = this.weather ? this.weather.location : weatherLib.DEFAULT_LOCATION;
@@ -403,7 +404,10 @@ class Sim {
         await this.post(null, 'visita', `${e.kind === 'repartidor' ? '📦' : e.kind === 'limpieza' ? '🧹' : '🔧'} ${e.name}: ${e.que} — «${e.frase}»`, day,
           { lugar: e.place, con: e.forId || null, min: e.from });
       }
-      const pos = e.place === 'mesa' ? zonePos('cafe', 90 + i) : zonePos(e.place, 90 + i);
+      // La limpieza va de mesa en mesa por el open space; los demás, en su sitio.
+      const pos = e.place === 'mesa'
+        ? (d => ({ x: d.x + 30, y: d.y + 44 }))(deskPos(Math.floor((minutes - e.from) / 4)))
+        : zonePos(e.place, 90 + i);
       out.push({
         id: -(i + 1), name: e.name, owner_user_id: null, avatar_config: e.avatar, visitor: { kind: e.kind, forId: e.forId || null },
         home: false, mode: 'oficina', x: pos.x, y: pos.y, lugar: e.place, que: e.que, action: 'paseando',
@@ -479,6 +483,7 @@ class Sim {
       representation: HUMOR_REPR[c.humor] || null,
       bubble,
       call: a.externo ? { with: null, externo: a.externo } : null,
+      ...(own ? { ownSpot: true } : {}),
     };
   }
 
@@ -587,6 +592,20 @@ function charPhase(p, phase, d, sch = clockLib.DEFAULT) {
   return phase === 'vuelta' ? 'casa' : phase;
 }
 
+// Reparte a quien está en cada zona en huecos seguidos (por id, estable), para que no se monten
+// aunque haya mucha gente (con 15 ficticios la cocina se llenaba).
+function spreadZones(view) {
+  const byZone = new Map();
+  for (const v of view) {
+    if (v.mode !== 'oficina' || v.visitor || !ZONES[v.lugar] || v.ownSpot) continue;
+    if (!byZone.has(v.lugar)) byZone.set(v.lugar, []);
+    byZone.get(v.lugar).push(v);
+  }
+  for (const [zone, list] of byZone) {
+    list.sort((a, b) => a.id - b.id).forEach((v, k) => Object.assign(v, zoneSpot(zone, k)));
+  }
+}
+
 // Las videollamadas van en las dos direcciones: si alguien de casa llama a uno de la oficina,
 // a ese también se le pinta la llamada (si no está ya en otra).
 function linkCalls(view) {
@@ -598,4 +617,4 @@ function linkCalls(view) {
   }
 }
 
-module.exports = { Sim, HUMOR_REPR, addDays, linkCalls, charPhase };
+module.exports = { Sim, HUMOR_REPR, addDays, linkCalls, charPhase, spreadZones };

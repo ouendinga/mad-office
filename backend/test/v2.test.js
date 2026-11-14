@@ -232,3 +232,11 @@ test('prompt: con mucha gente, solo los C-suite, su equipo y poco más (tope)', 
   assert.ok(out.length <= 13);
   for (const id of [1, 2, 3, 4, 5]) assert.ok(out.some(x => x.id === id), String(id));
 });
+
+test('zonas llenas: cada uno en su hueco, sin montarse, aunque haya más gente que huecos', () => {
+  const { spreadZones } = require('../src/world/sim');
+  const view = Array.from({ length: 12 }, (_, i) => ({ id: i + 1, mode: 'oficina', lugar: 'cafe', x: 0, y: 0 }));
+  spreadZones(view);
+  const spots = new Set(view.map(v => `${v.x},${v.y}`));
+  assert.equal(spots.size, 12);
+});
