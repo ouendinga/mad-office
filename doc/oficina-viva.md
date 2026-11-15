@@ -358,3 +358,16 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
 - ✅ **¡Contratado!** Al aprobar la ficha por primera vez: escena en casa, la noticia llega por carta,
   SMS, correo o paloma mensajera (al azar), con empresa y cargo, y se anuncia en la oficina
   («📰 X se incorpora a … como …»). Sin IA.
+- **Que no actúen todos a la vez:** el piloto automático usa una plantilla común (todos llegan a
+  las 9:00 en punto, café a las 10:30…). Ritmo propio por persona (sacado de la ficha), orden
+  que cambia cada día y aforo por sala. Fase 0 de `doc/disenador-de-oficinas.md`.
+- **La lupa = lo que ve y oye TU personaje:** te sigue, enseña solo su sala y a quien oye
+  (`hearing.js`), cada uno en su sitio real (hoy salen 14 apilados). Fase 0.
+- **Posiciones:** las zonas de estar se montan sobre los muebles (Carmen sale encima del
+  mostrador de recepción). Puntos por mueble y aforo. Fase 0.
+- **Servidores:** nunca hay nadie (el piloto la sortea 1 de cada 4 a las 12:15, y la IA casi no
+  la elige) y las «3 rayas de colores» (`cable_floor`) no se entienden como cables: dibujarlas
+  como canaleta con su caja, o quitarlas.
+- **Varias oficinas y diseñador de oficinas:** estudio en `doc/disenador-de-oficinas.md`.
+- **«¡A la oficina!» no le metió en la oficina (dueño, 2026-11-15):** no se reproduce en la pila
+  de pruebas con el mismo camino; se vuelve a mirar en la revisión de flujos.
