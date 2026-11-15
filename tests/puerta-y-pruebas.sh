@@ -40,5 +40,12 @@ for i in 1 2 3 4 5; do st -X POST -H "$J" -d '{"email":"compi@x.es","password":"
 c=$(st -X POST -H "$J" -d '{"email":"compi@x.es","password":"compi-pass-1"}' $B/auth/login); ok 19 429 "$c" "tras 5 fallos"
 c=$(st -H "$A" -X DELETE $B/companies/1/pruebas/jugadores/$PID); ok 20 200 "$c" "borrar jugador"; echo "    $(python3 -c "import json;print(json.load(open('$R'))['players'])")"
 c=$(st -H "$A" -X PUT -H "$J" -d '{"reset":true}' $B/companies/1/pruebas/reloj); ok 21 200 "$c" "reloj real"; echo "    $(python3 -c "import json;d=json.load(open('$R'));print(d['now'],d['moved'])")"
+# Sin despertador, rehacer la ficha no gasta intentos: se reutiliza el turno que espera en la cola.
+IV='{"answers":{"a":"La montaña","b":"Café","c":"Programar"}}'
+T1=""; for i in 22 23 24 25; do
+  c=$(st -H "$A" -X POST -H "$J" -d "$IV" $B/companies/1/me/interview); ok $i 202 "$c" "entrevista nº$((i-21)) sin despertador"
+  T=$(python3 -c "import json;print(json.load(open('$R')).get('turnId'))"); [ -z "$T1" ] && T1=$T
+  [ "$T" = "$T1" ] && echo "    mismo turno ($T), quedan $(python3 -c "import json;print(json.load(open('$R'))['attemptsLeft'])")" || { echo "  ✗ turno nuevo $T (esperaba $T1)"; fallos=1; }
+done
 rm -f $CK
 exit $fallos

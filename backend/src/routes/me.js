@@ -49,15 +49,34 @@ function router() {
       // Si eligió cargo antes de la entrevista, se coloca ya.
       if (Number.isInteger(req.body.position_id)) await join(pool, c, req.body.position_id);
     }
-    const attempts = c.profile_attempts_day === p.date ? c.profile_attempts : 0;
+    // Solo cuentan las fichas que de verdad se escribieron hoy: si el despertador estaba apagado,
+    // los intentos que se quedaron en la cola no gastan ninguno.
+    const attempts = (await pool.query(
+      `SELECT COUNT(*)::int AS n FROM turns WHERE character_id = $1 AND kind = 'perfil' AND status = 'done' AND office_day = $2`,
+      [c.id, p.date])).rows[0].n;
     if (attempts >= MAX_PROFILE_ATTEMPTS) {
       return res.status(429).json({ error: 'Por hoy ya vale de rehacer la ficha: retócala a mano o vuelve mañana.' });
     }
-    await pool.query('UPDATE characters SET interview = $2, profile_attempts = $3, profile_attempts_day = $4 WHERE id = $1',
-      [c.id, answers, attempts + 1, p.date]);
+    await pool.query('UPDATE characters SET interview = $2 WHERE id = $1', [c.id, answers]);
+    const request = prompts.profileRequest({ name: u.name, answers });
+    // Si ya hay uno esperando en la cola, se reutiliza con las respuestas nuevas (y los demás que
+    // se quedaran colgados se descartan): así no se amontonan ni se gastan de golpe al encender.
+    const waiting = (await pool.query(
+      `SELECT id, status FROM turns WHERE character_id = $1 AND kind = 'perfil' AND status IN ('queued', 'running')
+        ORDER BY id DESC`, [c.id])).rows;
+    if (waiting.length) {
+      const [last, ...rest] = waiting;
+      if (rest.length) {
+        await pool.query(`UPDATE turns SET status = 'expired', finished_at = NOW() WHERE id = ANY($1) AND status = 'queued'`,
+          [rest.map(w => w.id)]);
+      }
+      if (last.status === 'queued') {
+        await pool.query(`UPDATE turns SET request = $2 WHERE id = $1 AND status = 'queued'`, [last.id, request]);
+      }
+      return res.status(202).json({ turnId: last.id, attemptsLeft: MAX_PROFILE_ATTEMPTS - attempts - 1 });
+    }
     const t = await turns.enqueue(pool, {
-      kind: 'perfil', characterId: c.id, payerUserId: u.id, day: p.date, model: c.model,
-      request: prompts.profileRequest({ name: u.name, answers }),
+      kind: 'perfil', characterId: c.id, payerUserId: u.id, day: p.date, model: c.model, request,
     });
     if (t.skipped) return res.status(429).json({ error: t.skipped === 'tope' ? 'Has gastado el tope de IA de hoy.' : 'Ya está en marcha.' });
     res.status(202).json({ turnId: t.id, attemptsLeft: MAX_PROFILE_ATTEMPTS - attempts - 1 });
