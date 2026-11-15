@@ -37,6 +37,9 @@ services:
       GATE: "on"
       # Visitante → Traefik → nginx → backend: dos saltos de proxy de confianza.
       TRUST_PROXY: 2
+    volumes:
+      # Clave PÚBLICA del panel para entrar sin contraseña desde dashboard.alvarosolis.dev (src/gate.js).
+      - /opt/dashboard/sso/publica.pem:/sso/dashboard.pub:ro
     depends_on:
       postgres:
         condition: service_healthy

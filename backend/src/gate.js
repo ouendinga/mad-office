@@ -89,7 +89,7 @@ async function bearerOk(req) {
 // Rutas que no pasan por la puerta: salud, la propia puerta, el despertador (tiene su token), ver a
 // qué empresa invita un enlace, y entrar o crear cuenta (auth.js exige ahí invitación o contraseña
 // propia cuando no se ha pasado la puerta: mira req.gateOpen).
-const OPEN = [/^\/api\/health$/, /^\/api\/gate$/, /^\/api\/runner\//, /^\/api\/auth\/(login|register)$/];
+const OPEN = [/^\/api\/health$/, /^\/api\/gate(\/sso)?$/, /^\/api\/runner\//, /^\/api\/auth\/(login|register)$/];
 const OPEN_GET = [/^\/api\/invitations\/[\w-]+$/];
 
 async function middleware(req, res, next) {
@@ -106,6 +106,43 @@ async function middleware(req, res, next) {
   res.status(401).json({ error: 'Hace falta la contraseña de la oficina.', code: 'gate' });
 }
 
+// ---- Entrar desde dashboard.alvarosolis.dev con billete (sin volver a teclear la contraseña) ----
+// El panel firma con Ed25519; aquí solo está su clave PÚBLICA (/sso/dashboard.pub, de solo lectura): sirve para
+// comprobar un billete, no para fabricarlo. Contrato: ~/projects/dashboard/docs/sso.md. El billete abre la PUERTA
+// (lo mismo que la contraseña común); la cuenta de cada uno dentro de la oficina sigue siendo la suya.
+const ORIGEN_PANEL = 'https://dashboard.alvarosolis.dev';
+const SSO_AUD = process.env.SSO_AUD || 'https://mad-office.alvarosolis.dev';
+let ssoClave;
+function clavePanel() {
+  if (ssoClave === undefined) {
+    try {
+      const k = crypto.createPublicKey(require('fs').readFileSync(process.env.SSO_PUBLICA || '/sso/dashboard.pub'));
+      ssoClave = k.asymmetricKeyType === 'ed25519' ? k : null;
+    } catch { ssoClave = null; }
+  }
+  return ssoClave;
+}
+const ssoUsados = new Map(); // jti -> exp
+
+// '' si el billete vale (y queda gastado); si no, el motivo.
+function comprobarBillete(texto, ahora = Math.floor(Date.now() / 1000), clave = clavePanel()) {
+  for (const [j, exp] of ssoUsados) if (exp < ahora) ssoUsados.delete(j);
+  const partes = String(texto || '').split('.');
+  if (partes.length !== 3 || partes[0] !== 'v1') return 'formato';
+  const [, datos, firma] = partes;
+  let ok = false;
+  try { ok = crypto.verify(null, Buffer.from(`v1.${datos}`), clave, Buffer.from(firma, 'base64url')); } catch { ok = false; }
+  if (!ok) return 'firma';
+  let d;
+  try { d = JSON.parse(Buffer.from(datos, 'base64url').toString('utf8')); } catch { return 'formato'; }
+  if (d.aud !== SSO_AUD) return 'destino';
+  if (!Number.isInteger(d.iat) || !Number.isInteger(d.exp) || d.exp - d.iat > 120 || d.iat > ahora + 30) return 'fechas';
+  if (ahora > d.exp) return 'caducado';
+  if (typeof d.jti !== 'string' || d.jti.length < 16 || ssoUsados.has(d.jti)) return 'repetido';
+  ssoUsados.set(d.jti, d.exp);
+  return '';
+}
+
 const fails = new Map(); // ip -> [timestamps]
 
 // Límite de intentos por IP (la puerta y las contraseñas propias): true si ya no deja.
@@ -120,6 +157,14 @@ function failed(ip, key = 'gate') {
   fails.set(k, [...(fails.get(k) || []), Date.now()]);
 }
 function cleared(ip, key = 'gate') { fails.delete(`${key}|${ip}`); }
+
+// Cookie de la puerta abierta (con la huella de la contraseña vigente).
+function abrir(res, stored) {
+  currentFp = fingerprint(stored);
+  const token = jwt.sign({ gate: true, fp: currentFp }, process.env.JWT_SECRET, { expiresIn: MAX_AGE_S });
+  const secure = process.env.GATE_INSECURE_COOKIE === 'true' ? '' : '; Secure';
+  res.setHeader('Set-Cookie', `${COOKIE}=${encodeURIComponent(token)}; Max-Age=${MAX_AGE_S}; Path=/; HttpOnly; SameSite=Lax${secure}`);
+}
 
 function router(express) {
   const r = express.Router();
@@ -145,14 +190,28 @@ function router(express) {
       return res.status(401).json({ error: 'Esa no es.' });
     }
     cleared(ip);
-    currentFp = fingerprint(stored);
-    const token = jwt.sign({ gate: true, fp: currentFp }, process.env.JWT_SECRET, { expiresIn: MAX_AGE_S });
-    const secure = process.env.GATE_INSECURE_COOKIE === 'true' ? '' : '; Secure';
-    res.setHeader('Set-Cookie', `${COOKIE}=${encodeURIComponent(token)}; Max-Age=${MAX_AGE_S}; Path=/; HttpOnly; SameSite=Lax${secure}`);
+    abrir(res, stored);
     res.json({ open: true });
+  });
+
+  // POST /api/gate/sso (nginx lo publica como /sso): billete del panel. Un billete falso cuenta como contraseña mala.
+  r.post('/sso', express.urlencoded({ extended: false, limit: '4kb' }), async (req, res) => {
+    if (!ENABLED) return res.redirect(303, '/');
+    if (!clavePanel()) return res.status(404).send('No existe');
+    const ip = req.ip;
+    if (tooMany(ip)) return res.status(429).send('Demasiados intentos. Espera un cuarto de hora.');
+    const motivo = req.headers.origin === ORIGEN_PANEL ? comprobarBillete(req.body && req.body.billete) : 'origen';
+    const stored = motivo ? null : await storedHash(req.app.get('db'));
+    if (motivo || !stored) {
+      failed(ip);
+      console.warn(`sso: billete rechazado (${motivo || 'sin contraseña puesta'}) desde ${ip}`);
+      return res.status(403).send('No se ha podido entrar desde el panel: entra con la contraseña.');
+    }
+    abrir(res, stored);
+    res.redirect(303, '/');
   });
 
   return r;
 }
 
-module.exports = { ENABLED, watch, fingerprint, hashPassword, verifyPassword, readCookie, cookieOk, bearerOk, tooMany, failed, cleared, setPassword, middleware, router };
+module.exports = { comprobarBillete, ENABLED, watch, fingerprint, hashPassword, verifyPassword, readCookie, cookieOk, bearerOk, tooMany, failed, cleared, setPassword, middleware, router };
