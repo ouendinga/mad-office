@@ -310,9 +310,10 @@ function drawRoomLens(ctx, w, h, focus, world, people, now, animFrame) {
     now,
     night: !world || (clock && clock.block === 'noche'),
   };
-  const here = people.filter(x => roomIdOf(x.c) === roomId).map(x => x.c);
-  // el enfocado, primero (le toca el mejor sitio)
-  here.sort((a, b) => (a.id === focus.charId ? -1 : b.id === focus.charId ? 1 : a.id - b.id));
+  // Cada uno en un hueco fijo según dónde está en el mapa (de izquierda a derecha), no según a
+  // quién se haya pinchado: así nadie cambia de sitio al seleccionar a otro.
+  const here = people.filter(x => roomIdOf(x.c) === roomId)
+    .sort((a, b) => a.p.x - b.p.x || a.c.id - b.c.id).map(x => x.c);
   const def = sceneDef(roomId);
   const slots = slotsFor(roomId, here.length);
   const placed = here.map((c, i) => ({ c, x: slots[i][0], y: slots[i][1], seated: slots[i][2] === 0 && def.seatsBehind }));

@@ -319,6 +319,24 @@ def('beanbag', (b, w, h, o) => {
   leaves(b, 8, 9, 7, [shade(c, -30), c, shade(c, 30)], 9);
 }, { up: 0 });
 
+// Mesa de ping-pong (2×2 casillas, en vertical: un jugador arriba y otro abajo).
+def('pingpong', (b, w, h) => {
+  b.r(3, 3, w - 6, h - 4, '#1F6E8C'); b.r(3, 3, w - 6, 1, '#2C8DB0');
+  b.r(3, 3, 1, h - 4, '#FFFFFF'); b.r(w - 4, 3, 1, h - 4, '#FFFFFF'); b.r(3, h - 2, w - 6, 1, '#FFFFFF');
+  b.r(Math.floor(w / 2), 3, 1, h - 4, '#FFFFFF'); // línea central
+  b.r(1, Math.floor(h / 2) - 1, w - 2, 2, '#E8ECF2'); b.r(1, Math.floor(h / 2) - 2, 1, 4, METAL); b.r(w - 2, Math.floor(h / 2) - 2, 1, 4, METAL); // red
+  b.r(5, h - 1, 2, 3, DARK); b.r(w - 7, h - 1, 2, 3, DARK);
+  b.r(8, 6, 3, 3, '#C0392B'); b.r(w - 11, h - 9, 3, 3, '#C0392B'); // palas
+}, { up: 0 });
+
+// Mueble bajo la tele con la consola, dos mandos y unos juegos.
+def('console', (b, w) => {
+  b.r(0, 2, w, 10, WOOD_D); b.r(0, 2, w, 1, WOOD); b.r(1, 4, w - 2, 7, '#5A3B22');
+  b.r(4, 5, 10, 4, '#F4F7F9'); b.r(5, 6, 3, 1, '#7FD1AE'); // consola
+  b.r(17, 6, 4, 4, '#3E7CC9'); b.r(22, 6, 4, 4, '#E85D75'); b.r(27, 6, 3, 4, '#FFE066'); // juegos
+  b.r(4, 0, 5, 2, '#2B2F3D'); b.r(w - 10, 0, 5, 2, '#2B2F3D'); // mandos
+}, { up: 2 });
+
 def('coffee_table', (b, w) => {
   b.r(0, 4, w, 7, WOOD); b.r(0, 4, w, 1, WOOD_L); b.r(0, 11, w, 2, WOOD_D);
   b.r(4, 5, 7, 4, '#E85D75'); b.r(14, 6, 6, 3, '#F2EFE8'); b.r(24, 5, 3, 3, '#FFFFFF');
@@ -448,6 +466,19 @@ def('stall', b => {
   b.r(0, -16, 16, 32, '#7AA7B5'); b.r(0, -16, 16, 1, '#9CC6D3'); b.r(12, -2, 2, 2, '#C9A040');
   b.r(2, -12, 12, 1, '#6A95A3');
 }, { up: 16 });
+
+// Urinario en la pared derecha, con su mampara de separación arriba.
+def('urinal', b => {
+  b.r(14, 0, 2, 16, '#B8D4D9'); // azulejo de la pared
+  b.r(8, 3, 6, 10, '#F4F7F9'); b.r(9, 5, 4, 6, '#C9D9DE'); b.r(12, 1, 2, 2, METAL);
+  b.r(5, 0, 11, 1, '#9AA1AD'); // mampara
+});
+
+// Lavabo en la pared izquierda, con su espejo.
+def('sink_side', b => {
+  b.r(0, 1, 2, 14, '#BFE3EE'); b.r(0, 2, 1, 5, '#E3F5FA'); // espejo
+  b.r(2, 3, 8, 10, '#F4F7F9'); b.r(3, 5, 5, 6, '#C9D9DE'); b.r(2, 7, 2, 2, METAL);
+});
 
 def('rug', (b, w, h, o) => {
   const c = o.color || '#8E3B46';

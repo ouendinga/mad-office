@@ -10,7 +10,8 @@
 
 const clockLib = require('./clock');
 const { parts, blockOf, phaseOf, isWorkday, dreamWindowOpen, nextMorning, addDays } = clockLib;
-const { ACTION_FOR_PLACE, targetFor, zonePos, zoneSpot, deskPos, ZONES } = require('./places');
+const { ACTION_FOR_PLACE, targetFor, zonePos, zoneSpot, deskPos, spotPos, ZONES } = require('./places');
+const micro = require('./micro');
 const { visitorsFor } = require('./visitors');
 const { autopilotPlan } = require('./autopilot');
 const gm = require('./gameMaster');
@@ -338,6 +339,7 @@ class Sim {
     const chars = await this.loadCharacters();
     const cast = chars;
     const view = [];
+    const working = [];
 
     for (const c of chars) {
       const workday = isWorkday(p.weekday);
@@ -363,13 +365,35 @@ class Sim {
       await this.ensureTurn(c, day, workBlock, p.weekday);
       let idx = 0;
       for (let i = 0; i < actions.length; i++) if (actions[i].min <= p.minutes) idx = i;
-      const a = actions[idx];
-      const key = `${day}|${workBlock}|${idx}|${a.que}`;
+      working.push({ c, d, workBlock, idx, a0: actions[idx] });
+    }
+
+    // Escapadas cortas (micro.js): solo quien está ahora en su mesa, en la oficina.
+    const atDesk = working.filter(w => w.d.mode === 'oficina' && w.a0.lugar === 'mesa' && !w.a0.con).map(w => w.c.id).sort((a, b) => a - b);
+    const groups = micro.groupPlans(this.companyId, day, p.minutes, atDesk);
+    const byDesk = new Map(working.map(w => [w.c.desk_index, w.c.id]));
+    for (const { c, d, workBlock, idx, a0 } of working) {
+      const m = atDesk.includes(c.id)
+        ? micro.microFor(c, day, p.minutes, {
+          group: groups.get(c.id), blockFrom: B[workBlock].from,
+          neighbor: byDesk.get(c.desk_index % 2 === 0 ? c.desk_index + 1 : c.desk_index - 1) ?? null,
+        })
+        : null;
+      const a = m ? { ...a0, lugar: m.lugar, que: m.que, frase: m.frase, con: m.con ?? null, micro: m } : a0;
+      const planKey = `${day}|${workBlock}|${idx}|${a0.que}`;
+      const key = m ? `${planKey}|${m.id}` : planKey;
       const cur = this.current.get(c.id);
       if (!cur || cur.key !== key) {
         const bubbleUntil = a.frase ? Date.now() + BUBBLE_MS : 0;
-        this.current.set(c.id, { key, action: a, bubbleUntil });
-        if (cur) await this.onActionStart(c, a, cast, day, d);
+        this.current.set(c.id, { key, planKey, action: a, bubbleUntil });
+        if (cur && cur.planKey !== planKey) await this.onActionStart(c, a0, cast, day, d);
+        // El ping-pong se anuncia una vez por partida.
+        if (m && m.kind === 'pingpong' && m.spot[1] === 0 && !this.ensured.has(`pp|${day}|${m.id}`)) {
+          this.ensured.add(`pp|${day}|${m.id}`);
+          const rival = cast.find(x => x.id === m.con);
+          await this.post(c, 'accion', `🏓 ${c.name} y ${rival ? rival.name : 'alguien'} se echan un ping-pong — «${m.frase}»`, day,
+            { lugar: 'descanso', con: m.con, min: p.minutes });
+        }
       }
       view.push(this.viewOf(c, this.current.get(c.id), cast, { phase, day: d }));
     }
@@ -469,6 +493,15 @@ class Sim {
         action: ACTION_FOR_PLACE.casa || 'sentado',
         representation: HUMOR_REPR[c.humor] || null,
         call: a.con || a.externo ? { with: a.con || null, externo: a.externo || null } : null,
+      };
+    }
+    const m = a.micro;
+    if (m && m.spot) {
+      // Escapada a un punto concreto (impresora, fuente, kanban, ping-pong, consola).
+      const pos = spotPos(m.spot[0], m.spot[1]);
+      return {
+        ...base, home: false, mode: 'oficina', x: pos.x, y: pos.y, lugar: m.lugar, que: a.que,
+        action: m.action || 'paseando', representation: HUMOR_REPR[c.humor] || null, bubble, call: null, ownSpot: true,
       };
     }
     const withDesk = a.con && cast ? (cast.find(x => x.id === a.con) || {}).desk_index : null;

@@ -18,7 +18,7 @@ const ZONES = {
   servidores: { x: 25, y: 4, w: 5, h: 2 },
   cafe: { x: 21, y: 14, w: 8, h: 3 },
   descanso: { x: 21, y: 21, w: 5, h: 3 },
-  lavabo: { x: 28, y: 21, w: 3, h: 3 },
+  lavabo: { x: 29, y: 21, w: 1, h: 3 }, // el pasillo entre urinarios y lavabos
   terraza: { x: 33, y: 3, w: 4, h: 20 },
 };
 
@@ -72,6 +72,20 @@ function zoneSpot(zoneName, k) {
   return { x: (z.x + (i % cols) * 2) * TILE + TILE / 2 + off, y: (z.y + Math.floor(i / cols) * 2) * TILE + TILE - 4 + off / 2 };
 }
 
+// Puntos sueltos para las escapadas cortas (micro.js), en casillas: los pies del personaje.
+const SPOT_TILES = {
+  impresora: [[17, 16]],
+  fuente: [[15, 10]],
+  kanban: [[18, 13]],
+  pingpong: [[24.5, 20], [24.5, 23]], // arriba y abajo de la mesa (2×2 en 24-25, 21-22)
+  consola: [[21.5, 20], [22.5, 20]], // en el sofá, delante de la tele
+};
+const spotPos = (name, i = 0) => {
+  const list = SPOT_TILES[name];
+  const [tx, ty] = list[i % list.length];
+  return { x: Math.round((tx + 0.5) * TILE), y: ty * TILE + TILE - 4 };
+};
+
 function targetFor({ lugar, deskIndex, withDeskIndex, slot }) {
   if (lugar === 'mesa' && withDeskIndex != null) {
     // De visita: de pie al lado de la mesa del otro, delante.
@@ -82,4 +96,4 @@ function targetFor({ lugar, deskIndex, withDeskIndex, slot }) {
   return zonePos(lugar, slot);
 }
 
-module.exports = { TILE, DESKS, ZONES, PLACES, ACTION_FOR_PLACE, deskPos, zonePos, zoneSpot, targetFor };
+module.exports = { TILE, DESKS, ZONES, PLACES, ACTION_FOR_PLACE, SPOT_TILES, deskPos, zonePos, zoneSpot, spotPos, targetFor };

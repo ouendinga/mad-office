@@ -430,15 +430,20 @@ const ROOMS = {
     back(ctx) {
       const b = brush(ctx);
       for (let x = 0; x < SW; x += 8) b.r(x, 0, 1, WALL_H, '#B8D4D9');
-      for (let i = 0; i < 3; i++) {
-        const x = 14 + i * 34;
-        b.r(x, 10, 22, 18, '#9AA1AD'); b.r(x + 1, 11, 20, 16, '#D6ECF5'); b.r(x + 3, 13, 6, 2, '#FFFFFF'); // espejo
-        b.r(x - 2, 34, 26, 8, '#FFFFFF'); b.r(x + 2, 36, 18, 4, '#CFE6EA'); b.r(x + 10, 30, 2, 4, '#9AA1AD'); // lavabo
-        ctx.strokeStyle = OUT; ctx.strokeRect(x - 0.5, 9.5, 23, 19); ctx.strokeRect(x - 2.5, 33.5, 27, 9);
+      // tres aseos al fondo
+      for (const x of [8, 38, 68]) {
+        b.r(x, 8, 26, WALL_H - 8, '#7FA7C9'); b.r(x + 2, 10, 22, WALL_H - 12, '#8EB8DA'); b.r(x + 20, 34, 2, 3, '#2B2F3D');
+        b.r(x + 9, 14, 8, 4, '#2E8A5A'); // libre
+        ctx.strokeStyle = OUT; ctx.strokeRect(x - 0.5, 7.5, 27, WALL_H - 7);
       }
-      // puertas de los aseos
-      for (const x of [118, 146]) { b.r(x, 8, 24, WALL_H - 8, '#7FA7C9'); b.r(x + 2, 10, 20, WALL_H - 12, '#8EB8DA'); b.r(x + 18, 34, 2, 3, '#2B2F3D'); ctx.strokeStyle = OUT; ctx.strokeRect(x - 0.5, 7.5, 25, WALL_H - 7); }
-      b.r(100, 14, 10, 12, '#E8ECF2'); b.r(102, 22, 6, 2, '#2B2F3D'); // secamanos
+      // tres urinarios con sus mamparas
+      for (let i = 0; i < 3; i++) {
+        const x = 106 + i * 22;
+        b.r(x, 26, 12, 22, '#F4F7F9'); b.r(x + 2, 32, 8, 12, '#C9D9DE'); b.r(x + 5, 20, 2, 6, '#9AA1AD');
+        ctx.strokeStyle = OUT; ctx.strokeRect(x - 0.5, 25.5, 13, 23);
+        if (i < 2) { b.r(x + 16, 22, 3, 32, '#D6ECF5'); ctx.strokeRect(x + 15.5, 21.5, 4, 33); }
+      }
+      b.r(160, 12, 10, 10, '#E8ECF2'); b.r(162, 18, 6, 2, '#2B2F3D'); // secamanos
     },
     slots: [[40, 116, 1], [80, 128, 1], [130, 138, 1], [20, 142, 1]],
   },
