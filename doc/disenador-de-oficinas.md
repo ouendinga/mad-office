@@ -67,7 +67,7 @@ puntos donde se ponen las personas, el aforo, la lupa y lo que la IA puede elegi
   «aforo del café: 4».
 - **Vista previa** con personas de prueba moviéndose, que aprovecha el modo pruebas que ya
   existe. Botón «Publicar».
-- **Plantillas de partida:** Loft (unas 8 personas), Clásica (la actual, unas 16) y Planta
+- **Plantillas de partida:** Loft (unas 8 personas), Clásica (la actual, unas 16), Cubículos (oficina de las de antes) y Planta
   grande (unas 30). Se elige al crear la empresa o en sus ajustes, y se puede copiar para
   editarla.
 - **Solo el admin de la empresa.**

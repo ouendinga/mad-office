@@ -371,3 +371,30 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
 - **Varias oficinas y diseñador de oficinas:** estudio en `doc/disenador-de-oficinas.md`.
 - **«¡A la oficina!» no le metió en la oficina (dueño, 2026-11-15):** no se reproduce en la pila
   de pruebas con el mismo camino; se vuelve a mirar en la revisión de flujos.
+- ✅ **Ritmo (2026-11-15):** el piloto automático da a cada uno su hora de café, de comida y de
+  salidas, y su sitio según el cargo. Cada cuarto de hora hay escapadas cortas sin IA
+  (`world/micro.js`), y partidas de ping-pong y de consola.
+- **Incidentes con estado (la sitcom, concretada el 2026-11-15):** un catálogo de sucesos con su
+  probabilidad y su causa. Cada suceso cambia el ESTADO de un objeto o de una sala; el cambio se
+  ve en el mapa, los demás lo perciben (entra en lo que «oyen» y en sus prompts) y dura hasta que
+  se arregla, o cambia la forma de usar ese sitio. Ejemplos:
+  - La máquina de refrescos se estropea. Hay que llamar al técnico, que llega como visita al día
+    siguiente; hasta entonces va con un cartel de «no funciona» y la gente la aporrea.
+  - X cocina mal y la lía con el micro. La cocina «huele»: se pinta una nube verde, dura N
+    minutos, y quien llega después reacciona.
+  - Alguien abre la ventana y el viento se lleva los pósits del panel. El panel queda vacío hasta
+    que alguien los recoloca.
+  - Alguien con mala leche (o con prisa) le mueve los pósits a otro.
+  - La impresora se atasca, se va la luz, se acaba el café, se inunda el baño…
+
+  Las reglas deciden qué pasa (dado + probabilidad + quién está), con tabla y tope por día. La IA
+  solo lo usa en el turno que ya hace. Estado persistente: tabla `office_state(company_id,
+  object, state, since, until, cause)`.
+- **Que se les vea comer de verdad**, cada uno con su estilo (masticar, gestos), y otras
+  animaciones con estilo propio. Es trabajo de sprites: postura «comiendo» por rasgos de la ficha.
+- **Que se vea que hablan:** hoy los bocadillos solo salen al empezar una acción, unos segundos,
+  y no salen en la lupa. Hacen falta conversaciones visibles entre dos (bocadillos alternos,
+  sacados de las muletillas sin IA) y bocadillos también en la lupa.
+- **Plantillas de oficina:** más y menos lujo, capacidad y espacios, incluida una de **cubículos**
+  de las de antes. Ver `doc/disenador-de-oficinas.md`.
+- **Revisión de UX/UI y de flujos:** `doc/revision-ux-2026-11-15.md`.
