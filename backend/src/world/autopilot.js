@@ -91,7 +91,7 @@ function outingsFor(block, r, fav) {
   return out.sort((a, b) => a.from - b.from);
 }
 
-function autopilotPlan(character, day, block, { remote = false, sch = DEFAULT } = {}) {
+function autopilotPlan(character, day, block, { remote = false, sch = DEFAULT, lunch = null } = {}) {
   const { BLOCKS } = sch;
   const r = rng(`${character.id}|${day}|${block}`);
   const muletillas = (character.ficha && character.ficha.muletillas) || [];
@@ -102,9 +102,12 @@ function autopilotPlan(character, day, block, { remote = false, sch = DEFAULT } 
     steps.push([540, 'mesa', 'Llega y enciende el ordenador']);
   } else {
     // La comida, cada uno a su hora dentro de la franja (unos bajan en punto, otros acaban algo antes).
-    const lunchAt = 840 + Math.floor(r() * 20);
+    // Con grupo de comida (lunch.js), a la hora y en el sitio del grupo.
+    const lunchAt = 840 + (lunch ? Math.min(lunch.offset, 25) : Math.floor(r() * 20));
     if (lunchAt > 840) steps.push([840, 'mesa', 'Termina lo que tenía entre manos']);
-    steps.push([lunchAt, pick(['cafe', 'terraza', 'cafe'], Math.floor(r() * 3)), pick(['Come de táper', 'Come al aire libre', 'Calienta el táper en el micro'], Math.floor(r() * 3))]);
+    steps.push(lunch
+      ? [lunchAt, lunch.lugar, lunch.que, true, lunch.con[0] ?? null]
+      : [lunchAt, pick(['cafe', 'terraza', 'cafe'], Math.floor(r() * 3)), pick(['Come de táper', 'Come al aire libre', 'Calienta el táper en el micro'], Math.floor(r() * 3)), true]);
     steps.push([900 + Math.floor(r() * 10), 'mesa', 'Vuelve de comer y lucha contra la modorra']);
   }
   for (const o of outingsFor(block, r, favoriteOf(character))) {
@@ -116,12 +119,14 @@ function autopilotPlan(character, day, block, { remote = false, sch = DEFAULT } 
 
   const seen = new Set();
   return steps
-    .map(([m, lugar, que]) => [Math.min(Math.max(toSchedule(block, m, sch), BLOCKS[block].from), BLOCKS[block].to - 5), lugar, que])
+    .map(([m, lugar, que, comida, con]) => [Math.min(Math.max(toSchedule(block, m, sch), BLOCKS[block].from), BLOCKS[block].to - 5), lugar, que, comida, con])
     .sort((a, b) => a[0] - b[0])
     .filter(([m]) => (seen.has(m) ? false : seen.add(m)))
-    .map(([min, lugar, que], i) => {
-      if (remote) return { min, hora: fromMinutes(min), lugar: 'casa', con: null, que: REMOTE[block][i % REMOTE[block].length], frase: frase() };
-      return { min, hora: fromMinutes(min), lugar, con: null, que, frase: frase() };
+    .map(([min, lugar, que, comida, con], i) => {
+      const extra = comida ? { comida: true } : {};
+      if (remote) return { min, hora: fromMinutes(min), lugar: 'casa', con: null, que: REMOTE[block][i % REMOTE[block].length], frase: frase(), ...extra };
+      // Comer «en la mesa» con alguien sería ir a su mesa: el compañero solo cuenta fuera de ella.
+      return { min, hora: fromMinutes(min), lugar, con: lugar === 'mesa' ? null : con ?? null, que, frase: frase(), ...extra };
     });
 }
 

@@ -63,7 +63,9 @@ function groupPlans(companyId, day, minutes, eligible) {
 }
 
 // Escapada de una persona ahora mismo, o null. group: lo que le toca de groupPlans.
-function microFor(c, day, minutes, { group, blockFrom, neighbor }) {
+const SNACK = { kind: 'maquina', que: 'Asalta la máquina de snacks', frases: ['Tengo un hambre…', 'Venga, máquina, no me falles.', 'Solo una bolsa. Bueno, dos.'] };
+
+function microFor(c, day, minutes, { group, blockFrom, neighbor, hungry = false }) {
   if (minutes < blockFrom + 10) return null; // nada más llegar, se sienta
   if (group && minutes >= group.from && minutes < group.until) {
     const r = rng(`${c.id}|${day}|${group.slot}|${minutes}`);
@@ -80,12 +82,14 @@ function microFor(c, day, minutes, { group, blockFrom, neighbor }) {
   const at = slot * SLOT - hashId(c.id) + 2 + Math.floor(r() * 5);
   const dur = 3 + Math.floor(r() * 5);
   if (minutes < at || minutes >= at + dur) return null;
-  let m = pickWeighted(SOLO, r());
+  // Con hambre (y lejos de la comida), a la máquina.
+  let m = hungry && r() < 0.8 ? SNACK : pickWeighted(SOLO, r());
   if (m.kind === 'visita' && neighbor == null) m = SOLO[0];
   const frase = m.frases[Math.floor(r() * m.frases.length)];
   const base = { id: `${m.kind}${slot}`, kind: m.kind, que: m.que, frase };
   if (m.kind === 'visita') return { ...base, lugar: 'mesa', con: neighbor };
   if (m.kind === 'estira' || m.kind === 'movil') return { ...base, lugar: 'mesa', inPlace: true };
+  if (m.kind === 'maquina') return { ...base, lugar: 'cafe', spot: ['maquina', 0], action: 'reunido' };
   return { ...base, lugar: 'mesa', spot: [m.kind, 0], action: m.kind === 'kanban' ? 'pizarra' : 'paseando' };
 }
 

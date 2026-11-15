@@ -12,6 +12,7 @@ const clockLib = require('./clock');
 const { parts, blockOf, phaseOf, isWorkday, dreamWindowOpen, nextMorning, addDays } = clockLib;
 const { ACTION_FOR_PLACE, targetFor, zonePos, zoneSpot, deskPos, spotPos, ZONES } = require('./places');
 const micro = require('./micro');
+const { lunchGroups } = require('./lunch');
 const { visitorsFor } = require('./visitors');
 const { autopilotPlan } = require('./autopilot');
 const gm = require('./gameMaster');
@@ -52,6 +53,8 @@ class Sim {
     this.days = new Map(); // `${id}|${day}` -> { mode, ida, vuelta }
     this.ensured = new Set(); // turnos ya pedidos o descartados
     this.current = new Map(); // id -> {key, action, bubbleUntil}
+    this.statAcc = new Map(); // id -> deltas del pentágono aún sin guardar
+    this.statClock = new Map(); // id -> último minuto contado
     this.notified = new Set(); // avisos de una sola vez (tope gastado)
     this.chars = [];
     this.lastLoad = 0;
@@ -184,6 +187,23 @@ class Sim {
     return (await this.workload(day)).level >= 2;
   }
 
+  // El paso del tiempo en el pentágono. Se acumula sin redondear y se guarda cuando algún valor se
+  // mueve una décima (pocas escrituras).
+  async tickStats(c, lugar, minutes) {
+    const prev = this.statClock.get(c.id);
+    this.statClock.set(c.id, minutes);
+    if (prev == null || minutes <= prev) return;
+    const acc = this.statAcc.get(c.id) || {};
+    for (const [k, v] of Object.entries(stats.drift(lugar, Math.min(minutes - prev, 30)))) acc[k] = (acc[k] || 0) + v;
+    const step = {};
+    for (const [k, v] of Object.entries(acc)) {
+      const whole = Math.trunc(v * 10) / 10;
+      if (whole) { step[k] = whole; acc[k] = v - whole; }
+    }
+    this.statAcc.set(c.id, acc);
+    if (Object.keys(step).length) await this.saveStats(c, stats.add(stats.normalize(c.stats), step));
+  }
+
   async saveStats(c, next) {
     c.stats = stats.normalize(next);
     await this.pool.query('UPDATE characters SET stats = $2 WHERE id = $1', [c.id, JSON.stringify(c.stats)]);
@@ -196,7 +216,8 @@ class Sim {
       'SELECT actions FROM plans WHERE character_id = $1 AND day = $2 AND block = $3', [c.id, day, block]);
     if (!r.rows.length) {
       const { mode } = await this.dayOf(c, day);
-      const actions = autopilotPlan(c, day, block, { remote: mode === 'remoto', sch: this.sch });
+      const lunch = block === 'tarde' && mode !== 'remoto' ? (await this.lunchOf(day)).get(c.id) || null : null;
+      const actions = autopilotPlan(c, day, block, { remote: mode === 'remoto', sch: this.sch, lunch });
       await this.pool.query(
         `INSERT INTO plans (character_id, day, block, source, actions) VALUES ($1, $2, $3, 'autopiloto', $4)
          ON CONFLICT DO NOTHING`, [c.id, day, block, JSON.stringify(actions)]);
@@ -206,6 +227,17 @@ class Sim {
     const actions = r.rows[0].actions;
     this.plans.set(key, actions);
     return actions;
+  }
+
+  // Grupos de comida del día entre los que van a la oficina (lunch.js), una vez por día.
+  async lunchOf(day) {
+    if (this.lunchDay === day && this.lunch) return this.lunch;
+    const chars = await this.loadCharacters();
+    const here = [];
+    for (const c of chars) if ((await this.dayOf(c, day)).mode !== 'remoto') here.push(c);
+    this.lunch = lunchGroups(here, day, this.companyId);
+    this.lunchDay = day;
+    return this.lunch;
   }
 
   async dayActions(c, day) {
@@ -375,7 +407,7 @@ class Sim {
     for (const { c, d, workBlock, idx, a0 } of working) {
       const m = atDesk.includes(c.id)
         ? micro.microFor(c, day, p.minutes, {
-          group: groups.get(c.id), blockFrom: B[workBlock].from,
+          group: groups.get(c.id), blockFrom: B[workBlock].from, hungry: c.stats.saciedad < 1.6,
           neighbor: byDesk.get(c.desk_index % 2 === 0 ? c.desk_index + 1 : c.desk_index - 1) ?? null,
         })
         : null;
@@ -387,6 +419,7 @@ class Sim {
         const bubbleUntil = a.frase ? Date.now() + BUBBLE_MS : 0;
         this.current.set(c.id, { key, planKey, action: a, bubbleUntil });
         if (cur && cur.planKey !== planKey) await this.onActionStart(c, a0, cast, day, d);
+        if (m) await this.saveStats(c, stats.applyMicro(c.stats, m.kind));
         // El ping-pong se anuncia una vez por partida.
         if (m && m.kind === 'pingpong' && m.spot[1] === 0 && !this.ensured.has(`pp|${day}|${m.id}`)) {
           this.ensured.add(`pp|${day}|${m.id}`);
@@ -395,6 +428,7 @@ class Sim {
             { lugar: 'descanso', con: m.con, min: p.minutes });
         }
       }
+      await this.tickStats(c, d.mode === 'remoto' ? 'casa' : (a.con && a.lugar === 'mesa' ? 'visita' : a.lugar), p.minutes);
       view.push(this.viewOf(c, this.current.get(c.id), cast, { phase, day: d }));
     }
     linkCalls(view);

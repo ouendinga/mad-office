@@ -41,7 +41,8 @@ function applyAction(stats, action, ctx = {}) {
   const { SCHEDULE, BLOCKS } = ctx.sch || DEFAULT_SCHEDULE;
   let s = add(normalize(stats), PLACE_EFFECT[action.lugar] || PLACE_EFFECT.mesa);
   // La comida de verdad: café/cocina a la hora de comer (con media hora de margen antes).
-  if (action.lugar === 'cafe' && action.min >= SCHEDULE.lunch - 30 && action.min <= SCHEDULE.lunch + SCHEDULE.lunchMin) s = add(s, { saciedad: 1.2, animo: 0.2 });
+  const lunchTime = action.min >= SCHEDULE.lunch - 30 && action.min <= SCHEDULE.lunch + SCHEDULE.lunchMin;
+  if (action.comida || (lunchTime && (action.lugar === 'cafe' || action.lugar === 'terraza'))) s = add(s, { saciedad: 1.6, animo: 0.2 });
   if (action.con) s = add(s, { social: 0.3 });
   if (action.externo) s = add(s, { calma: -0.3, energia: -0.1 });
   if (action.min >= BLOCKS.tarde.to) s = add(s, { energia: -0.5, calma: -0.3, animo: -0.2 }); // horas extra
@@ -52,6 +53,47 @@ function applyAction(stats, action, ctx = {}) {
     else if (w.temp > 32) s = add(s, { energia: -0.4 });
   }
   return s;
+}
+
+// Lo que va pasando con el tiempo, por hora de oficina y según dónde esté: el hambre sube siempre,
+// la mesa cansa y aísla, estar con gente da vida social… Así el pentágono se mueve solo.
+const DRIFT = {
+  mesa: { energia: -0.2, calma: -0.1, social: -0.15 },
+  visita: { social: 0.3 },
+  cafe: { social: 0.5, calma: 0.2 },
+  reuniones: { energia: -0.3, calma: -0.3, social: 0.3 },
+  descanso: { energia: 0.6, calma: 0.4, animo: 0.2 },
+  terraza: { animo: 0.3, calma: 0.3 },
+  recepcion: { social: 0.2 },
+  despacho: { calma: -0.3 },
+  servidores: { energia: -0.2, calma: -0.1 },
+  lavabo: { calma: 0.2 },
+  casa: { social: -0.2, calma: 0.1 },
+};
+const HUNGER_PER_HOUR = -0.35;
+
+// Deltas (sin redondear) de `minutes` minutos en `lugar`.
+function drift(lugar, minutes) {
+  const h = minutes / 60;
+  const out = { saciedad: HUNGER_PER_HOUR * h };
+  for (const [k, v] of Object.entries(DRIFT[lugar] || DRIFT.mesa)) out[k] = (out[k] || 0) + v * h;
+  return out;
+}
+
+// Efecto de una escapada corta al empezar (micro.js).
+const MICRO_EFFECT = {
+  fuente: { calma: 0.1 },
+  impresora: { calma: -0.1 },
+  kanban: { calma: -0.1 },
+  visita: { social: 0.2 },
+  estira: { energia: 0.1 },
+  movil: { calma: 0.1, energia: -0.1 },
+  pingpong: { animo: 0.4, social: 0.4, energia: -0.2, calma: 0.2 },
+  consola: { animo: 0.3, calma: 0.3 },
+  maquina: { saciedad: 0.8, animo: 0.1 },
+};
+function applyMicro(stats, kind) {
+  return add(normalize(stats), MICRO_EFFECT[kind] || {});
 }
 
 const HUMOR_TARGET = { euforico: 5, contento: 4, normal: 3, mosqueado: 2, agobiado: 1.8, triste: 1.5, dormido: 2.5 };
@@ -79,4 +121,4 @@ function morning(stats) {
   };
 }
 
-module.exports = { KEYS, DEFAULT, normalize, applyAction, applyHumor, morning, PLACE_EFFECT };
+module.exports = { KEYS, DEFAULT, normalize, applyAction, applyHumor, morning, drift, applyMicro, add, PLACE_EFFECT, MICRO_EFFECT };

@@ -77,6 +77,7 @@ const SPOT_TILES = {
   impresora: [[17, 16]],
   fuente: [[15, 10]],
   kanban: [[18, 13]],
+  maquina: [[27, 13]], // delante de la máquina de snacks
   pingpong: [[24.5, 20], [24.5, 23]], // arriba y abajo de la mesa (2×2 en 24-25, 21-22)
   consola: [[21.5, 20], [22.5, 20]], // en el sofá, delante de la tele
 };
