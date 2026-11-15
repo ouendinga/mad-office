@@ -7,7 +7,8 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 // needPassword: se llega sin la contraseña común (enlace de invitación o «Ya tengo cuenta»): la cuenta
 // se crea con contraseña propia y se entra con ella.
 export default function Landing({ onAuth, invite, needPassword = false, startWith = null, onBack = null, onGate = null }) {
-  const [modal, setModal] = useState(startWith || (needPassword && invite ? 'register' : null)); // 'login' | 'register' | null
+  // Con invitación se abre directamente «Únete a…» (la revisión de UX vio que el aviso pasaba desapercibido).
+  const [modal, setModal] = useState(startWith || (invite ? 'register' : null)); // 'login' | 'register' | null
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -62,13 +63,14 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
     }
   };
 
-  const openModal = (type) => {
+  const openModal = (type, keepEmail = false) => {
     setModal(type);
     setError('');
-    setEmail('');
+    if (!keepEmail) setEmail('');
     setName('');
     setPassword('');
   };
+  const companyName = inviteInfo && inviteInfo.company ? inviteInfo.company.name : null;
 
   const closeModal = () => setModal(null);
 
@@ -101,7 +103,10 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
         <h1 className="hero-title">Mad Office</h1>
         <p className="hero-subtitle">La oficina donde tu personaje vive solo</p>
         <p className="hero-desc">Cada uno tiene una caricatura de sí mismo que trabaja, cotillea, hace tratos y escribe su diario sin que nadie le diga qué hacer. Tú solo puedes susurrarle un sueño cada noche. Por la mañana, él decide si te hace caso.</p>
-        <button className="btn btn-primary btn-lg" onClick={() => openModal('login')}>Entrar a la oficina</button>
+        <div className="hero-actions">
+          <button className="btn btn-primary btn-lg" onClick={() => openModal('register')}>Crear mi personaje</button>
+          <button className="btn btn-ghost btn-lg" onClick={() => openModal('login')}>Ya tengo cuenta</button>
+        </div>
       </section>
 
       {/* How it works */}
@@ -147,7 +152,8 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
             <button className="modal-close" onClick={closeModal}>&times;</button>
             {modal === 'register' ? (
               <form onSubmit={handleRegister}>
-                <h2 className="modal-title">Crear cuenta</h2>
+                <h2 className="modal-title">{invite && companyName ? `Únete a ${companyName}` : 'Crear cuenta'}</h2>
+                {invite && <p className="modal-sub">Te han invitado. Crea tu cuenta y entrarás directo en la empresa.</p>}
                 {error && <div className="modal-error">{error}</div>}
                 <div className="form-group">
                   <label>Email</label>
@@ -166,11 +172,19 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
                 <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
                   {loading ? 'Creando...' : 'Crear cuenta'}
                 </button>
+                <p className="modal-switch">¿Ya tienes cuenta? <button type="button" className="link-btn" onClick={() => openModal('login', true)}>Entra</button></p>
               </form>
             ) : (
               <form onSubmit={handleLogin}>
                 <h2 className="modal-title">Entrar</h2>
-                {error && <div className="modal-error">{error}</div>}
+                {error && (
+                  <div className="modal-error">
+                    {error}
+                    {/correo/i.test(error) && /nadie|no hay/i.test(error) && (
+                      <> <button type="button" className="link-btn" onClick={() => openModal('register', true)}>Crear la cuenta con este correo</button></>
+                    )}
+                  </div>
+                )}
                 <div className="form-group">
                   <label>Email</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" required />
@@ -183,6 +197,7 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
                 <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
                   {loading ? 'Entrando...' : 'Entrar'}
                 </button>
+                <p className="modal-switch">¿Primera vez? <button type="button" className="link-btn" onClick={() => openModal('register', true)}>Crea tu cuenta</button></p>
               </form>
             )}
           </div>

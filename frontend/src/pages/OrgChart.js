@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { capi } from '../api';
 import { characterSprite } from '../engine/Character';
+import { Pencil, Plus, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
 import '../styles/companies.css';
 
 const PLACE = { mesa: 'mesa', despacho: 'despacho', recepcion: 'recepción' };
@@ -43,6 +44,7 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const [confirmTake, setConfirmTake] = useState(null);
   const take = async p => {
     setBusy(true);
     setError('');
@@ -131,6 +133,24 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
   useEffect(() => {
     if ((ask || editing) && panelRef.current) panelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [ask, editing]);
+  // En escritorio, el árbol se encoge para verse entero (botón para verlo a tamaño real). En móvil
+  // pasa a lista sangrada por CSS y no se escala.
+  const treeRef = useRef(null);
+  const [fit, setFit] = useState(true);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const measure = () => {
+      const box = scrollRef.current;
+      const tree = treeRef.current;
+      if (!box || !tree || window.innerWidth <= 700) return setScale(1);
+      setScale(Math.max(0.45, Math.min(1, (box.clientWidth - 32) / tree.scrollWidth)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [data, editing, ask]);
+  const shrink = fit && scale < 1;
+
   const centered = useRef(false);
   useEffect(() => {
     const box = scrollRef.current;
@@ -145,6 +165,7 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
 
   const positions = data ? data.positions : [];
   const mineId = positions.find(p => p.holders.some(h => h.mine))?.id;
+  const mineTitle = (positions.find(p => p.id === mineId) || {}).title;
   const children = pid => positions.filter(p => (p.parent_id || null) === pid);
 
   const form = (
@@ -192,18 +213,25 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
           ))}
         </div>
         <div className="org-actions">
-          {p.id === mineId ? <span className="org-mine">Tu cargo</span> : (
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => take(p)}>
-              {mode === 'choose' ? 'Quiero este' : 'Cambiarme'}
-            </button>
+          {p.id === mineId ? <span className="org-mine">Tu cargo</span> : mode === 'choose' ? (
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => take(p)}>Quiero este</button>
+          ) : confirmTake === p.id ? (
+            // Cambiarse de cargo no se deshace con un toque: se confirma diciendo qué va a pasar.
+            <span className="org-confirm" role="alert">
+              <span>{mineTitle ? `Dejarás de ser ${mineTitle}.` : ''} {p.holders.some(h => !h.human) ? 'El ficticio de este cargo se irá a casa.' : ''}</span>
+              <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => { setConfirmTake(null); take(p); }}>Sí, cambiarme</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmTake(null)}>Cancelar</button>
+            </span>
+          ) : (
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setConfirmTake(p.id)}>Cambiarme</button>
           )}
           {isAdmin && mode === 'manage' && (
             <span className="org-admin">
-              <button type="button" className="btn btn-ghost btn-sm" aria-label={`Editar ${p.title}`} onClick={() => setEditing({ ...p, parent_id: p.parent_id ?? '' })}>✏️</button>
+              <button type="button" className="btn btn-ghost btn-sm" aria-label={`Editar ${p.title}`} onClick={() => setEditing({ ...p, parent_id: p.parent_id ?? '' })}><Pencil size={15} aria-hidden /></button>
               <button type="button" className="btn btn-ghost btn-sm" aria-label={`Añadir cargo bajo ${p.title}`}
-                onClick={() => setEditing({ title: '', parent_id: p.id, csuite: false, is_unique: false, seats: 1, place: 'mesa' })}>➕</button>
-              <button type="button" className="btn btn-ghost btn-sm" aria-label={`Borrar ${p.title}`} onClick={() => remove(p)}>
-                {confirmDel === p.id ? '¿Seguro?' : '🗑️'}
+                onClick={() => setEditing({ title: '', parent_id: p.id, csuite: false, is_unique: false, seats: 1, place: 'mesa' })}><Plus size={15} aria-hidden /></button>
+              <button type="button" className={`btn btn-sm ${confirmDel === p.id ? 'btn-danger' : 'btn-ghost'}`} aria-label={`Borrar ${p.title}`} onClick={() => remove(p)}>
+                {confirmDel === p.id ? '¿Seguro?' : <Trash2 size={15} aria-hidden />}
               </button>
             </span>
           )}
@@ -266,8 +294,18 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
         {askPanel}
         {editing && <div ref={panelRef}><h2 className="org-edit-title">{editTitle}</h2>{form}</div>}
         {!data && !error && <p className="muted">Dibujando el organigrama…</p>}
+        {scale < 1 && (
+          <button type="button" className="btn btn-ghost btn-sm org-fit" onClick={() => setFit(!fit)}>
+            {fit ? <><ZoomIn size={15} aria-hidden /> Ver a tamaño real</> : <><ZoomOut size={15} aria-hidden /> Ver entero</>}
+          </button>
+        )}
         <div className="org-scroll" ref={scrollRef}>
-          <div className="org-tree"><ul>{children(null).map(node)}</ul></div>
+          <div className="org-fit-box" style={shrink && treeRef.current ? { height: treeRef.current.offsetHeight * scale } : undefined}>
+            <div className="org-tree" ref={treeRef}
+              style={shrink ? { transform: `scale(${scale})`, transformOrigin: 'top center' } : undefined}>
+              <ul>{children(null).map(node)}</ul>
+            </div>
+          </div>
         </div>
       </main>
     </div>

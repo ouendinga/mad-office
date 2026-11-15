@@ -11,6 +11,7 @@ import '../styles/office.css';
 import '../styles/history.css';
 import StatsPentagon from '../components/StatsPentagon';
 import PruebasPanel from '../components/PruebasPanel';
+import { FlaskConical, Network, Building2, CloudSun, UserRound, LogOut, UserPlus, ScrollText } from 'lucide-react';
 import OfficeSettings from '../components/OfficeSettings';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -226,12 +227,13 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
         </div>
         <div className="office-header-right">
           <span className="office-user-name">{me.user.name}</span>
-          {owner && isAdmin && <button className="btn btn-ghost btn-sm" onClick={() => setShowPruebas(true)}>🧪 Pruebas</button>}
-          <button className="btn btn-ghost btn-sm" onClick={onOrg}>🗂️ Organigrama</button>
-          <button className="btn btn-ghost btn-sm" onClick={onCompanySettings}>🏢 Empresa</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowSettings(true)}>🌦️ Oficina</button>
-          <button className="btn btn-ghost btn-sm" onClick={onEditAvatar}>Avatar</button>
-          <button className="btn btn-ghost btn-sm" onClick={onLogout}>Salir</button>
+          {isAdmin && <InviteButton />}
+          {owner && isAdmin && <button className="btn btn-ghost btn-sm" title="Pruebas" aria-label="Pruebas" onClick={() => setShowPruebas(true)}><FlaskConical size={16} aria-hidden /> <span className="hb-label">Pruebas</span></button>}
+          <button className="btn btn-ghost btn-sm" title="Organigrama" aria-label="Organigrama" onClick={onOrg}><Network size={16} aria-hidden /> <span className="hb-label">Organigrama</span></button>
+          <button className="btn btn-ghost btn-sm" title="Empresa" aria-label="Empresa" onClick={onCompanySettings}><Building2 size={16} aria-hidden /> <span className="hb-label">Empresa</span></button>
+          <button className="btn btn-ghost btn-sm" title="Oficina: ciudad y tiempo" aria-label="Oficina" onClick={() => setShowSettings(true)}><CloudSun size={16} aria-hidden /> <span className="hb-label">Oficina</span></button>
+          <button className="btn btn-ghost btn-sm" title="Avatar" aria-label="Avatar" onClick={onEditAvatar}><UserRound size={16} aria-hidden /> <span className="hb-label">Avatar</span></button>
+          <button className="btn btn-ghost btn-sm" title="Salir" aria-label="Salir" onClick={onLogout}><LogOut size={16} aria-hidden /> <span className="hb-label">Salir</span></button>
         </div>
       </header>
 
@@ -335,6 +337,36 @@ function feedTime(f) {
   return new Date(f.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
 
+// Invitar con un toque: crea un enlace (14 días, 20 usos) y lo comparte o lo copia.
+function InviteButton() {
+  const [msg, setMsg] = useState('');
+  const invite = async () => {
+    setMsg('');
+    try {
+      const inv = await capi('/invitations', { method: 'POST', body: { days: 14, max_uses: 20 } });
+      const url = `${window.location.origin}/invitacion/${inv.code}`;
+      if (navigator.share) {
+        await navigator.share({ title: 'Mad Office', text: 'Únete a nuestra oficina en Mad Office', url }).catch(() => {});
+        setMsg('Enlace listo');
+      } else {
+        await navigator.clipboard.writeText(url);
+        setMsg('Enlace copiado');
+      }
+    } catch (e) {
+      setMsg(e.message || 'No se pudo crear el enlace');
+    }
+    setTimeout(() => setMsg(''), 4000);
+  };
+  return (
+    <span className="invite-wrap">
+      <button type="button" className="btn btn-secondary btn-sm" onClick={invite} title="Crea un enlace de invitación (14 días) y lo copia">
+        <UserPlus size={16} aria-hidden /> Invitar
+      </button>
+      {msg && <span className="invite-msg" role="status">{msg}</span>}
+    </span>
+  );
+}
+
 function Bar({ label, value }) {
   return (
     <div className="stat-row">
@@ -364,7 +396,7 @@ function MyCharacter({ mine, isAdmin, onOpen, onHistory }) {
       </p>
       {mine.stats && <StatsPentagon stats={mine.stats} size={180} />}
       <Bar label="Café" value={mine.cafe} />
-      <button type="button" className="btn btn-ghost btn-sm mine-history" onClick={() => onHistory && onHistory(mine.id)}>📜 Mi historial</button>
+      <button type="button" className="btn btn-ghost btn-sm mine-history" onClick={() => onHistory && onHistory(mine.id)}><ScrollText size={16} aria-hidden /> Mi historial</button>
       {usage && (
         <p className="mine-usage" title="Lo que lleva gastado hoy tu suscripción en esta oficina">
           IA hoy: {usage.calls} llamadas · {Number(usage.spent).toFixed(3)} $ de {usage.cap} $

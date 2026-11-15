@@ -6,7 +6,7 @@ import '../styles/onboarding.css';
 
 // La entrevista: casi todo de elegir, para que nadie se quede en blanco.
 const QUESTIONS = [
-  { q: '¿A qué te dedicas? (de verdad o inventado)', free: 'Operaciones, Sistemas, Account manager, Finanzas, Recepción…' },
+  { q: '¿Qué haces en tu día a día? (de verdad o inventado)', free: 'Operaciones, Sistemas, Account manager, Finanzas, Recepción…' },
   { q: 'Cuando algo se tuerce en el trabajo…', options: ['Mantengo la calma (por fuera)', 'Convoco una reunión', 'Culpo a Mercurio retrógrado', 'Me voy a por café y ya veremos'] },
   { q: '¿Tu relación con la máquina de café?', options: ['Tóxica pero estable', 'Le hablo con cariño', 'Té, gracias', 'Le debo la vida'] },
   { q: '¿Qué manía tuya conoce toda la oficina?', free: 'Agenda de colores, silbar, 40 pestañas abiertas…' },
@@ -171,7 +171,7 @@ export default function Onboarding({ user, character, company, onDone, onBack })
             <h1 className="pixel-font onb-title">Tu personaje</h1>
             <p className="onb-sub">Así vivirá en la oficina. Cambia lo que quieras: es tu caricatura y mandas tú.</p>
             <div className="onb-q">
-              <label>Puesto</label>
+              <label>Puesto <span className="muted">(cómo describe su cargo{company && company.position_title ? `: ${company.position_title}` : ''})</span></label>
               <input maxLength={60} value={ficha.puesto} onChange={e => set('puesto', e.target.value)} />
             </div>
             <div className="onb-q">

@@ -279,3 +279,11 @@
   background: var(--bg-surface); color: inherit; border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.5rem;
 }
 .pruebas-new input { flex: 1 1 140px; min-width: 0; }
+
+/* Cabecera: en una sola línea. En pantallas medianas, solo iconos (el nombre va en title y aria-label). */
+.office-header-right { flex-wrap: nowrap; gap: 0.35rem; }
+.office-header-right .btn-sm { padding: 0.35rem 0.6rem; }
+@media (max-width: 1200px) {
+  .office-header-right .hb-label { display: none; }
+  .office-user-name { display: none; }
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Landing from './pages/Landing';
 import AvatarGenerator from './pages/AvatarGenerator';
 import Onboarding from './pages/Onboarding';
@@ -22,6 +22,26 @@ export default function App() {
   const [historyOf, setHistoryOf] = useState(null);
   const [editAvatar, setEditAvatar] = useState(false);
   const [notice, setNotice] = useState('');
+
+  // «Atrás» del navegador o del móvil: cada vista deja su entrada en el historial y volver atrás
+  // lleva a la anterior (antes sacaba de la app). Lo que llega por popstate no se vuelve a apilar.
+  const fromPop = useRef(false);
+  useEffect(() => {
+    const onPop = e => {
+      fromPop.current = true;
+      setView((e.state && e.state.view) || 'office');
+    };
+    window.addEventListener('popstate', onPop);
+    if (!window.history.state) window.history.replaceState({ view: 'office' }, '');
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  useEffect(() => {
+    if (fromPop.current) { fromPop.current = false; return; }
+    const cur = window.history.state && window.history.state.view;
+    if (cur === view) return;
+    if (view === 'office') window.history.replaceState({ view }, '');
+    else window.history.pushState({ view }, '');
+  }, [view]);
 
   // La puerta va antes que todo (solo existe en el VPS).
   useEffect(() => {

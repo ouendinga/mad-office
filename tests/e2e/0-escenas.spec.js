@@ -28,7 +28,7 @@ test('el dueño repite sus escenas desde el modo pruebas', async ({ page, reques
   await page.getByRole('button', { name: 'Guardar' }).click();
   const entrar = page.getByRole('button', { name: 'Entrar' }).first();
   if (await entrar.isVisible().catch(() => false)) await entrar.click();
-  await page.getByRole('button', { name: '🧪 Pruebas' }).click();
+  await page.getByRole('button', { name: 'Pruebas', exact: true }).click();
   await page.getByRole('button', { name: /Transformación/ }).click();
   await expect(page.getByText('Transformación en curso')).toBeVisible();
   await expect(page.locator('.transfo-caption', { hasText: /montaña|Café|Programar/ })).toBeVisible({ timeout: 8000 });

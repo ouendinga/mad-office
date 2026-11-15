@@ -194,7 +194,7 @@ function profileRequest({ name, answers }) {
     .map(([q, a]) => `- ${q}: ${a}`).join('\n');
   return {
     system: `${TONO}\nCreas la ficha de un personaje que es la caricatura cariñosa de una persona real a partir de lo que ella misma cuenta. Puede tener cualquier trabajo (operaciones, sistemas, clientes, finanzas…): respeta el suyo y no lo conviertas en programador. Si añade algo libre, úsalo, que es lo que más la retrata. Exagera lo gracioso, nunca lo hiriente. Responde solo con el JSON pedido.`,
-    prompt: `Nombre: ${name}\nSus respuestas:\n${qa}\nCrea la ficha: puesto, personalidad (2-3 frases cortas, MÁXIMO 250 caracteres, en tercera persona y sin repetir su nombre), 3 manías, un objetivo cómico en la oficina y 6-8 muletillas cortas NUEVAS, que diría en voz alta (no copies las respuestas).`,
+    prompt: `Nombre: ${name}\nSus respuestas:\n${qa}\nCrea la ficha: puesto (si viene «Cargo en la empresa», el puesto es ese cargo, con un toque de humor si quieres), personalidad (2-3 frases cortas, MÁXIMO 250 caracteres, en tercera persona y sin repetir su nombre), 3 manías, un objetivo cómico en la oficina y 6-8 muletillas cortas NUEVAS, que diría en voz alta (no copies las respuestas).`,
     schema: SCHEMAS.perfil,
   };
 }

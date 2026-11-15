@@ -6,32 +6,32 @@ scroll horizontal en ninguna pantalla. Cada punto está sin hacer hasta que se m
 ## Flujos
 
 **P1**
-1. **Invitación tapada.** El aviso «Te han invitado» queda debajo de la cabecera fija
+1. ✅ **Invitación tapada.** El aviso «Te han invitado» queda debajo de la cabecera fija
    (`.invite-banner`, landing.css:382). Con invitación, abrir directamente «Únete a X».
-2. **Botón principal de la portada.**
+2. ✅ **Botón principal de la portada.**
    - «Entrar a la oficina» abre el login, y una persona nueva recibe «No hay nadie con ese correo»
      sin forma de seguir.
    - Lo mejor sería un solo campo «Tu correo» que entre o registre según el caso. Como mínimo, el
      enlace cruzado entre login y registro.
-3. **«Atrás» del navegador o de Android saca de la app.** Las vistas no tienen URL (App.js:21).
+3. ✅ **«Atrás» del navegador o de Android saca de la app.** Las vistas no tienen URL (App.js:21).
    Arreglo: `pushState` por vista, o al menos un `popstate` que vuelva a la oficina.
-4. **«Cambiarme» en el organigrama actúa al primer toque.** Quita a alguien de su cargo sin
+4. ✅ **«Cambiarme» en el organigrama actúa al primer toque.** Quita a alguien de su cargo sin
    avisar (OrgChart.js:46). Tiene que confirmar.
-5. **El organigrama no se ve entero.**
+5. ✅ **El organigrama no se ve entero.**
    - En escritorio el árbol mide 1652 px: necesita «ajustar a pantalla» y zoom.
    - En móvil, mejor una lista sangrada con ramas plegables.
-6. **«Puesto» de la ficha y cargo no coinciden.** Elegí QA y la ficha dice «Desarrollador», y la
+6. ✅ **«Puesto» de la ficha y cargo no coinciden.** Elegí QA y la ficha dice «Desarrollador», y la
    entrevista vuelve a preguntar «¿A qué te dedicas?». Hay que rellenar el puesto con el cargo, o
    renombrar el campo.
 
 **P2**
 7. Con una sola empresa, entrar directo en ella, sin pulsar «Entrar».
 8. Quien crea la empresa, de CEO por defecto.
-9. «Invitar», en la cabecera del dueño, con valores por defecto, para copiar o compartir el
+9. ✅ «Invitar», en la cabecera del dueño, con valores por defecto, para copiar o compartir el
    enlace. Hoy está escondido en Empresa, en la quinta sección.
 10. Fusionar 🌦️ Oficina y 🏢 Empresa en «Ajustes», y que no se vea si no eres el dueño.
 11. Cosas que no casan:
-    - el feed marca la hora real mientras el reloj de la oficina va movido;
+    - ✅ el feed marca la hora real mientras el reloj de la oficina va movido;
     - el avatar dice «Luego viene la entrevista», pero antes vienen la empresa y el cargo;
     - en el avatar, «← Salir» cierra la sesión y es más grande que «Guardar».
 12. Oficina en móvil:
@@ -44,20 +44,20 @@ scroll horizontal en ninguna pantalla. Cada punto está sin hacer hasta que se m
 **P3**
 - En Pruebas, en móvil, la casilla «IA» no se explica.
 - «16 De Noviembre» lleva «De» en mayúscula.
-- Los nombres del organigrama se cortan aunque quepan.
+- ✅ Los nombres del organigrama se cortan aunque quepan.
 
 ## Visual
 
 **P1**
-- **Iconos:** todo son emojis, y la norma de la casa es Lucide. Además, «✏️ ➕ 🗑️» en cada tarjeta
+- ✅ (botones) **Iconos:** todo son emojis, y la norma de la casa es Lucide. Además, «✏️ ➕ 🗑️» en cada tarjeta
   del organigrama hace ruido.
-- **Foco:** no hay `:focus-visible` en ningún botón.
+- ✅ **Foco:** no hay `:focus-visible` en ningún botón.
 
 **P2**
 - **Un solo botón primario por pantalla.** Hoy hay 15 «Cambiarme» en morado. Faltan una variante
   secundaria y una `btn-danger`. `.btn` y `.btn-sm` deberían pasar a global.css.
-- **Tamaño táctil:** `.btn-sm` mide 26-28 px y los botones del organigrama, 22 px. El mínimo son 44.
-- **Contraste:** `--text-muted` #6C6C8A da 3,4:1 en textos pequeños. Subirlo a ~#9494B4.
+- ✅ **Tamaño táctil:** `.btn-sm` mide 26-28 px y los botones del organigrama, 22 px. El mínimo son 44.
+- ✅ **Contraste:** `--text-muted` #6C6C8A da 3,4:1 en textos pequeños. Subirlo a ~#9494B4.
 - **Tipografía:**
   - la pixel art solo en el logo y el reloj, con `nowrap`, porque hoy parte «Mad / Office»;
   - escala de 4 tamaños.

@@ -91,10 +91,26 @@
 .org-holders { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3rem 0.45rem; }
 .org-holder { display: flex; flex-direction: column; align-items: center; font-size: 0.7rem; max-width: 66px; }
 .org-holder canvas { width: 32px; height: 32px; image-rendering: pixelated; }
-.org-hname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 66px; }
+.org-hname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
 .org-actions { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
 .org-actions .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
 .org-admin { display: flex; gap: 0.15rem; }
 .org-admin .btn-sm { padding: 0.15rem 0.35rem; }
 .org-mine { font-size: 0.72rem; color: var(--secondary); font-weight: 700; }
 .org-edit-title { font-size: 1rem; margin: 1rem 0 0.4rem; }
+
+.org-confirm { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.78rem; color: var(--text-secondary); text-align: center; }
+.org-fit { margin-top: 0.75rem; }
+
+/* Móvil: el árbol pasa a lista sangrada (de arriba abajo, cada nivel un poco más a la derecha). */
+@media (max-width: 700px) {
+  .org-scroll { overflow-x: visible; margin: 1rem 0 0; padding: 0; }
+  .org-tree { width: auto; }
+  .org-tree ul { display: block; padding: 0 0 0 14px; margin-left: 6px; border-left: 2px solid var(--border); }
+  .org-tree > ul { padding-left: 0; margin-left: 0; border-left: 0; }
+  .org-tree li { display: block; padding: 8px 0 0; }
+  .org-tree li::before, .org-tree li::after, .org-tree ul ul::before { display: none; }
+  .org-card { width: auto; align-items: stretch; text-align: left; }
+  .org-holders { justify-content: flex-start; }
+  .org-actions { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; }
+}

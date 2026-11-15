@@ -58,7 +58,9 @@ function router() {
       return res.status(429).json({ error: 'Por hoy ya vale de rehacer la ficha: retócala a mano o vuelve mañana.' });
     }
     await pool.query('UPDATE characters SET interview = $2 WHERE id = $1', [c.id, answers]);
-    const request = prompts.profileRequest({ name: u.name, answers });
+    // El cargo que eligió en el organigrama va en el prompt, para que el «puesto» de la ficha case con él.
+    const pos = c.position_id ? (await pool.query('SELECT title FROM positions WHERE id = $1', [c.position_id])).rows[0] : null;
+    const request = prompts.profileRequest({ name: u.name, answers: pos ? { 'Cargo en la empresa': pos.title, ...answers } : answers });
     // Si ya hay uno esperando en la cola, se reutiliza con las respuestas nuevas (y los demás que
     // se quedaran colgados se descartan): así no se amontonan ni se gastan de golpe al encender.
     const waiting = (await pool.query(

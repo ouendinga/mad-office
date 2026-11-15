@@ -11,7 +11,7 @@
   --bg-surface: #16213E;
   --text-primary: #FFFFFF;
   --text-secondary: #B8B8D4;
-  --text-muted: #6C6C8A;
+  --text-muted: #9494B4; /* antes #6C6C8A: no llegaba a 4,5:1 en letra pequeña */
   --success: #00B894;
   --warning: #FDCB6E;
   --danger: #E17055;
@@ -60,4 +60,33 @@ button {
 
 input {
   font-family: inherit;
+}
+
+/* Botones: icono + texto alineados, foco visible, variantes y tamaño táctil (revisión UX 2026-11-15). */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; white-space: nowrap; }
+.btn svg { flex-shrink: 0; }
+.btn:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+}
+.btn-secondary {
+  background: rgba(108, 92, 231, 0.18);
+  color: var(--text-primary);
+  border: 1px solid rgba(108, 92, 231, 0.45);
+}
+.btn-secondary:hover:not(:disabled) { background: rgba(108, 92, 231, 0.3); }
+.btn-danger {
+  background: transparent;
+  color: #ff7b7b;
+  border: 1px solid rgba(255, 123, 123, 0.45);
+}
+.btn-danger:hover:not(:disabled) { background: rgba(255, 123, 123, 0.12); }
+@media (pointer: coarse) {
+  .btn, .btn-sm { min-height: 44px; }
+}
+.invite-wrap { position: relative; display: inline-flex; }
+.invite-msg {
+  position: absolute; top: calc(100% + 6px); left: 0; white-space: nowrap; z-index: 20;
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem; font-size: 0.8rem; color: var(--text-primary);
 }
