@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { capi } from '../api';
+import Transformacion from './Transformacion';
+import Contratacion from './Contratacion';
 
 // Modo pruebas (solo el dueño): mover el reloj de esta empresa y crear jugadores de prueba para
 // probar sin esperar a que sea laborable. Nada de esto afecta a las demás empresas.
@@ -15,7 +17,39 @@ const JUMPS = [
 ];
 const SPEEDS = [1, 2, 5, 10, 30, 60];
 
-export default function PruebasPanel({ onClose, onBecome }) {
+// Repetición de las escenas con TU avatar y TUS respuestas, sin IA ni despertador: la
+// transformación «termina» sola a los 7 s y luego viene la de ¡Contratado!.
+function Escenas({ me, company, positions, start, onClose }) {
+  const [scene, setScene] = useState(start);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (scene !== 'transfo') return undefined;
+    setDone(false);
+    const id = setTimeout(() => setDone(true), 7000);
+    return () => clearTimeout(id);
+  }, [scene]);
+  const c = me.character || {};
+  const name = c.name || me.user.name;
+  const pos = positions.find(p => p.id === c.position_id);
+  return (
+    <div className="pruebas-escena">
+      <button type="button" className="modal-close" aria-label="Cerrar" onClick={onClose}>&times;</button>
+      {scene === 'transfo' ? (
+        <div className="onb"><div className="onb-card transfo-card">
+          <Transformacion avatar={me.user.avatar_config} answers={c.interview || {}} name={name}
+            done={done} onFinish={() => setScene('contrato')} />
+        </div></div>
+      ) : (
+        <Contratacion avatar={me.user.avatar_config} name={name} company={company ? company.name : 'la empresa'}
+          position={(pos && pos.title) || (c.ficha && c.ficha.puesto) || 'fichaje estrella'} onDone={onClose} />
+      )}
+    </div>
+  );
+}
+
+export default function PruebasPanel({ company, onClose, onBecome }) {
+  const [me, setMe] = useState(null);
+  const [escena, setEscena] = useState(null);
   const [st, setSt] = useState(null);
   const [positions, setPositions] = useState([]);
   const [name, setName] = useState('');
@@ -27,6 +61,7 @@ export default function PruebasPanel({ onClose, onBecome }) {
   const load = useCallback(() => {
     capi('/pruebas').then(setSt).catch(e => setErr(e.message));
     capi('/org').then(d => setPositions(d.positions)).catch(() => {});
+    capi('/me').then(setMe).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -62,6 +97,8 @@ export default function PruebasPanel({ onClose, onBecome }) {
     }
   };
 
+  if (escena && me) return <Escenas me={me} company={company} positions={positions} start={escena} onClose={() => setEscena(null)} />;
+
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal pruebas">
@@ -93,6 +130,17 @@ export default function PruebasPanel({ onClose, onBecome }) {
                 {st.moved && <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => reloj({ reset: true })}>Volver a la hora real</button>}
               </div>
               <p className="pruebas-help">Los saltos van al día laborable más cercano (si hoy es sábado, al lunes).</p>
+            </section>
+
+            <section className="pruebas-sec">
+              <h3>🎬 Escenas</h3>
+              <p className="pruebas-help">Repite las escenas con tu avatar y tus respuestas de la entrevista. No gasta IA ni necesita el despertador.</p>
+              <div className="pruebas-row">
+                <button type="button" className="btn btn-ghost btn-sm" disabled={!me} onClick={() => setEscena('transfo')}>✨ Transformación</button>
+                <button type="button" className="btn btn-ghost btn-sm" disabled={!me} onClick={() => setEscena('contrato')}>📨 ¡Contratado!</button>
+              </div>
+              {me && !(me.character && me.character.interview && Object.keys(me.character.interview).length) &&
+                <p className="pruebas-help">Aún no hay respuestas tuyas guardadas: saldrán estrellas y corazones genéricos.</p>}
             </section>
 
             <section className="pruebas-sec">

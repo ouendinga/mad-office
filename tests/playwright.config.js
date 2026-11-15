@@ -8,6 +8,8 @@ module.exports = defineConfig({
   testDir: './e2e',
   timeout: 30000,
   retries: 0,
+  // Un solo worker: comparten base y el primero que se registra (0-escenas) es el dueño.
+  workers: 1,
   use: {
     baseURL: process.env.BASE_URL || (isDocker ? 'http://mad-office-frontend:80' : 'http://localhost:8081'),
     headless: true,

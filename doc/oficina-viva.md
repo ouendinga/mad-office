@@ -282,6 +282,9 @@ en las empresas que lleva, botón «🧪 Pruebas»:
   `@pruebas.invalid`, no pueden entrar por login) con personaje ya aprobado y la ficha de un ficticio.
   **Sin IA por defecto** (`characters.sin_ia`, piloto automático, gratis); se puede encender.
   «Entrar como» para jugar con su cuenta; una barra arriba lleva de vuelta a la del dueño.
+- **Escenas:** repetir la transformación (con su avatar y SUS respuestas guardadas en
+  `characters.interview`; «termina» sola a los 7 s) y la de «¡Contratado!». Sin IA ni despertador:
+  sirve para ver si los motivos salen bien sin tener que rehacer la entrevista.
 
 ### API
 

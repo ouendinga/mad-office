@@ -73,3 +73,7 @@
 .contrato-carta p { margin: 0 0 0.9rem; line-height: 1.45; }
 .contrato-carta .btn { width: 100%; }
 @media (prefers-reduced-motion: reduce) { .transfo-caption, .contrato-carta { animation: none; } }
+
+/* Repetición de escenas desde el modo pruebas: a pantalla completa, encima de la oficina. */
+.pruebas-escena { position: fixed; inset: 0; z-index: 1200; overflow-y: auto; background: var(--bg-dark); }
+.pruebas-escena > .modal-close { position: fixed; top: 10px; right: 12px; z-index: 1; }

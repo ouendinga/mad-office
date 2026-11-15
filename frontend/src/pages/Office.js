@@ -235,7 +235,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
         </div>
       </header>
 
-      {showPruebas && <PruebasPanel onClose={() => setShowPruebas(false)} onBecome={(tk, n) => { setShowPruebas(false); onBecome(tk, n); }} />}
+      {showPruebas && <PruebasPanel company={company} onClose={() => setShowPruebas(false)} onBecome={(tk, n) => { setShowPruebas(false); onBecome(tk, n); }} />}
       <div className="office-layout">
         <div className="office-canvas-container">
           <canvas ref={canvasRef} className="office-canvas" onClick={onCanvasClick} />

@@ -57,5 +57,6 @@ test('una persona nueva monta su empresa y tiene personaje en menos de 5 minutos
   await expect(page.getByText('El sueño de esta noche')).toBeVisible();
   await page.waitForTimeout(3000);
   await page.screenshot({ path: `${SHOTS}/4-oficina.png` });
+
   expect(errors).toEqual([]);
 });
