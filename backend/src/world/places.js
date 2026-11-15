@@ -87,6 +87,23 @@ const spotPos = (name, i = 0) => {
   return { x: Math.round((tx + 0.5) * TILE), y: ty * TILE + TILE - 4 };
 };
 
+// Huecos fijos de algunas salas (en casillas: los pies). Si una sala no tiene lista, salen de su
+// zona: uno cada dos casillas, sin montarse. El aforo es el número de huecos.
+const ZONE_SPOTS = {
+  lavabo: [[30, 21], [29, 22], [30, 23], [28, 24]], // dos urinarios, el pasillo y un lavabo
+};
+function zoneCapacity(name) {
+  if (ZONE_SPOTS[name]) return ZONE_SPOTS[name].length;
+  const z = ZONES[name];
+  return z ? Math.max(1, Math.ceil(z.w / 2)) * Math.max(1, Math.ceil(z.h / 2)) : 0;
+}
+function zoneSpotFixed(name, k) {
+  const list = ZONE_SPOTS[name];
+  if (!list) return zoneSpot(name, k);
+  const [tx, ty] = list[k % list.length];
+  return { x: Math.round((tx + 0.5) * TILE), y: ty * TILE + TILE - 4 };
+}
+
 function targetFor({ lugar, deskIndex, withDeskIndex, slot }) {
   if (lugar === 'mesa' && withDeskIndex != null) {
     // De visita: de pie al lado de la mesa del otro, delante.
@@ -97,4 +114,4 @@ function targetFor({ lugar, deskIndex, withDeskIndex, slot }) {
   return zonePos(lugar, slot);
 }
 
-module.exports = { TILE, DESKS, ZONES, PLACES, ACTION_FOR_PLACE, SPOT_TILES, deskPos, zonePos, zoneSpot, spotPos, targetFor };
+module.exports = { TILE, DESKS, ZONES, ZONE_SPOTS, PLACES, ACTION_FOR_PLACE, SPOT_TILES, deskPos, zonePos, zoneSpot, zoneSpotFixed, zoneCapacity, spotPos, targetFor };

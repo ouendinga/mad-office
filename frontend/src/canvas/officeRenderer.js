@@ -20,6 +20,7 @@ import { drawVisitorProps } from '../engine/VisitorProps';
 import { characterSprite } from '../engine/Character';
 import { makeCanvas } from '../engine/pixel';
 import { SW, SH, paintBack, paintFurniture, paintLight, slotsFor, sceneDef } from '../engine/RoomScenes';
+import { buildWalkable, findPath } from './paths';
 import { weatherKind, isWindy, drawPrecip, drawOutdoorTint, drawWindowGlass, seasonOf } from './weather';
 
 export const ART_W = officeMap.cols * T;
@@ -72,19 +73,37 @@ function ensure(world) {
   if (!lensScene) lensScene = makeCanvas(SW, SH);
 }
 
-function step(c) {
+let walkable = null;
+const tileOf = (x, y) => [Math.floor(x / T), Math.floor((y - 1) / T)];
+
+// Anda hacia su sitio por el camino (paths.js), no en línea recta: así no atraviesa paredes ni
+// muebles. El camino se calcula al cambiar de destino; si no hay camino, va recto.
+function step(c, busy) {
   const tx = c.x * WORLD_TO_ART;
   const ty = c.y * WORLD_TO_ART;
   const p = shown[c.id] || (shown[c.id] = { x: tx, y: ty, moving: false });
-  const dx = tx - p.x;
-  const dy = ty - p.y;
-  const dist = Math.hypot(dx, dy);
-  const speed = 0.9; // px de arte por frame: andan, no se teletransportan
-  if (dist <= speed) {
-    p.x = tx; p.y = ty; p.moving = false;
-  } else {
-    p.x += (dx / dist) * speed; p.y += (dy / dist) * speed; p.moving = true;
+  if (p.tx !== tx || p.ty !== ty) {
+    p.tx = tx; p.ty = ty;
+    if (!walkable) walkable = buildWalkable(officeMap, objectDef);
+    const [sx, sy] = tileOf(p.x, p.y);
+    const [ex, ey] = tileOf(tx, ty);
+    const path = findPath(walkable, sx, sy, ex, ey, busy);
+    // Puntos intermedios: el centro de cada casilla (sin la primera ni la última) y el destino exacto.
+    p.path = path ? path.slice(1, -1).map(([x, y]) => [x * T + T / 2, y * T + T - 2]) : [];
+    p.path.push([tx, ty]);
   }
+  const speed = 0.9; // px de arte por frame: andan, no se teletransportan
+  let budget = speed;
+  while (budget > 0 && p.path && p.path.length) {
+    const [wx, wy] = p.path[0];
+    const dx = wx - p.x;
+    const dy = wy - p.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist <= budget) { p.x = wx; p.y = wy; budget -= dist; p.path.shift(); } else {
+      p.x += (dx / dist) * budget; p.y += (dy / dist) * budget; budget = 0;
+    }
+  }
+  p.moving = !!(p.path && p.path.length);
   return p;
 }
 
@@ -137,9 +156,11 @@ function paintScene(world, animFrame, now) {
   const items = dynamicObjects.map(o => ({ y: o.baseY, draw: () => drawSprite(ctx, o, now, wind) }));
   const people = [];
   if (world && !night) {
+    // Casillas con gente quieta: el camino las rodea si puede.
+    const busy = new Set(Object.values(shown).filter(s => !s.moving).map(s => tileOf(s.x, s.y).join(',')));
     for (const c of world.characters) {
       if (!inOffice(c)) continue;
-      const p = step(c);
+      const p = step(c, busy);
       people.push({ c, p });
       items.push({
         y: p.y,

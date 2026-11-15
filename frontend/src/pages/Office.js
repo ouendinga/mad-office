@@ -329,6 +329,12 @@ function showStreet(world, view) {
   return view === 'street' || streetHasWalkers(world);
 }
 
+// La hora de la oficina (la del suceso), no la del ordenador: con el reloj de pruebas no casaban.
+function feedTime(f) {
+  if (f.min != null) return `${String(Math.floor(f.min / 60)).padStart(2, '0')}:${String(f.min % 60).padStart(2, '0')}`;
+  return new Date(f.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+}
+
 function Bar({ label, value }) {
   return (
     <div className="stat-row">
@@ -346,9 +352,9 @@ function MyCharacter({ mine, isAdmin, onOpen, onHistory }) {
     const t = setInterval(load, 60000);
     return () => clearInterval(t);
   }, []);
-  if (!mine) return <section className="sidebar-section"><p className="muted">Tu personaje está en pausa.</p></section>;
+  if (!mine) return <section className="sidebar-section mine-section"><p className="muted">Tu personaje está en pausa.</p></section>;
   return (
-    <section className="sidebar-section">
+    <section className="sidebar-section mine-section">
       <h3 className="sidebar-title">Tu personaje</h3>
       <button type="button" className="mine-name" onClick={onOpen}>
         {HUMOR_EMOJI[mine.humor] || ''} {mine.name} <span className="muted">· ver ficha y diario</span>
@@ -492,7 +498,7 @@ function Feed({ feed, mine, placeLog }) {
       <ul className="feed-list">
         {items.map(f => (
           <li key={f.id} className={`feed-item feed-${f.kind}`}>
-            <span className="feed-time">{new Date(f.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="feed-time">{feedTime(f)}</span>
             {f.text}
           </li>
         ))}

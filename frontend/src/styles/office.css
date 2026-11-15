@@ -63,6 +63,14 @@
   padding: 1rem;
   border-bottom: 1px solid var(--border);
 }
+/* Tu personaje se queda arriba aunque bajes por el sueño y el feed. */
+.office-sidebar > .mine-section {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-card);
+  box-shadow: 0 6px 10px -8px rgba(0, 0, 0, 0.6);
+}
 .sidebar-title {
   font-size: 0.85rem;
   color: var(--text-muted);
@@ -158,6 +166,7 @@
   .office-layout { flex-direction: column; overflow: visible; }
   .office-canvas-container { height: auto; aspect-ratio: 40 / 26; flex: none; }
   .office-sidebar { width: 100%; border-left: 0; border-top: 1px solid var(--border); overflow: visible; }
+  .office-sidebar > .mine-section { position: static; box-shadow: none; }
   .office-header { padding: 0.5rem 1rem; flex-wrap: wrap; gap: 0.4rem; }
   .office-user-name { display: none; }
 }

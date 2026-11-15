@@ -10,9 +10,10 @@
 
 const clockLib = require('./clock');
 const { parts, blockOf, phaseOf, isWorkday, dreamWindowOpen, nextMorning, addDays } = clockLib;
-const { ACTION_FOR_PLACE, targetFor, zonePos, zoneSpot, deskPos, spotPos, ZONES } = require('./places');
+const { ACTION_FOR_PLACE, targetFor, zonePos, zoneSpotFixed, zoneCapacity, deskPos, spotPos, ZONES } = require('./places');
 const micro = require('./micro');
 const { lunchGroups } = require('./lunch');
+const { thoughtFor } = require('./thoughts');
 const { visitorsFor } = require('./visitors');
 const { autopilotPlan } = require('./autopilot');
 const gm = require('./gameMaster');
@@ -492,7 +493,9 @@ class Sim {
     const who = con ? con.name : a.externo;
     const text = `${isCall ? '📞 ' : ''}${c.name}: ${a.que}${who ? ` (${isCall ? 'llamada con' : 'con'} ${who})` : ''}${a.frase ? ` — «${a.frase}»` : ''}`;
     await this.post(c, isCall ? 'llamada' : 'accion', text, day, { lugar: a.lugar, con: a.con, externo: a.externo, min: a.min });
-    if (a.piensa) await this.post(c, 'pensamiento', a.piensa, day, { lugar: a.lugar, min: a.min, private: true });
+    // La IA trae su pensamiento; sin IA, sale de su estado y de su ficha (thoughts.js).
+    const piensa = a.piensa || thoughtFor(c, a, `${day}|${a.min}`);
+    if (piensa) await this.post(c, 'pensamiento', piensa, day, { lugar: a.lugar, min: a.min, private: true });
   }
 
   viewOf(c, cur, cast, { phase, day: d }) {
@@ -666,6 +669,10 @@ function charPhase(p, phase, d, sch = clockLib.DEFAULT) {
 
 // Reparte a quien está en cada zona en huecos seguidos (por id, estable), para que no se monten
 // aunque haya mucha gente (con 15 ficticios la cocina se llenaba).
+// Cada sala tiene aforo (places.zoneCapacity): los primeros en llegar ocupan sus huecos y quien
+// no cabe vuelve a su mesa («lo ha encontrado lleno»). Así nadie se monta encima de otro.
+const PLACE_NAME = { cafe: 'la cocina', reuniones: 'la sala de reuniones', descanso: 'la zona chill', terraza: 'la terraza',
+  recepcion: 'recepción', despacho: 'el despacho', servidores: 'servidores', lavabo: 'el baño' };
 function spreadZones(view) {
   const byZone = new Map();
   for (const v of view) {
@@ -674,7 +681,14 @@ function spreadZones(view) {
     byZone.get(v.lugar).push(v);
   }
   for (const [zone, list] of byZone) {
-    list.sort((a, b) => a.id - b.id).forEach((v, k) => Object.assign(v, zoneSpot(zone, k)));
+    const cap = zoneCapacity(zone);
+    list.sort((a, b) => a.id - b.id).forEach((v, k) => {
+      if (k < cap) return Object.assign(v, zoneSpotFixed(zone, k));
+      Object.assign(v, deskPos(v.desk_index || 0), {
+        lugar: 'mesa', action: ACTION_FOR_PLACE.mesa, full: zone,
+        que: `Iba a ${PLACE_NAME[zone] || zone}, pero estaba lleno`,
+      });
+    });
   }
 }
 

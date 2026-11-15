@@ -163,3 +163,41 @@ test('comida: nadie se amontona por encima del aforo', () => {
     assert.ok((count.cafe || 0) <= 8 && (count.terraza || 0) <= 10 && (count.descanso || 0) <= 4, JSON.stringify(count));
   }
 });
+
+const { thoughtFor } = require('../src/world/thoughts');
+
+test('pensamientos sin IA: a veces, según su estado o su ficha', () => {
+  const base = { id: 3, ficha: { objetivo: 'Ganar la porra.', manias: ['Ordenar los pósits'] } };
+  let n = 0;
+  let hambre = 0;
+  for (let k = 0; k < 200; k++) {
+    const t = thoughtFor({ ...base, stats: { energia: 3, animo: 3, saciedad: 1, social: 3, calma: 3 } }, { lugar: 'mesa' }, `k${k}`);
+    if (t) n++;
+    if (t && /coma|máquina|estómago/.test(t)) hambre++;
+  }
+  assert.ok(n > 30 && n < 100, `pensó ${n} de 200 veces`);
+  assert.ok(hambre / n > 0.5, 'con hambre no piensa en comer');
+  assert.equal(thoughtFor(base, { lugar: 'mesa' }, 'x'), thoughtFor(base, { lugar: 'mesa' }, 'x'));
+});
+
+const { spreadZones } = require('../src/world/sim');
+
+test('aforo: en el baño caben 4; el quinto vuelve a su mesa', () => {
+  const view = Array.from({ length: 6 }, (_, i) => ({ id: i + 1, mode: 'oficina', lugar: 'lavabo', desk_index: i }));
+  spreadZones(view);
+  const dentro = view.filter(v => v.lugar === 'lavabo');
+  assert.equal(dentro.length, places.zoneCapacity('lavabo'));
+  const pos = new Set(dentro.map(v => `${v.x},${v.y}`));
+  assert.equal(pos.size, dentro.length, 'dos en el mismo hueco');
+  for (const v of view.filter(x => x.lugar !== 'lavabo')) assert.match(v.que, /lleno/);
+});
+
+test('ningún hueco de sala cae en una pared', () => {
+  const map = require('../../frontend/src/assets/maps/office.json');
+  for (const z of Object.keys(places.ZONES)) {
+    for (let k = 0; k < places.zoneCapacity(z); k++) {
+      const p = places.zoneSpotFixed(z, k);
+      assert.notEqual(map.grid[Math.floor((p.y - 1) / places.TILE)][Math.floor(p.x / places.TILE)], '#', `${z} ${k}`);
+    }
+  }
+});

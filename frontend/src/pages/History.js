@@ -44,6 +44,7 @@ export default function History({ characterId, onBack }) {
   const shown = data.items.filter(it => {
     if (filter === 'todo') return true;
     if (filter === 'pensamientos') return it.kind === 'pensamiento';
+    if (filter === 'lo que hace') return ['accion', 'llamada'].includes(it.kind);
     if (filter === 'conversaciones') return ['accion', 'le_dicen', 'llamada'].includes(it.kind) && /«/.test(it.text);
     return ['trayecto', 'sueno', 'llamada'].includes(it.kind);
   });
@@ -74,7 +75,7 @@ export default function History({ characterId, onBack }) {
 
         <main className="hist-main">
           <div className="hist-filters" role="tablist" aria-label="Qué ver">
-            {['todo', 'conversaciones', 'pensamientos', 'cosas que le pasan'].map(f => (
+            {['todo', 'lo que hace', 'conversaciones', 'pensamientos', 'cosas que le pasan'].map(f => (
               <button key={f} type="button" role="tab" aria-selected={filter === f}
                 className={`onb-chip ${filter === f ? 'is-on' : ''}`} onClick={() => setFilter(f)}
                 disabled={f === 'pensamientos' && !data.mine}>{f}</button>
