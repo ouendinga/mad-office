@@ -71,7 +71,12 @@ function derive(raw) {
     if (!z || zones[z]) continue;
     zones[z] = { x: r.x, y: r.y, w: r.w, h: r.h };
     const spots = [];
-    for (let y = r.y + 1; y < r.y + r.h; y += 2) for (let x = r.x; x < r.x + r.w; x += 2) if (floorAt(x, y)) spots.push([x, y]);
+    // En las salas grandes de estar (terraza) se deja más hueco: cada 3 filas y al tresbolillo,
+    // para que el nombre de uno no tape la cara del de debajo.
+    const dy = r.type === 'terraza' ? 3 : 2;
+    for (let y = r.y + 1, row = 0; y < r.y + r.h; y += dy, row++) {
+      for (let x = r.x + (dy === 3 ? row % 2 : 0); x < r.x + r.w; x += 2) if (floorAt(x, y)) spots.push([x, y]);
+    }
     if (!spots.length) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (floorAt(x, y)) spots.push([x, y]);
     zoneSpots[z] = spots.slice(0, 24);
   }

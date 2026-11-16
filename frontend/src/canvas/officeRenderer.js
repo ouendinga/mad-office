@@ -40,6 +40,12 @@ let overlayObjects = [];
 let windows = [];
 let lights = [];
 let view = { scale: 1, ox: 0, oy: 0 };
+// Móvil en vertical: el mapa llena el alto y se arrastra de lado (pan). Empieza centrado en tu
+// personaje (centerOn) y luego manda el dedo.
+const pan = { x: null, centerId: null, wide: false };
+export function centerOn(id) { if (pan.centerId !== id) { pan.centerId = id; pan.x = null; } }
+export function panBy(dx) { if (pan.x != null) pan.x += dx; }
+export const canPan = () => pan.wide;
 let lens = null; // última lupa pintada (para los clics): {cx, cy, R, k, x0, y0, people:[{id, x, y}]}
 const shown = {}; // id -> {x, y, moving} en píxeles de arte
 
@@ -325,8 +331,23 @@ export function renderOffice(ctx, canvas, world, animFrame, focus) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const w = canvas.width / dpr;
   const h = canvas.height / dpr;
-  const scale = crispScale(Math.min(w / ART_W, h / ART_H), dpr);
-  const ox = Math.floor(((w - ART_W * scale) / 2) * dpr) / dpr;
+  // En pantallas estrechas y altas (móvil en vertical), se llena el alto en vez del ancho: si no,
+  // el mapa queda como una tira con mucho hueco arriba y abajo.
+  const fit = Math.min(w / ART_W, h / ART_H);
+  const tall = w < 820 && h > w * 0.9;
+  const scale = crispScale(tall ? Math.min(h / ART_H, fit * 3) : fit, dpr);
+  pan.wide = ART_W * scale > w + 1;
+  let ox;
+  if (pan.wide) {
+    if (pan.x == null) {
+      const me = pan.centerId != null && shown[pan.centerId];
+      pan.x = w / 2 - (me ? me.x : ART_W / 2) * scale;
+    }
+    pan.x = Math.min(0, Math.max(w - ART_W * scale, pan.x));
+    ox = Math.round(pan.x * dpr) / dpr;
+  } else {
+    ox = Math.floor(((w - ART_W * scale) / 2) * dpr) / dpr;
+  }
   const oy = Math.floor(((h - ART_H * scale) / 2) * dpr) / dpr;
   view = { scale, ox, oy };
 

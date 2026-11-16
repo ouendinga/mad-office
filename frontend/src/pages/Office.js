@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import { renderOffice, pickAt, pickInLens, pickRoomAt, roomIdOf, roomLabel, callText } from '../canvas/officeRenderer';
+import { renderOffice, centerOn, panBy, canPan, pickAt, pickInLens, pickRoomAt, roomIdOf, roomLabel, callText } from '../canvas/officeRenderer';
 import { renderStreet, streetHasWalkers } from '../canvas/streetRenderer';
 import { augmentWorld, DEMO } from '../canvas/demo';
 import { weatherLabel } from '../canvas/weather';
@@ -216,7 +216,21 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
   const changeFocus = f => { focusRef.current = f; setFocus(f); };
   const changeView = v => { viewRef.current = v; setView(v); changeFocus(null); };
 
+  // Arrastrar el mapa de lado (móvil en vertical). Si se ha arrastrado, el clic no cuenta.
+  const drag = useRef(null);
+  const onPointerDown = e => { drag.current = { x: e.clientX, moved: 0 }; };
+  const onPointerMove = e => {
+    const d = drag.current;
+    if (!d || !canPan()) return;
+    const dx = e.clientX - d.x;
+    d.x = e.clientX;
+    d.moved += Math.abs(dx);
+    if (d.moved > 6) panBy(dx);
+  };
+  const onPointerUp = () => { setTimeout(() => { drag.current = null; }, 0); };
+
   const onCanvasClick = e => {
+    if (drag.current && drag.current.moved > 6) return;
     if (showStreet(worldRef.current, viewRef.current)) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const sx = e.clientX - rect.left;
@@ -241,6 +255,9 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
   }, []);
 
   const mine = world && world.characters.find(c => c.owner_user_id === me.user.id && !c.visitor);
+  // En móvil, el mapa empieza centrado en tu personaje.
+  const mineId = mine ? mine.id : null;
+  useEffect(() => { if (mineId != null) centerOn(mineId); }, [mineId]);
   const clock = world && world.clock;
   const focused = focus && focus.charId != null && world ? world.characters.find(c => c.id === focus.charId) : null;
   const inStreet = showStreet(world, view);
@@ -306,7 +323,8 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
       {showPruebas && <PruebasPanel company={company} onClose={() => setShowPruebas(false)} onBecome={(tk, n) => { setShowPruebas(false); onBecome(tk, n); }} />}
       <div className="office-layout">
         <div className="office-canvas-container">
-          <canvas ref={canvasRef} className="office-canvas" onClick={onCanvasClick} />
+          <canvas ref={canvasRef} className="office-canvas" onClick={onCanvasClick}
+            onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} />
           <DayCard clock={clock} weather={weather} />
           {DEMO && <div className="demo-badge">DEMO</div>}
           {streetTime && (

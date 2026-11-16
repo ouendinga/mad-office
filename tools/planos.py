@@ -221,7 +221,9 @@ def planta():
             'lavabo': {'x': 39, 'y': 23, 'w': 2, 'h': 5}, 'terraza': {'x': 45, 'y': 3, 'w': 4, 'h': 26},
         },
         'own': {'despacho': [[13, 3]], 'recepcion': [[3.5, 4]]},
-        'zoneSpots': {'despacho': [[12, 5], [14, 5], [13, 6]], 'recepcion': [[6, 6], [7, 6], [4, 6]]},
+        'zoneSpots': {'despacho': [[12, 5], [14, 5], [13, 6]], 'recepcion': [[6, 6], [7, 6], [4, 6]],
+                      # terraza: cada 3 filas y al tresbolillo, para que los nombres no tapen caras
+                      'terraza': [[45 + (i % 2) + c * 2, 3 + i * 3] for i in range(9) for c in range(2)]},
         'spots': {'impresora': [[24, 17]], 'fuente': [[19, 10]], 'kanban': [[25, 13]], 'maquina': [[37, 13]],
                   'pingpong': [[34.5, 24], [34.5, 27]], 'consola': [[29.5, 22], [30.5, 22]]},
         'objects': objs,

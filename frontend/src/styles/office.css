@@ -353,3 +353,7 @@
   .lupa-box { top: auto; bottom: 8px; }
   .my-view { bottom: 8px; right: 8px; }
 }
+@media (max-width: 820px) {
+  /* el dedo arrastra el mapa de lado; la página no se mueve debajo */
+  .office-canvas { touch-action: none; }
+}
