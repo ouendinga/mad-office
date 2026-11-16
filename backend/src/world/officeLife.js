@@ -10,6 +10,8 @@ const incidents = require('./incidents');
 const events = require('./events');
 const { rng } = require('./autopilot');
 const { INCIDENT_OBJECTS } = require('./places');
+const mudanza = require('./mudanza');
+const layouts = require('./layout');
 
 const TECH_STAY = 40; // minutos que tarda el técnico
 const MAX_CATCH_UP = 30; // minutos que se recuperan si el reloj va rápido
@@ -32,7 +34,7 @@ class OfficeLife {
     this.lastDay = null;
     this.reacted = new Set();
     this.announced = new Set();
-    this.mapTypes = new Set(INCIDENT_OBJECTS);
+    this.fallbackTypes = new Set(INCIDENT_OBJECTS);
   }
 
   get pool() { return this.sim.pool; }
@@ -108,7 +110,9 @@ class OfficeLife {
     const sch = this.sim.sch;
     const w = this.sim.weatherNow();
     const ctx = {
-      companyId: this.companyId, day, min: m, mapTypes: this.mapTypes, active: this.active,
+      // Lo que tiene esta oficina: si no hay cafetera, no se rompe la cafetera.
+      companyId: this.companyId, day, min: m, mapTypes: this.sim.layout ? this.sim.layout.objectTypes : this.fallbackTypes, active: this.active,
+      places: this.sim.layout ? this.sim.layout.places : null,
       lunch: m >= sch.SCHEDULE.lunch - 15 && m <= sch.SCHEDULE.lunch + sch.SCHEDULE.lunchMin,
       windy: !!(w && Number(w.wind) >= 25), storm: !!(w && w.code >= 95), hot: !!(w && w.temp >= 28),
       cold: !!(w && w.temp <= 8), morning: m < sch.BLOCKS.manana.to,
@@ -222,6 +226,66 @@ class OfficeLife {
     }
   }
 
+  // --- La mudanza (mudanza.js) ---
+
+  get move() { return (this.sim.company.settings || {}).mudanza || null; }
+
+  async saveSettings(patch) {
+    const cur = (await this.pool.query('SELECT settings FROM companies WHERE id = $1', [this.companyId])).rows[0].settings;
+    const next = { ...cur, ...patch };
+    for (const [k, v] of Object.entries(patch)) if (v === null) delete next[k];
+    await this.pool.query('UPDATE companies SET settings = $2 WHERE id = $1', [this.companyId, next]);
+    this.sim.company.settings = next;
+  }
+
+  // Cada tick: empaquetar la tarde de antes, cambiar de oficina al salir de casa, los sucesos del
+  // camino, la llegada y, pasado el día, borrar la mudanza.
+  async moveTick(day, p) {
+    const mv = this.move;
+    if (!mv) return;
+    const sch = this.sim.sch;
+    const to = layouts.get(mv.to);
+    if (day > mv.day) { await this.saveSettings({ mudanza: null }); return; }
+    if (day < mv.day) {
+      if (nextWorkday(day) === mv.day && p.minutes >= sch.BLOCKS.tarde.from + 60 && !this.announced.has(`emp|${mv.day}`)) {
+        this.announced.add(`emp|${mv.day}`);
+        await this.sim.post(null, 'evento', `📦 Mañana nos mudamos a la nueva oficina (${to.name}). Toca empaquetar: cada uno con su caja.`, day, { min: p.minutes });
+      }
+      return;
+    }
+    // El día de la mudanza: al salir de casa, ya van a la nueva.
+    if (p.minutes >= sch.COMMUTE.ida && this.sim.layout.id !== to.id) {
+      await this.saveSettings({ oficina: to.id, mudanza: { ...mv, from: this.sim.layout.id } });
+      this.sim.layout = to;
+      this.sim.days.clear(); // las mesas y quién cabe se recalculan con la oficina nueva
+    }
+    for (const sx of mudanza.sucesosDe(day, this.companyId, sch.COMMUTE.ida, sch.BLOCKS.manana.from)) {
+      if (p.minutes >= sx.min && !this.announced.has(`mud|${day}|${sx.min}`)) {
+        this.announced.add(`mud|${day}|${sx.min}`);
+        await this.sim.post(null, 'evento', sx.text, day, { min: sx.min });
+      }
+    }
+    if (p.minutes >= sch.BLOCKS.manana.from && !this.announced.has(`lleg|${day}`)) {
+      this.announced.add(`lleg|${day}`);
+      await this.sim.post(null, 'evento', `🏢 ¡Primer día en la oficina nueva (${to.name})! Todo huele a nuevo y nadie encuentra el baño.`, day, { min: sch.BLOCKS.manana.from });
+    }
+  }
+
+  // ¿Hoy es la mudanza y van de camino? → lo que lleva cada uno por la calle.
+  moveCarga(c, day, phase) {
+    const mv = this.move;
+    return mv && mv.day === day && phase === 'ida' ? mudanza.cargaDe(c, day) : null;
+  }
+
+  // Cajas por la oficina: la tarde de antes (empaquetando) y la mañana de la mudanza (desempaquetando).
+  boxes(day, m) {
+    const mv = this.move;
+    if (!mv) return false;
+    const sch = this.sim.sch;
+    if (mv.day === day) return m < sch.SCHEDULE.lunch;
+    return nextWorkday(day) === mv.day && m >= sch.BLOCKS.tarde.from + 60;
+  }
+
   // Para el prompt de la IA: el estado de la oficina que cualquiera notaría.
   promptLine(m) {
     const inc = this.active.map(i => String(i.data.title).split('.')[0]);
@@ -230,8 +294,11 @@ class OfficeLife {
   }
 
   // Lo que va al navegador para pintarlo.
-  view(m) {
+  view(m, day = this.lastDay, phase = null) {
+    const mv = this.move;
     return {
+      cajas: this.boxes(day, m),
+      mudanza: mv ? { to: mv.to, toName: layouts.get(mv.to).name, day: mv.day, camion: mv.day === day && phase === 'ida' } : null,
       incidents: this.active.map(i => ({ id: i.id, kind: i.kind, place: i.place, title: i.data.title, sign: i.data.sign || null })),
       events: this.events.map(e => ({
         id: e.id, kind: e.kind, title: e.title, place: events.placeFor(e, this.sim.weatherNow()),

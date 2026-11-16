@@ -8,7 +8,7 @@
  * en=<zona de office.json> (lleva a todos los de la oficina a esa zona, para ver su sala de cerca)
  */
 
-import officeMap from '../assets/maps/office.json';
+import { getPlan } from './plan';
 
 const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
 export const DEMO = params.get('demo') === '1';
@@ -77,7 +77,7 @@ export function augmentWorld(world) {
       else out.mode = i === 1 || i === 3 ? 'remoto' : 'oficina';
       if (out.mode === 'oficina' && (out.home || out.x == null)) {
         // de noche el servidor no manda posición: a su mesa (como deskPos de places.js)
-        const d = officeMap.desks[(c.desk_index || 0) % officeMap.desks.length];
+        const d = getPlan().desks[(c.desk_index || 0) % getPlan().desks.length];
         out.home = false;
         out.x = (d.x + 1) * 32;
         out.y = d.y * 32 - 12;
@@ -92,7 +92,7 @@ export function augmentWorld(world) {
     if (out.call === undefined) out.call = null;
     return out;
   });
-  const zone = params.get('en') && officeMap.zones[params.get('en')];
+  const zone = params.get('en') && getPlan().zones[params.get('en')];
   if (zone) {
     chars.filter(c => c.mode === 'oficina').forEach((c, i) => {
       const cols = Math.max(1, Math.ceil(zone.w / 2));

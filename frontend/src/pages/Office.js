@@ -11,7 +11,8 @@ import '../styles/office.css';
 import '../styles/history.css';
 import StatsPentagon from '../components/StatsPentagon';
 import PruebasPanel from '../components/PruebasPanel';
-import { FlaskConical, Network, Building2, CloudSun, UserRound, LogOut, UserPlus, ScrollText, AlertTriangle, PartyPopper } from 'lucide-react';
+import { getPlan, setPlan } from '../canvas/plan';
+import { FlaskConical, Network, Building2, CloudSun, UserRound, LogOut, UserPlus, ScrollText, AlertTriangle, PartyPopper, LayoutGrid } from 'lucide-react';
 import OfficeSettings from '../components/OfficeSettings';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -85,7 +86,7 @@ function fmtMorning(date) {
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-export default function Office({ me, company, owner, onBecome, onLogout, onEditAvatar, onHistory, onCompanies, onOrg, onCompanySettings }) {
+export default function Office({ me, company, owner, onBecome, onLogout, onEditAvatar, onHistory, onCompanies, onOrg, onOffices, onCompanySettings }) {
   const isAdmin = company.role === 'admin';
   const placeLog = useRef(new Map()); // minuto → sitio de mi personaje (para «lo que sabe»)
   const [showSettings, setShowSettings] = useState(false);
@@ -94,6 +95,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
   const worldRef = useRef(null);
   const frameRef = useRef(0);
   const [world, setWorld] = useState(null);
+  const planLoading = useRef(false);
   const [feed, setFeed] = useState([]);
   const [offline, setOffline] = useState(false);
   const [selected, setSelected] = useState(null); // ficha abierta
@@ -112,6 +114,12 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
     socket.on('disconnect', () => setOffline(true));
     socket.on('connect_error', () => setOffline(true));
     socket.on('world', w => {
+      // Si la empresa tiene otra oficina (o se ha mudado), se trae su plano.
+      const want = w.company && w.company.oficina;
+      if (want && want !== getPlan().id && !planLoading.current) {
+        planLoading.current = true;
+        capi('/oficina').then(setPlan).catch(() => {}).finally(() => { planLoading.current = false; });
+      }
       const aw = augmentWorld(w);
       worldRef.current = aw;
       setWorld(aw);
@@ -230,6 +238,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
           {isAdmin && <InviteButton />}
           {owner && isAdmin && <button className="btn btn-ghost btn-sm" title="Pruebas" aria-label="Pruebas" onClick={() => setShowPruebas(true)}><FlaskConical size={16} aria-hidden /> <span className="hb-label">Pruebas</span></button>}
           <button className="btn btn-ghost btn-sm" title="Organigrama" aria-label="Organigrama" onClick={onOrg}><Network size={16} aria-hidden /> <span className="hb-label">Organigrama</span></button>
+          <button className="btn btn-ghost btn-sm" title="Oficinas: planos y mudanza" aria-label="Oficinas" onClick={onOffices}><LayoutGrid size={16} aria-hidden /> <span className="hb-label">Oficinas</span></button>
           <button className="btn btn-ghost btn-sm" title="Empresa" aria-label="Empresa" onClick={onCompanySettings}><Building2 size={16} aria-hidden /> <span className="hb-label">Empresa</span></button>
           <button className="btn btn-ghost btn-sm" title="Oficina: ciudad y tiempo" aria-label="Oficina" onClick={() => setShowSettings(true)}><CloudSun size={16} aria-hidden /> <span className="hb-label">Oficina</span></button>
           <button className="btn btn-ghost btn-sm" title="Avatar" aria-label="Avatar" onClick={onEditAvatar}><UserRound size={16} aria-hidden /> <span className="hb-label">Avatar</span></button>

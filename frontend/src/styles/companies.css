@@ -114,3 +114,16 @@
   .org-holders { justify-content: flex-start; }
   .org-actions { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; }
 }
+
+/* Galería de oficinas */
+.ofi-grid { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-top: 1rem; padding: 0; }
+.ofi-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.ofi-card.is-current { border-color: var(--secondary); box-shadow: 0 0 0 2px var(--secondary); }
+.ofi-preview { width: 100%; height: auto; aspect-ratio: 16 / 10; display: block; image-rendering: pixelated; background: #1B1626; }
+.ofi-body { padding: 0.8rem 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.ofi-body h2 { font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.ofi-badge { font-size: 0.7rem; font-weight: 700; background: var(--secondary); color: #10202A; border-radius: 999px; padding: 0.1rem 0.5rem; }
+.ofi-meta { color: var(--secondary); font-size: 0.85rem; }
+.ofi-pick { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; margin-top: 0.3rem; }
+.ofi-pick label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: var(--text-secondary); }
+.ofi-move { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.8rem; }

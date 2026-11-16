@@ -3,18 +3,18 @@
 // taller…). Dos capas: lo que se pinta en el arte (charcos, olor, papeles) y los carteles, que van
 // en la pantalla para que se lean.
 
-import officeMap from '../assets/maps/office.json';
+import { getPlan } from './plan';
 
 const T = 16;
 export const PLACE_ROOM = {
   cafe: 'cocina', mesa: 'openspace', lavabo: 'banos', descanso: 'descanso', terraza: 'terraza',
   reuniones: 'reuniones', recepcion: 'recepcion', despacho: 'despacho', servidores: 'servidores',
 };
-const room = id => officeMap.rooms.find(r => r.id === id);
+const room = id => getPlan().rooms.find(r => r.id === id);
 const inRoom = (o, id) => { const r = room(id); return r && o.x >= r.x && o.x < r.x + r.w && o.y >= r.y && o.y < r.y + r.h; };
 // El objeto de ese tipo (la planta, la del open space: es la que sale en el texto del incidente).
 const obj = type => (type === 'plant'
-  ? officeMap.objects.find(o => o.type === type && inRoom(o, 'openspace')) : null) || officeMap.objects.find(o => o.type === type);
+  ? getPlan().objects.find(o => o.type === type && inRoom(o, 'openspace')) : null) || getPlan().objects.find(o => o.type === type);
 const has = (office, kind) => !!(office && office.incidents.some(i => i.kind === kind));
 
 // Qué objeto lleva el cartel de cada incidente.
@@ -165,6 +165,25 @@ export function drawStateArt(ctx, office, now) {
     }
   }
 
+  // Mudanza: cajas de cartón junto a las mesas y por las salas (empaquetando o desempaquetando).
+  if (office.cajas) {
+    const box = (x, y, w = 8, h = 6) => {
+      ctx.fillStyle = '#B98A55'; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = '#D9A86C'; ctx.fillRect(x, y, w, 2);
+      ctx.fillStyle = '#8A6238'; ctx.fillRect(x + Math.floor(w / 2), y, 1, h);
+    };
+    const p = getPlan();
+    p.desks.forEach((d, i) => {
+      box(d.x * T + 33, d.y * T + 6);
+      if (i % 2 === 0) box(d.x * T + 34, d.y * T, 6, 6);
+    });
+    for (const r of p.rooms) {
+      if (!r.label || r.id === 'terraza') continue;
+      box((r.x + 1) * T, (r.y + r.h - 1) * T + 4, 10, 8);
+      box((r.x + 1) * T + 11, (r.y + r.h - 1) * T + 6, 8, 6);
+    }
+  }
+
   // Eventos en marcha: guirnalda de colores en lo alto de la sala.
   for (const ev of office.events || []) {
     if (!ev.active) continue;
@@ -197,21 +216,21 @@ export function drawStateSigns(ctx, office, S, pill) {
       if (o) at = [(o.x + (o.w || 1) / 2) * T, o.y * T - 10];
     } else if (inc.kind === 'bano_inundado') {
       const r = room('banos');
-      at = [(r.x + r.w / 2) * T, (r.y + 2) * T];
+      if (r) at = [(r.x + r.w / 2) * T, (r.y + 2) * T];
     } else if (inc.kind === 'olor_micro') {
       const r = room('cocina');
-      at = [(r.x + r.w / 2) * T, (r.y + r.h - 1) * T];
+      if (r) at = [(r.x + r.w / 2) * T, (r.y + r.h - 1) * T];
       text = '¡QUÉ PESTE!';
     } else if (TOP_SIGNS.includes(inc.kind)) {
       const n = office.incidents.filter(i => TOP_SIGNS.includes(i.kind)).indexOf(inc);
-      at = [officeMap.cols * T / 2, 6 * T + n * 14];
+      at = [getPlan().cols * T / 2, 6 * T + n * 14];
       text = inc.kind === 'apagon' ? 'APAGÓN' : text;
     } else if (inc.kind === 'fluorescente') {
       const r = room('servidores');
-      at = [(r.x + r.w / 2) * T, (r.y + 3) * T];
+      if (r) at = [(r.x + r.w / 2) * T, (r.y + 3) * T];
     } else if (inc.kind === 'mosca' || inc.kind === 'perro') {
       const r = room('openspace');
-      at = [(r.x + r.w / 2) * T, (r.y + 1) * T + (inc.kind === 'perro' ? 14 : 0)];
+      if (r) at = [(r.x + r.w / 2) * T, (r.y + 1) * T + (inc.kind === 'perro' ? 14 : 0)];
     }
     if (!at || !text) continue;
     const [x, y] = S(at[0], at[1]);

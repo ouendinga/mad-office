@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Landing from './pages/Landing';
 import AvatarGenerator from './pages/AvatarGenerator';
 import Onboarding from './pages/Onboarding';
+import Offices from './pages/Offices';
 import Office from './pages/Office';
 import Gate from './pages/Gate';
 import History from './pages/History';
@@ -202,6 +203,7 @@ export default function App() {
 
   if (view === 'history' && historyOf) return <History characterId={historyOf} onBack={() => setView('office')} />;
   if (view === 'org') return <OrgChart company={active} mode="manage" onDone={load} onBack={() => setView('office')} />;
+  if (view === 'oficinas') return <Offices company={active} owner={!!user.is_admin && !owner} onBack={() => setView('office')} />;
   if (view === 'empresa') return <CompanySettings company={active} onChanged={load} onBack={() => setView('office')} />;
 
   return (
@@ -216,6 +218,7 @@ export default function App() {
       onHistory={id => { setHistoryOf(id); setView('history'); }}
       onCompanies={() => setView('companies')}
       onOrg={() => setView('org')}
+      onOffices={() => setView('oficinas')}
       onCompanySettings={() => setView('empresa')}
     /></>
   );

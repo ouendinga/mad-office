@@ -318,6 +318,18 @@ def('office_chair', (b, w, h, o) => {
   b.r(cx - 1, 12, 2, 3, DARK); b.r(cx - 5, 15, 10, 1, DARK); // pie y ruedas
 }, { up: 14, flat: true }); // flat: va en la capa de abajo, detrás de quien se sienta
 
+// Mampara de cubículo (la oficina de antes): tres paneles grises en U alrededor de la mesa, abiertos
+// por delante. Va en la capa de abajo: la persona se pinta encima.
+def('cubicle', (b, w, h) => {
+  const c = '#9AA0AE';
+  const top = '#BCC1CC';
+  const dark = '#7C8292';
+  b.r(0, 0, w, 4, c); b.r(0, 0, w, 1, top); b.r(0, 3, w, 1, dark); // panel del fondo
+  b.r(0, 0, 3, h - 10, c); b.r(0, 0, 1, h - 10, top); // lateral izquierdo
+  b.r(w - 3, 0, 3, h - 10, c); b.r(w - 1, 0, 1, h - 10, dark); // lateral derecho
+  b.r(6, 1, 6, 2, '#F2EFE8'); b.r(w - 14, 1, 4, 2, '#FFE066'); // un papel clavado y un pósit
+}, { flat: true });
+
 // Silla de visitas (delante del despacho del jefe).
 def('guest_chair', b => {
   b.r(3, -2, 10, 9, '#7A4B2C'); b.r(4, -1, 8, 2, '#9A6640');

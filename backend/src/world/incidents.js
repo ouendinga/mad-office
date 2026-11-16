@@ -227,6 +227,8 @@ function roll(ctx) {
   const out = [];
   for (const def of CATALOG) {
     if (!possible(def, ctx.mapTypes) || ctx.active.some(a => a.kind === def.kind)) continue;
+    // La sala tiene que existir en esta oficina (en el Loft no hay cuarto de servidores).
+    if (ctx.places && !['oficina', 'mesa'].includes(def.place) && !ctx.places.has(def.place)) continue;
     const r = rng(`${ctx.companyId}|${ctx.day}|${ctx.min}|${def.kind}`);
     if (r() >= def.chance(ctx) / 60) continue;
     const cause = pickCause(def, ctx, r);

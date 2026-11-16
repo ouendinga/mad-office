@@ -1,7 +1,11 @@
 {
+  "id": "clasica",
+  "name": "Clásica",
+  "description": "La oficina de toda la vida: open space de 16 mesas, cocina, zona chill, despacho, sala de reuniones, servidores y terraza.",
   "cols": 40,
   "rows": 26,
   "tile": 16,
+  "outdoorFromCol": 32,
   "grid": [
     "################################,,,,,,,,",
     "#.......#......#........#......#======,,",
@@ -247,6 +251,114 @@
       "w": 4,
       "h": 20
     }
+  },
+  "zoneSpots": {
+    "lavabo": [
+      [
+        30,
+        21
+      ],
+      [
+        29,
+        22
+      ],
+      [
+        30,
+        23
+      ],
+      [
+        28,
+        24
+      ]
+    ],
+    "despacho": [
+      [
+        10,
+        5
+      ],
+      [
+        12,
+        5
+      ],
+      [
+        11,
+        6
+      ]
+    ],
+    "recepcion": [
+      [
+        5,
+        6
+      ],
+      [
+        6,
+        6
+      ],
+      [
+        3,
+        6
+      ]
+    ]
+  },
+  "own": {
+    "despacho": [
+      [
+        11,
+        3
+      ]
+    ],
+    "recepcion": [
+      [
+        3.5,
+        4
+      ]
+    ]
+  },
+  "spots": {
+    "impresora": [
+      [
+        17,
+        16
+      ]
+    ],
+    "fuente": [
+      [
+        15,
+        10
+      ]
+    ],
+    "kanban": [
+      [
+        18,
+        13
+      ]
+    ],
+    "maquina": [
+      [
+        27,
+        13
+      ]
+    ],
+    "pingpong": [
+      [
+        24.5,
+        20
+      ],
+      [
+        24.5,
+        23
+      ]
+    ],
+    "consola": [
+      [
+        21.5,
+        20
+      ],
+      [
+        22.5,
+        20
+      ]
+    ]
   },
   "objects": [
     {

@@ -102,3 +102,30 @@ catálogo de la fase 4.
 1. ¿Los tres tamaños de plantilla (8 / 16 / 30) están bien?
 2. ¿Un editor solo de escritorio, con el móvil en solo lectura, es aceptable?
 3. Al cambiar la oficina con gente dentro: ¿se aplica al momento o por la noche?
+
+## Hecho (2026-11-16)
+
+- **Fases 1 y 2.** El plano es dato de cada empresa: `backend/src/layouts/<id>.json`, leído con
+  `world/layout.js`, guardado en `companies.settings.oficina` y servido por `GET /oficina`. Las
+  funciones de `places.js` reciben el plano. El navegador lo pide con `canvas/plan.js`. Hay
+  cuatro plantillas:
+  - Clásica, 16 mesas, hecha a mano;
+  - Loft, 8 mesas;
+  - Cubículos, 12 mesas, con mamparas;
+  - Planta grande, 30 mesas.
+
+  Las tres últimas salen de `tools/planos.py`, que comprueba que nadie quede sobre una pared;
+  `test/oficinas.test.js` comprueba que todo se alcanza desde la entrada.
+- **Galería «Oficinas».** Botón en la cabecera, con miniaturas, mesas y salas de cada plano.
+- **Mudanza.** Sustituye a la pregunta «¿se aplica al momento o por la noche?»: el cambio es un
+  día de mudanza.
+  - La tarde de antes se empaqueta (cajas por la oficina).
+  - Esa mañana van por la calle con cajas y un camión en la puerta. Cada uno lleva algo y pasan
+    sucesos (`world/mudanza.js`).
+  - Al salir de casa ya cambia el plano, y desempaquetan hasta la hora de comer.
+  - Quien no tiene mesa en la nueva teletrabaja.
+  - En modo pruebas, «Verla ya».
+- **Decidido por Álvaro:** el diseñador será solo para ordenador; en el móvil, la oficina se ve
+  pero no se edita.
+
+Pendiente: la lupa usa las escenas de la Clásica para cualquier plano (fase 3) y el diseñador (fase 4).

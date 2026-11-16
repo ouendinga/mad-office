@@ -151,11 +151,34 @@ export function renderStreet(ctx, canvas, world, animFrame) {
     s.x += Math.max(-0.6, Math.min(0.6, tx - s.x));
     placed.push({ c, x: s.x, y: SIDEWALK + 10 + (i % 3) * 3, moving });
   });
+  // Día de mudanza: el camión en la puerta y cada uno con una caja en brazos.
+  const mudanza = world && world.office && world.office.mudanza && world.office.mudanza.camion;
+  if (mudanza) {
+    const tx = DOOR_X - 70;
+    const ty = SIDEWALK + 20;
+    l.fillStyle = 'rgba(20,15,25,0.3)'; l.fillRect(tx - 2, ty + 2, 64, 4);
+    l.fillStyle = '#F2EFE8'; l.fillRect(tx, ty - 28, 44, 28); // caja del camión
+    l.fillStyle = '#D9D4C7'; l.fillRect(tx, ty - 28, 44, 2);
+    l.fillStyle = '#E3584B'; l.fillRect(tx + 4, ty - 18, 36, 6); // franja
+    l.fillStyle = '#FFFFFF'; l.fillRect(tx + 8, ty - 17, 10, 4); l.fillRect(tx + 22, ty - 17, 14, 4);
+    l.fillStyle = '#3E7CC9'; l.fillRect(tx + 44, ty - 18, 16, 18); // cabina
+    l.fillStyle = '#BFE3EE'; l.fillRect(tx + 50, ty - 15, 8, 7);
+    l.fillStyle = '#2B2F3D'; l.fillRect(tx + 6, ty - 2, 8, 6); l.fillRect(tx + 34, ty - 2, 8, 6); l.fillRect(tx + 48, ty - 2, 8, 6); // ruedas
+    // cajas apiladas en la acera
+    for (const [bx, by] of [[tx - 14, ty - 8], [tx - 14, ty - 16], [tx - 24, ty - 8]]) {
+      l.fillStyle = '#B98A55'; l.fillRect(bx, by, 9, 8); l.fillStyle = '#D9A86C'; l.fillRect(bx, by, 9, 2);
+    }
+  }
   placed.sort((a, b) => a.y - b.y).forEach(({ c, x, y, moving }) => {
     l.fillStyle = 'rgba(30,15,30,0.25)';
     l.beginPath(); l.ellipse(x, y, 7, 2, 0, 0, Math.PI * 2); l.fill();
     const pose = moving ? (animFrame % 2 ? 'walk1' : 'walk2') : 'idle';
     l.drawImage(characterSprite(c.avatar_config || {}, pose), Math.round(x - 16), Math.round(y - 30));
+    if (mudanza) { // la caja, delante del pecho
+      l.fillStyle = '#B98A55'; l.fillRect(Math.round(x - 6), Math.round(y - 15), 12, 9);
+      l.fillStyle = '#D9A86C'; l.fillRect(Math.round(x - 6), Math.round(y - 15), 12, 2);
+      l.fillStyle = '#8A6238'; l.fillRect(Math.round(x), Math.round(y - 15), 1, 9);
+    }
     // paraguas si llueve
     if (['rain', 'heavyrain', 'storm'].includes(weatherKind(env.w))) {
       const col = ['#E3584B', '#4E7FB8', '#F2C14E', '#3FAE5A'][c.id % 4];

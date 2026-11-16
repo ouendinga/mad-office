@@ -363,6 +363,36 @@ function router({ world }) {
     res.json({ ok: true });
   });
 
+  // La oficina de la empresa (el plano) y las que hay para elegir (galería y mudanza).
+  const layouts = require('../world/layout');
+  const planOf = L => {
+    const { objectTypes, places, ...plain } = L; // eslint-disable-line no-unused-vars
+    return plain;
+  };
+  r.get('/oficina', (req, res) => res.json(planOf(req.sim.layout || layouts.get())));
+  r.get('/oficinas', (req, res) => {
+    const current = (req.sim.layout || layouts.get()).id;
+    res.json({ current, mudanza: (req.sim.company.settings || {}).mudanza || null,
+      templates: layouts.ids().map(id => layouts.get(id)).map(L => ({ ...layouts.summary(L), plan: planOf(L) })) });
+  });
+
+  // Mudanza: el admin elige oficina y día (laborable, a partir de mañana). Ver world/mudanza.js.
+  r.post('/mudanza', admin, async (req, res) => {
+    const b = req.body || {};
+    if (!layouts.ids().includes(b.to)) return res.status(400).json({ error: 'Esa oficina no existe.' });
+    if ((req.sim.layout || layouts.get()).id === b.to) return res.status(400).json({ error: 'Ya estáis en esa oficina.' });
+    const clk = require('../world/clock');
+    const today = clk.parts(req.sim.clock.nowMs()).date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(b.day || '') || b.day <= today) return res.status(400).json({ error: 'Elige un día a partir de mañana.' });
+    if (!clk.isWorkday(clk.parts(clk.madridMs(b.day, '12:00')).weekday)) return res.status(400).json({ error: 'Las mudanzas, en día laborable (el finde no viene nadie a cargar cajas).' });
+    await req.sim.life.saveSettings({ mudanza: { to: b.to, day: b.day } });
+    res.status(201).json({ mudanza: { to: b.to, day: b.day } });
+  });
+  r.delete('/mudanza', admin, async (req, res) => {
+    await req.sim.life.saveSettings({ mudanza: null });
+    res.json({ ok: true });
+  });
+
   r.use('/pruebas', pruebas.router({ world }));
   r.use('/me', me.router());
   r.use('/', office.router({ world }));

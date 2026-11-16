@@ -13,7 +13,7 @@
  * (engine/RoomScenes) dentro de un círculo, como una lupa.
  */
 
-import officeMap from '../assets/maps/office.json';
+import { getPlan, planVersion } from './plan';
 import { buildStatic, objectSprite, objectDef, roomAt, setSeason, T } from '../engine/OfficeArt';
 import { renderAvatar } from '../engine/SpriteSheet';
 import { drawVisitorProps } from '../engine/VisitorProps';
@@ -25,11 +25,14 @@ import { drawStateArt, drawStateSigns, drawBlackout } from './officeState';
 import { drawRepresentation } from './avatarSprites';
 import { weatherKind, isWindy, drawPrecip, drawOutdoorTint, drawWindowGlass, seasonOf } from './weather';
 
-export const ART_W = officeMap.cols * T;
-export const ART_H = officeMap.rows * T;
+// Tamaño del arte y zona de la intemperie: dependen del plano (se recalculan si cambia).
+export let ART_W = getPlan().cols * T;
+export let ART_H = getPlan().rows * T;
 const WORLD_TO_ART = 0.5;
 // La terraza y el césped (lo que está a la intemperie), en px de arte.
-const OUTDOOR = { x: 32 * T, y: 0, w: (officeMap.cols - 32) * T, h: ART_H };
+const outdoorOf = p => { const from = p.outdoorFromCol ?? p.cols; return { x: from * T, y: 0, w: (p.cols - from) * T, h: p.rows * T }; };
+let OUTDOOR = outdoorOf(getPlan());
+let builtFor = planVersion();
 
 let staticLayer = null;
 let scene = null;
@@ -43,13 +46,13 @@ let lens = null; // última lupa pintada (para los clics): {cx, cy, R, k, x0, y0
 const shown = {}; // id -> {x, y, moving} en píxeles de arte
 
 function rebuild() {
-  staticLayer = buildStatic(officeMap);
+  staticLayer = buildStatic(getPlan());
   dynamicObjects = [];
   overlayObjects = [];
   windows = [];
   lights = [];
   const sctx = staticLayer.getContext('2d');
-  officeMap.objects.forEach((o, i) => {
+  getPlan().objects.forEach((o, i) => {
     const d = objectDef(o.type);
     if (!d) return;
     const base = { o, seed: i + 1, d, x: o.x * T, y: o.y * T, baseY: (o.y + (o.h || 1)) * T };
@@ -65,13 +68,24 @@ function rebuild() {
       dynamicObjects.push(base);
     }
   });
-  if (!scene) scene = makeCanvas(ART_W, ART_H);
+  if (!scene || scene.canvas.width !== ART_W || scene.canvas.height !== ART_H) scene = makeCanvas(ART_W, ART_H);
 }
 
 function ensure(world) {
   const season = (world && world.clock && (world.clock.season || seasonOf(world.clock.date))) || 'otono';
   const changed = setSeason(season);
-  if (!staticLayer || changed) rebuild();
+  // Otro plano (la empresa tiene otra oficina, o se ha mudado): todo lo cacheado, fuera.
+  if (builtFor !== planVersion()) {
+    builtFor = planVersion();
+    const p = getPlan();
+    ART_W = p.cols * T;
+    ART_H = p.rows * T;
+    OUTDOOR = outdoorOf(p);
+    scene = null;
+    walkable = null;
+    for (const k of Object.keys(shown)) delete shown[k];
+    rebuild();
+  } else if (!staticLayer || changed) rebuild();
   if (!lensScene) lensScene = makeCanvas(SW, SH);
 }
 
@@ -86,7 +100,7 @@ function step(c, busy) {
   const p = shown[c.id] || (shown[c.id] = { x: tx, y: ty, moving: false });
   if (p.tx !== tx || p.ty !== ty) {
     p.tx = tx; p.ty = ty;
-    if (!walkable) walkable = buildWalkable(officeMap, objectDef);
+    if (!walkable) walkable = buildWalkable(getPlan(), objectDef);
     const [sx, sy] = tileOf(p.x, p.y);
     const [ex, ey] = tileOf(tx, ty);
     const path = findPath(walkable, sx, sy, ex, ey, busy);
@@ -289,7 +303,7 @@ export function renderOffice(ctx, canvas, world, animFrame, focus) {
   const S = (x, y) => [ox + x * scale, oy + y * scale];
 
   // Rótulos de las salas
-  for (const r of officeMap.rooms) {
+  for (const r of getPlan().rooms) {
     if (!r.label || scale < 0.9) continue; // en pantallas pequeñas se pisan
     // Abajo, en el zócalo: arriba tapaba los racks, la nevera, la consola y la cara del jefe.
     const [x, y] = S((r.x + r.w / 2) * T, (r.y + r.h) * T - 6);
@@ -327,7 +341,7 @@ export function renderOffice(ctx, canvas, world, animFrame, focus) {
 // Sala de un personaje según su posición en el mapa.
 export function roomIdOf(c) {
   const s = shown[c.id] || { x: c.x * WORLD_TO_ART, y: c.y * WORLD_TO_ART };
-  const r = roomAt(officeMap, Math.floor(s.x / T), Math.floor((s.y - 1) / T));
+  const r = roomAt(getPlan(), Math.floor(s.x / T), Math.floor((s.y - 1) / T));
   if (r) return r.id;
   return Math.floor(s.x / T) >= 32 ? 'terraza' : 'pasillo';
 }
@@ -459,8 +473,8 @@ export function pickRoomAt(sx, sy) {
   const ay = (sy - view.oy) / view.scale;
   const tx = Math.floor(ax / T);
   const ty = Math.floor(ay / T);
-  if (tx < 0 || ty < 0 || tx >= officeMap.cols || ty >= officeMap.rows) return null;
-  const r = roomAt(officeMap, tx, ty);
+  if (tx < 0 || ty < 0 || tx >= getPlan().cols || ty >= getPlan().rows) return null;
+  const r = roomAt(getPlan(), tx, ty);
   if (r) return r.id;
   return tx >= 32 ? 'terraza' : null;
 }

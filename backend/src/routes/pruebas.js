@@ -183,6 +183,25 @@ function router({ world }) {
     res.status(201).json({ ok: true });
   });
 
+  // Mudarse ya (para verla): la mudanza para el próximo laborable y el reloj a la salida de casa de
+  // ese día. Con el modo pruebas activo.
+  r.post('/mudanza', async (req, res) => {
+    const layouts = require('../world/layout');
+    const to = req.body && req.body.to;
+    if (!layouts.ids().includes(to) || to === req.sim.layout.id) return res.status(400).json({ error: 'Elige otra oficina.' });
+    await setActive(req, true);
+    const now = req.sim.clock.nowMs();
+    let date = clockLib.addDays(clockLib.parts(now).date, 1);
+    while (!clockLib.isWorkday(clockLib.parts(clockLib.madridMs(date, '12:00')).weekday)) date = clockLib.addDays(date, 1);
+    const cur = (await db(req).query('SELECT settings FROM companies WHERE id = $1', [req.companyId])).rows[0].settings;
+    const ida = req.sim.sch.COMMUTE.ida;
+    cur.mudanza = { to, day: date };
+    cur.reloj = { realAt: req.sim.baseClock.nowMs(), officeAt: clockLib.madridMs(date, clockLib.fromMinutes(ida + 2)), speed: 5 };
+    await db(req).query('UPDATE companies SET settings = $2 WHERE id = $1', [req.companyId, cur]);
+    await world.reload(req.companyId);
+    res.json(await state(req));
+  });
+
   // Encender o apagar la IA de un jugador de prueba.
   r.put('/jugadores/:uid', async (req, res) => {
     await db(req).query(
