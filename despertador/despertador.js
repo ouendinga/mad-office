@@ -106,6 +106,18 @@ function fake(turn) {
     anuncio: { titulo: 'Se busca valiente para la máquina de café', texto: 'Ofrecemos sueldo competitivo (con la competencia de la cafetera), reuniones ilimitadas y una planta que no se riega sola.', requisitos: ['Saber reiniciar el router', 'Tolerancia al Comic Sans', 'Café sin azúcar'] },
     sueno_ayuda: { propuestas: ['Sueñas que la impresora te pide perdón y te ofrece un trato.', 'Sueñas que Paco te cede su taza para siempre.', 'Sueñas que eres jefe y nadie convoca reuniones.'], comentario: 'Encaja con su obsesión por el café.' },
   };
+  // A veces propone un percance pequeño (para probar la regla que decide): el café en el teclado
+  // en su mesa, la nevera abierta en la cocina o, de vez en cuando, uno que la regla rechaza.
+  if (turn.schema.properties.incidente && (turn.kind === 'despertar' || turn.kind === 'tarde')) {
+    const tarde = turn.kind === 'tarde';
+    const props = [
+      { tipo: 'cafe_teclado', hora: tarde ? '17:15' : '13:00', texto: '¡Mi teclado! ¡Traed arroz!' },
+      { tipo: 'nevera_abierta', hora: tarde ? '15:15' : '10:30', texto: 'Solo iba a mirar.' },
+      { tipo: 'nevera_abierta', hora: tarde ? '14:00' : '09:00', texto: 'Esto no debería pasar en mi mesa.' }, // sitio que no cuadra
+    ];
+    const p = props[turn.id % 4];
+    if (p) by[turn.kind].incidente = p;
+  }
   if (turn.kind === 'despertar' && !turn.schema.properties.sueno) delete by.despertar.sueno;
   if (turn.schema.properties.horas_extra && turn.kind === 'despertar') Object.assign(by.despertar, by.tarde, { donde: by.despertar.donde, trayecto: by.despertar.trayecto });
   return { output: by[turn.kind], cost_usd: 0, input_tokens: 0, output_tokens: 0 };

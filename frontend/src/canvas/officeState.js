@@ -1,6 +1,6 @@
 // Cómo se ve el estado de la oficina (world.office): los incidentes abiertos (máquina rota, olor en
-// la cocina, pósits por el suelo, baño inundado, apagón…) y los eventos en marcha (afterwork,
-// taller…). Dos capas: lo que se pinta en el arte (charcos, olor, papeles) y los carteles, que van
+// la cocina, pósits por el suelo, baño inundado, apagón…), los eventos en marcha (afterwork,
+// taller…) y los sucesos de fuera (nevada, final del fútbol, inspección…). Dos capas: lo que se pinta en el arte (charcos, olor, papeles) y los carteles, que van
 // en la pantalla para que se lean.
 
 import { getPlan } from './plan';
@@ -21,11 +21,12 @@ const has = (office, kind) => !!(office && office.incidents.some(i => i.kind ===
 const SIGN_ON = {
   maquina_rota: 'vending', cafetera_rota: 'kitchen_counter', sin_cafe: 'kitchen_counter',
   impresora_atasco: 'printer', aire_roto: 'ac_unit', postits_viento: 'kanban', postits_movidos: 'kanban',
-  nevera_olvidada: 'fridge', planta_seca: 'plant', paquete_misterioso: 'counter', fuga_fuente: 'water_cooler', calefaccion: 'ac_unit',
+  nevera_olvidada: 'fridge', nevera_abierta: 'fridge', planta_seca: 'plant', maceta_volcada: 'plant', grapadora_atascada: 'printer', paquete_misterioso: 'counter', fuga_fuente: 'water_cooler', calefaccion: 'ac_unit',
 };
 const SIGN_TEXT = {
   aire_roto: 'ROTO', postits_viento: 'SIN PÓSITS', postits_movidos: '¿QUIÉN HA TOCADO ESTO?', calefaccion: 'CALEFACCIÓN A TOPE',
   fluorescente: 'LUZ PARPADEANTE', mosca: 'UNA MOSCA', perro: 'HAY UN PERRO',
+  maceta_volcada: 'TIERRA POR EL SUELO', grapadora_atascada: 'GRAPADORA KO',
 };
 // Los de toda la oficina van arriba, uno debajo de otro.
 const TOP_SIGNS = ['apagon', 'wifi_caido', 'obras_calle'];
@@ -184,6 +185,8 @@ export function drawStateArt(ctx, office, now) {
     }
   }
 
+  drawOutsideArt(ctx, office, now);
+
   // Eventos en marcha: guirnalda de colores en lo alto de la sala.
   for (const ev of office.events || []) {
     if (!ev.active) continue;
@@ -203,6 +206,114 @@ export function drawBlackout(ctx, office, now, w, h) {
   const flicker = Math.floor(now / 120) % 37 === 0 ? 0.35 : 0.72;
   ctx.fillStyle = `rgba(8, 10, 24, ${flicker})`;
   ctx.fillRect(0, 0, w, h);
+}
+
+// --- Sucesos de fuera (world.office.outside): la nevada, la final, la inspección… ---
+const out = (office, kind) => (office && office.outside ? office.outside.find(o => o.kind === kind) : null);
+// Lo que pone en la sala donde se junta la gente mientras dura.
+const GATHER_SIGN = {
+  nevada: 'GUERRA DE BOLAS', ola_calor: 'ASALTO AL CONGELADOR', final_futbol: 'LA PREVIA EN LA TELE',
+  noticia_gorda: '¿OS HABÉIS ENTERADO?', rumor_subida: 'CUCHICHEOS', loteria: 'EL SORTEO EN LA RADIO',
+};
+
+function drawOutsideArt(ctx, office, now) {
+  if (!office || !office.outside || !office.outside.length) return;
+  // Nevada: la terraza blanca, copos y, en la guerra, bolas volando.
+  const snow = out(office, 'nevada');
+  if (snow) {
+    const r = room('terraza');
+    if (r) {
+      ctx.fillStyle = 'rgba(245, 248, 255, 0.78)';
+      for (let i = 0; i < r.w * r.h; i++) {
+        const x = r.x * T + ((i * 29) % (r.w * T - 6));
+        const y = r.y * T + ((i * 47) % (r.h * T - 4));
+        ctx.fillRect(x, y, 6 + (i % 3) * 2, 3 + (i % 2));
+      }
+      ctx.fillStyle = '#FFFFFF';
+      for (let i = 0; i < 26; i++) {
+        const t = (now / 3200 + i * 0.13) % 1;
+        ctx.fillRect(Math.round(r.x * T + ((i * 37) % (r.w * T)) + Math.sin(now / 700 + i) * 3), Math.round(r.y * T + t * r.h * T), 2, 2);
+      }
+      if (snow.active) {
+        for (let i = 0; i < 5; i++) {
+          const t = (now / 900 + i * 0.21) % 1;
+          const x0 = r.x * T + 10 + ((i * 41) % (r.w * T - 20));
+          const x = x0 + (i % 2 ? 1 : -1) * t * 40;
+          const y = r.y * T + r.h * T * 0.5 - Math.sin(t * Math.PI) * 18 + i * 4;
+          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(Math.round(x), Math.round(y), 4, 4);
+          ctx.fillStyle = '#C9D6E8'; ctx.fillRect(Math.round(x) + 2, Math.round(y) + 2, 2, 2);
+        }
+      }
+    }
+  }
+  // Ola de calor: toda la oficina, anaranjada y con calima que tiembla.
+  if (out(office, 'ola_calor')) {
+    const p = getPlan();
+    ctx.fillStyle = `rgba(255, 140, 40, ${0.07 + Math.sin(now / 1100) * 0.025})`;
+    ctx.fillRect(0, 0, p.cols * T, p.rows * T);
+  }
+  // Final: la tele de la zona chill encendida, con el campo verde y los jugadores-píxel.
+  const final = out(office, 'final_futbol');
+  if (final) {
+    const r = room('descanso');
+    if (r) {
+      const x = (r.x + Math.floor(r.w / 2) - 1) * T;
+      const y = (r.y + 1) * T - 4;
+      ctx.fillStyle = '#1B1B22'; ctx.fillRect(x - 2, y - 2, 36, 22);
+      ctx.fillStyle = '#2E8B3E'; ctx.fillRect(x, y, 32, 18);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(x + 15, y, 1, 18);
+      for (let i = 0; i < 6; i++) {
+        ctx.fillStyle = i % 2 ? '#E74C3C' : '#3E8ED0';
+        ctx.fillRect(x + 3 + ((i * 7 + Math.floor(now / 400) * (i % 2 ? 1 : 2)) % 26), y + 3 + ((i * 5) % 12), 2, 2);
+      }
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(x + 4 + Math.floor((Math.sin(now / 500) + 1) * 12), y + 8, 1, 1);
+      // Bufandas colgadas.
+      if (final.active) for (let i = 0; i < 4; i++) { ctx.fillStyle = i % 2 ? '#E74C3C' : '#FFFFFF'; ctx.fillRect(x - 14 + i * 3, y + 2, 2, 8); }
+    }
+  }
+  // Inspección: la cocina reluce (destellos que aparecen y desaparecen).
+  if (out(office, 'inspeccion')) {
+    const r = room('cocina');
+    if (r) for (let i = 0; i < 7; i++) {
+      if (Math.floor(now / 350 + i) % 3) continue;
+      const x = r.x * T + 6 + ((i * 31) % (r.w * T - 12));
+      const y = r.y * T + 10 + ((i * 19) % (r.h * T - 16));
+      ctx.fillStyle = '#FFF6B0'; ctx.fillRect(x, y - 2, 1, 5); ctx.fillRect(x - 2, y, 5, 1);
+    }
+  }
+  // Diluvio: paraguas chorreando en recepción y un charco en la entrada.
+  if (out(office, 'diluvio')) {
+    const r = room('recepcion');
+    if (r) {
+      const colors = ['#E74C3C', '#3E8ED0', '#F1C40F', '#2C3E50'];
+      for (let i = 0; i < 4; i++) {
+        const x = r.x * T + 6 + i * 9;
+        const y = (r.y + r.h) * T - 16;
+        ctx.fillStyle = colors[i]; ctx.fillRect(x, y, 6, 3); ctx.fillRect(x + 1, y - 1, 4, 1);
+        ctx.fillStyle = '#5A4632'; ctx.fillRect(x + 3, y + 3, 1, 8);
+      }
+      ctx.globalAlpha = 0.35; ctx.fillStyle = '#3E8ED0';
+      ctx.beginPath(); ctx.ellipse(r.x * T + 24, (r.y + r.h) * T - 3, 22, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+  // Lotería: la radio en la cocina, con notas que salen.
+  if (out(office, 'loteria')) {
+    const r = room('cocina');
+    if (r) {
+      const x = (r.x + 1) * T;
+      const y = (r.y + 1) * T + 2;
+      ctx.fillStyle = '#8E5A2B'; ctx.fillRect(x, y, 12, 8);
+      ctx.fillStyle = '#E8D7A8'; ctx.fillRect(x + 2, y + 2, 5, 4);
+      ctx.fillStyle = '#2A1F2D'; ctx.fillRect(x + 8, y + 2, 2, 2);
+      for (let i = 0; i < 3; i++) {
+        const t = (now / 1200 + i / 3) % 1;
+        ctx.globalAlpha = 1 - t; ctx.fillStyle = '#F7D154';
+        ctx.fillRect(x + 12 + i * 3, y - t * 14, 2, 3);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
 }
 
 // Carteles en pantalla. S(x, y) pasa de píxeles de arte a pantalla; pill pinta una etiqueta.
@@ -243,4 +354,16 @@ export function drawStateSigns(ctx, office, S, pill) {
     const [x, y] = S((r.x + r.w / 2) * T, (r.y + 1) * T + 10);
     pill(ctx, `🎉 ${ev.title}`, x, y, { font: '800 10px Inter, sans-serif', bg: 'rgba(108, 92, 231, 0.95)' });
   }
+  // Lo de fuera, mientras dura: un cartel en el pasillo y otro en la sala donde se junta la gente.
+  const hall = room('pasillo');
+  (office.outside || []).filter(o => o.active).forEach((o, n) => {
+    // En el pasillo, que no tapa ninguna sala (si la oficina no tiene, arriba del todo).
+    const [x, y] = hall ? S((hall.x + hall.w / 2) * T, (hall.y + 1) * T + n * 14) : S(getPlan().cols * T / 2, T + n * 14);
+    pill(ctx, `${o.icon} ${o.sign}`, x, y, { font: '800 10px Inter, sans-serif', bg: 'rgba(14, 116, 144, 0.95)' });
+    if (!o.place || !GATHER_SIGN[o.kind]) return;
+    const r = room(PLACE_ROOM[o.place]);
+    if (!r) return;
+    const [gx, gy] = S((r.x + r.w / 2) * T, (r.y + r.h) * T - 8);
+    pill(ctx, `${o.icon} ${GATHER_SIGN[o.kind]}`, gx, gy, { font: '800 10px Inter, sans-serif', bg: 'rgba(14, 116, 144, 0.95)' });
+  });
 }

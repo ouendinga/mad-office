@@ -3,6 +3,7 @@
 
 const { PLACES } = require('../world/places');
 const { HUMORES } = require('../world/gameMaster');
+const { SMALL_KINDS } = require('../world/incidents');
 
 const TONO = 'Comedia de oficina en pixel art: humor blanco, absurdo y cariñoso. '
   + 'Prohibido: salud, sexo, política, religión, sueldos o despidos reales, humillaciones y '
@@ -54,6 +55,19 @@ const ACTION_ITEM = {
 
 const HUMOR = { type: 'string', enum: HUMORES };
 
+// Percance pequeño que el personaje PROPONE (opcional, como mucho uno por turno). Lo decide
+// gameMaster.validateIncidentProposal: catálogo cerrado, hora de un momento del plan, sitio y carácter.
+const INCIDENTE = {
+  type: 'object',
+  properties: {
+    tipo: { type: 'string', enum: SMALL_KINDS },
+    hora: { type: 'string', description: 'HH:MM de un momento del plan' },
+    texto: { type: 'string', description: 'lo que dice cuando le pasa, máx 80' },
+  },
+  required: ['tipo', 'hora', 'texto'],
+  additionalProperties: false,
+};
+
 const SCHEMAS = {
   plan: {
     type: 'object',
@@ -61,6 +75,7 @@ const SCHEMAS = {
       humor: HUMOR,
       horas_extra: { type: 'boolean', description: 'true solo si hoy se queda hasta tarde (hasta las 20:00) por algo concreto; casi siempre false' },
       plan: { type: 'array', items: ACTION_ITEM, maxItems: 6 },
+      incidente: INCIDENTE,
     },
     required: ['humor', 'horas_extra', 'plan'],
     additionalProperties: false,
@@ -81,6 +96,7 @@ const SCHEMAS = {
       },
       humor: HUMOR,
       plan: { type: 'array', items: ACTION_ITEM, maxItems: 6 },
+      incidente: INCIDENTE,
     },
     required: ['donde', 'trayecto', 'sueno', 'humor', 'plan'],
     additionalProperties: false,
@@ -156,7 +172,7 @@ function contextLines({ yesterdayDiary, heard, character, weatherLine }) {
 
 // remoteRule: 'puede' | 'no' (tope de la semana) | 'remoto' (ya decidido: teletrabaja hoy)
 function planRequest({ kind, character, cast, day, block, yesterdayDiary, heard, dream, weatherLine, remoteRule, extraRule = 'no', sch, workloadLine = '', company = '' }) {
-  let where = kind === 'despertar'
+  let where = kind === 'despertar' && remoteRule !== 'remoto'
     ? (remoteRule === 'puede' ? 'Hoy puede elegir teletrabajar o ir a la oficina (que lo decida su carácter, el tiempo y lo que tenga entre manos).' : 'Hoy le toca ir a la oficina.')
     : (remoteRule === 'remoto' ? 'Hoy teletrabaja desde casa.' : '');
   const prompt = [
@@ -167,6 +183,7 @@ function planRequest({ kind, character, cast, day, block, yesterdayDiary, heard,
     kind === 'despertar' ? (dream ? `Esta noche soñó: <sueno>${dream}</sueno>` : 'Esta noche no soñó nada.') : '',
     'Planifica de 4 a 6 momentos del bloque. Que pasen cosas con los compañeros y que tenga gracia. '
       + '"piensa" solo en UNO o DOS momentos; en los demás, cadena vacía.',
+    'Opcional y raro: "incidente" = un percance tonto que le pasa a él en un momento del plan.',
   ].filter(Boolean).join('\n');
   if (block === 'tarde' && extraRule === 'no') where = `${where} Hoy no puede quedarse más tarde (horas_extra=false).`.trim();
   let schema = SCHEMAS.plan;

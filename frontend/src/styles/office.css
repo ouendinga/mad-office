@@ -302,6 +302,8 @@
 .office-now-ev.is-on { color: var(--text-primary); }
 .feed-incidente { color: #ffb4a8; }
 .feed-evento { color: #c4b8ff; }
+.feed-fuera { color: #9ee6f5; }
+.office-now-out { color: #9ee6f5; }
 .char-look { color: var(--secondary) !important; font-size: 0.88rem !important; }
 .char-private { font-size: 0.82rem !important; border-top: 1px solid var(--border); padding-top: 0.6rem; margin-top: 0.4rem; }
 .my-view { position: absolute; bottom: 12px; right: 12px; z-index: 5; }
