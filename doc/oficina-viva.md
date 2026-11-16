@@ -263,7 +263,7 @@ su organigrama, su feed y su simulación. Decisiones de Álvaro:
 
 La web publicada lleva delante la contraseña común de los paneles de Álvaro (`gate.js`), que **no se
 le da a nadie**. Para compartirla:
-- **Enlace de invitación** (🏢 Empresa → invitar): quien lo abre se salta la puerta, ve a qué empresa
+- **Enlace de invitación** («Invitar» en la cabecera, o Ajustes → Invitaciones): quien lo abre se salta la puerta, ve a qué empresa
   le invitan y crea su cuenta **con contraseña propia** (mín. 8). Sin invitación no se crea cuenta
   desde fuera.
 - **«Ya tengo cuenta»** en la puerta: correo + su contraseña. 5 fallos por IP → 15 min de espera.
@@ -410,7 +410,11 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
   sueños, solo su dueño y quien lleva la empresa. Lo decide el servidor (`routes/office.js`).
 - **Revisión de legibilidad del pixel art (2026-11-16):** hechos canaleta de cables, taza y planta,
   silla, indicadores de ánimo en la rejilla de 32, rubor según la piel, rótulos al zócalo y
-  sombrilla. Pendientes: sombra de los árboles con aro (dibujarla tras el contorno), lámpara del
-  jefe sobre su torso, filas de sillas de reuniones iguales, urinario igual que el lavabo, palas y
-  red del ping-pong, la lupa sin indicadores de ánimo y la escala de 1,5 que hace temblar las
-  formas finas.
+  sombrilla. ✅ (16-11) sombra de los árboles sin aro (la sombra y las hojas caídas se pintan tras
+  el contorno: opciones `shadow` y `after` de `def`), lámpara del jefe en la esquina de la mesa,
+  sillas de reuniones de frente arriba y por detrás abajo (`prepareObjects` marca la fila de debajo
+  de la mesa), urinario alto con tubería frente al lavabo ancho con pie, palas con mango y red con
+  cinta y postes, y la escala: el lienzo va a la resolución del dispositivo y la escala se redondea
+  a píxeles enteros del dispositivo (medios en px CSS con devicePixelRatio 2); si eso encoge el
+  mapa más de un 15 %, se amplía a entero y se reduce con suavizado («sharp bilinear», `drawCrisp`).
+  Pendiente: la lupa sin indicadores de ánimo.

@@ -235,11 +235,13 @@ const WOOD_L = '#DBA673';
 const METAL = '#8D97A8';
 const DARK = '#3B3F52';
 
-function shadowOval(ctx, cx, cy, rx, ry, a = 0.22) {
+// Óvalo de sombra en píxeles enteros (sin el borde suavizado de ctx.ellipse).
+function pixelOval(ctx, cx, cy, rx, ry, a) {
   ctx.fillStyle = `rgba(30,15,30,${a})`;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fill();
+  for (let y = -ry; y <= ry; y++) {
+    const half = Math.round(rx * Math.sqrt(Math.max(0, 1 - (y / (ry + 0.5)) ** 2)));
+    if (half > 0) ctx.fillRect(cx - half, cy + y, half * 2, 1);
+  }
 }
 
 function leaves(b, cx, cy, r, palette, seed) {
@@ -277,7 +279,8 @@ def('boss_desk', (b, w) => {
   b.r(0, 2, w, 9, '#8A5434'); b.r(0, 2, w, 1, '#A86D45');
   b.r(0, 11, w, 5, '#6A3D24'); b.r(0, 11, w, 1, '#C9A040');
   b.r(6, -6, 12, 8, DARK); b.r(7, -5, 10, 6, '#4A5068');
-  b.r(30, -6, 1, 9, '#C9A040'); b.r(27, -8, 7, 3, '#2E8A5A'); // lámpara de banquero
+  // lámpara de banquero en la esquina derecha: en el centro quedaba encima del torso del jefe
+  b.r(w - 6, -5, 1, 8, '#C9A040'); b.r(w - 8, 2, 5, 1, '#A88430'); b.r(w - 9, -8, 7, 3, '#2E8A5A'); b.r(w - 9, -8, 7, 1, '#47B07A');
   b.r(20, 5, 8, 2, '#C9A040'); // placa
   b.r(2, 4, 3, 4, '#F5F3EE');
 }, { up: 8 });
@@ -359,9 +362,21 @@ def('pingpong', (b, w, h) => {
   b.r(3, 3, w - 6, h - 4, '#1F6E8C'); b.r(3, 3, w - 6, 1, '#2C8DB0');
   b.r(3, 3, 1, h - 4, '#FFFFFF'); b.r(w - 4, 3, 1, h - 4, '#FFFFFF'); b.r(3, h - 2, w - 6, 1, '#FFFFFF');
   b.r(Math.floor(w / 2), 3, 1, h - 4, '#FFFFFF'); // línea central
-  b.r(1, Math.floor(h / 2) - 1, w - 2, 2, '#E8ECF2'); b.r(1, Math.floor(h / 2) - 2, 1, 4, METAL); b.r(w - 2, Math.floor(h / 2) - 2, 1, 4, METAL); // red
+  // red: malla oscura con la cinta blanca arriba, su sombra y los postes saliendo de la mesa
+  const ny = Math.floor(h / 2) - 1;
+  b.r(3, ny + 2, w - 6, 1, '#164F66'); // sombra de la red
+  b.r(1, ny, w - 2, 2, '#4A5068'); b.r(1, ny - 1, w - 2, 1, '#F4F7F9');
+  for (let x = 2; x < w - 2; x += 2) b.p(x, ny + 1, '#2B2F3D');
+  b.r(0, ny - 2, 2, 5, METAL); b.r(w - 2, ny - 2, 2, 5, METAL);
   b.r(5, h - 1, 2, 3, DARK); b.r(w - 7, h - 1, 2, 3, DARK);
-  b.r(8, 6, 3, 3, '#C0392B'); b.r(w - 11, h - 9, 3, 3, '#C0392B'); // palas
+  // palas: cabeza roja redonda con mango de madera, una en cada campo; y la pelota
+  const pala = (x, y, down) => {
+    b.r(x + 1, y, 3, 5, '#C0392B'); b.r(x, y + 1, 5, 3, '#C0392B'); b.r(x + 1, y + 1, 2, 1, '#E35A4B');
+    b.r(x + 2, down ? y + 5 : y - 2, 1, 2, '#B07A45');
+  };
+  pala(7, 6, true);
+  pala(w - 12, h - 12, false);
+  b.r(w - 9, 9, 2, 2, '#FFFFFF');
 }, { up: 0 });
 
 // Mueble bajo la tele con la consola, dos mandos y unos juegos.
@@ -401,9 +416,33 @@ def('meeting_table', (b, w, h) => {
   b.r(w - 12, 14, 6, 4, '#F5F3EE');
 }, { up: 0 });
 
-def('chairs_row', (b, w) => {
-  for (let x = 2; x < w - 8; x += 16) { b.r(x, 2, 10, 10, '#424A63'); b.r(x + 1, 3, 8, 3, '#5A6380'); }
+// Fila de sillas. Las de encima de la mesa se ven de frente (respaldo y asiento); las de debajo,
+// por detrás (solo el respaldo). Antes las dos filas eran iguales. `o.back` lo pone prepareObjects.
+def('chairs_row', (b, w, h, o) => {
+  for (let x = 2; x < w - 8; x += 16) {
+    if (o.back) {
+      b.r(x, 1, 10, 11, '#424A63'); b.r(x, 1, 10, 1, '#5A6380'); b.r(x + 1, 2, 1, 9, '#4C5571');
+      b.r(x + 4, 4, 2, 4, '#363D52'); // asa del respaldo
+      b.r(x + 1, 12, 1, 3, DARK); b.r(x + 8, 12, 1, 3, DARK);
+    } else {
+      b.r(x, 1, 10, 5, '#363D52'); b.r(x + 1, 2, 8, 2, '#424A63'); // respaldo, al fondo
+      b.r(x, 6, 10, 6, '#5A6380'); b.r(x, 6, 10, 1, '#717BA0'); // asiento
+      b.r(x + 1, 12, 1, 3, DARK); b.r(x + 8, 12, 1, 3, DARK);
+    }
+  }
 }, { up: 0 });
+
+// Lo que un mueble necesita saber de los demás: la fila de sillas que queda justo debajo de una
+// mesa de reuniones se ve por detrás.
+export function prepareObjects(objects) {
+  const tables = objects.filter(o => o.type === 'meeting_table');
+  return objects.map(o => {
+    if (o.type !== 'chairs_row') return o;
+    const ow = o.w || 6;
+    const back = tables.some(t => t.y + (t.h || 2) === o.y && t.x < o.x + ow && o.x < t.x + (t.w || 6));
+    return back ? { ...o, back: true } : o;
+  });
+}
 
 def('rack', (b, w, h, o) => {
   b.r(1, -18, 14, 34, '#262A36'); b.r(2, -17, 12, 32, '#333849'); b.r(1, -18, 14, 1, '#4A5068');
@@ -507,16 +546,23 @@ def('stall', b => {
 }, { up: 16 });
 
 // Urinario en la pared derecha, con su mampara de separación arriba.
+// Alto y estrecho, con la tubería de la cisterna y el desagüe: el lavabo es ancho y bajo, con espejo.
 def('urinal', b => {
   b.r(14, 0, 2, 16, '#B8D4D9'); // azulejo de la pared
-  b.r(8, 3, 6, 10, '#F4F7F9'); b.r(9, 5, 4, 6, '#C9D9DE'); b.r(12, 1, 2, 2, METAL);
+  b.r(12, 0, 1, 4, METAL); b.r(11, 0, 3, 1, '#B5BDC9'); // tubería de la cisterna
+  b.r(9, 4, 5, 9, '#F4F7F9'); b.r(10, 13, 3, 1, '#F4F7F9'); // cuerpo, redondeado abajo
+  b.r(9, 6, 2, 6, '#9FB8C2'); b.r(10, 11, 1, 1, '#7E98A3'); // hueco (mira hacia la sala)
+  b.p(13, 5, '#FFFFFF');
+  b.r(9, 15, 3, 1, '#9AA1AD'); // desagüe en el suelo
   b.r(5, 0, 11, 1, '#9AA1AD'); // mampara
 });
 
 // Lavabo en la pared izquierda, con su espejo.
 def('sink_side', b => {
-  b.r(0, 1, 2, 14, '#BFE3EE'); b.r(0, 2, 1, 5, '#E3F5FA'); // espejo
-  b.r(2, 3, 8, 10, '#F4F7F9'); b.r(3, 5, 5, 6, '#C9D9DE'); b.r(2, 7, 2, 2, METAL);
+  b.r(0, 0, 2, 7, '#BFE3EE'); b.r(0, 1, 1, 3, '#E3F5FA'); // espejo, arriba
+  b.r(2, 6, 10, 4, '#F4F7F9'); b.r(3, 7, 7, 2, '#C9D9DE'); // pila ancha y baja
+  b.r(2, 5, 3, 1, METAL); b.r(4, 6, 1, 1, METAL); // grifo
+  b.r(5, 10, 3, 5, '#E3E8EE'); b.r(5, 10, 1, 5, '#FFFFFF'); // pie
 });
 
 def('rug', (b, w, h, o) => {
@@ -559,8 +605,7 @@ def('bench', (b, w) => {
   b.r(2, 11, 2, 4, '#4A4A55'); b.r(w - 4, 11, 2, 4, '#4A4A55');
 }, { up: 0 });
 
-def('tree', (b, w, h, o, ctx) => {
-  shadowOval(ctx, 16, 14, 13, 4, SEASON === 'invierno' ? 0.12 : 0.25);
+def('tree', (b, w, h, o) => {
   b.r(13, 2, 6, 13, '#7A4B2C'); b.r(13, 2, 2, 13, '#946236');
   if (SEASON === 'invierno') {
     // ramas peladas
@@ -583,8 +628,13 @@ def('tree', (b, w, h, o, ctx) => {
   leaves(b, 16, -10, 13, pal, o.seed);
   if (SEASON === 'primavera') for (let i = 0; i < 12; i++) b.r(6 + Math.floor(hash(i, o.seed, 16) * 20), -20 + Math.floor(hash(i, o.seed, 17) * 20), 2, 1, i % 3 ? '#F7B6D2' : '#FFFFFF');
   if (SEASON === 'verano' && o.seed % 2) for (let i = 0; i < 5; i++) b.r(8 + Math.floor(hash(i, o.seed, 16) * 16), -18 + Math.floor(hash(i, o.seed, 17) * 14), 2, 2, '#E3584B');
-  if (SEASON === 'otono') for (let i = 0; i < 4; i++) b.p(4 + Math.floor(hash(i, o.seed, 18) * 24), 12 + Math.floor(hash(i, o.seed, 19) * 3), '#D9822B');
-}, { up: 24, wide: 2 });
+}, {
+  up: 24, wide: 2, shadow: () => [16, 14, 13, 4, SEASON === 'invierno' ? 0.12 : 0.25],
+  // hojas caídas: tras el contorno, que si no cada hoja suelta sale con su aro oscuro
+  after: (b, w, h, o) => {
+    if (SEASON === 'otono') for (let i = 0; i < 4; i++) b.p(4 + Math.floor(hash(i, o.seed, 18) * 24), 12 + Math.floor(hash(i, o.seed, 19) * 3), '#D9822B');
+  },
+});
 
 def('string_lights', (b, w, h, o) => {
   for (let x = 0; x < w; x++) {
@@ -633,7 +683,7 @@ const cache = new Map();
 export function objectSprite(o, seed, frame = 0) {
   const d = OBJ[o.type];
   if (!d) return null;
-  const key = `${o.type}|${o.w || 1}|${o.h || 1}|${o.color || ''}|${seed}|${frame}|${SEASON}`;
+  const key = `${o.type}|${o.w || 1}|${o.h || 1}|${o.color || ''}|${o.back ? 'b' : ''}|${seed}|${frame}|${SEASON}`;
   if (cache.has(key)) return cache.get(key);
   const w = (o.w || d.wide || 1) * T;
   const h = (o.h || 1) * T;
@@ -644,6 +694,21 @@ export function objectSprite(o, seed, frame = 0) {
   d.fn(brush(ctx), w, h, { ...o, seed, frame }, ctx);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   if (!d.noOutline && !d.wall) outline(canvas, OUT);
+  // La sombra va DESPUÉS del contorno y por detrás: si se pinta antes, el contorno la rodea con un aro.
+  if (d.shadow) {
+    const [cx, cy, rx, ry, a] = d.shadow();
+    ctx.save();
+    ctx.translate(pad, pad + up);
+    ctx.globalCompositeOperation = 'destination-over';
+    pixelOval(ctx, cx, cy, rx, ry, a);
+    ctx.restore();
+  }
+  if (d.after) {
+    ctx.save();
+    ctx.translate(pad, pad + up);
+    d.after(brush(ctx), w, h, { ...o, seed, frame });
+    ctx.restore();
+  }
   const out = { canvas, dx: -pad, dy: -pad - up };
   cache.set(key, out);
   return out;
