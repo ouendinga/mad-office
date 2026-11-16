@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BrickWall, Square, DoorOpen, Trees, BoxSelect, Armchair, Eraser, Move, Undo2, Save, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { BrickWall, Square, DoorOpen, Trees, BoxSelect, Armchair, Eraser, Move, Undo2, Save, AlertTriangle, CheckCircle2, RotateCw } from 'lucide-react';
 import { capi } from '../api';
 import { buildStatic, objectSprite, objectDef, T } from '../engine/OfficeArt';
 import '../styles/designer.css';
@@ -12,14 +12,32 @@ const TOOLS = [
   { id: 'sala', label: 'Sala', icon: BoxSelect, help: 'Arrastra para dibujar una sala: pone sus paredes y su suelo.' },
   { id: 'mueble', label: 'Mueble', icon: Armchair, help: 'Elige un mueble a la derecha y haz clic donde quieras ponerlo.' },
   { id: 'mover', label: 'Mover', icon: Move, help: 'Arrastra un mueble para moverlo.' },
+  { id: 'girar', label: 'Girar', icon: RotateCw, help: 'Haz clic en una alfombra, mesa de reuniones, ping-pong o mampara para girarla. El resto se ve siempre de frente.' },
   { id: 'borrar', label: 'Borrar mueble', icon: Eraser, help: 'Haz clic en un mueble para quitarlo.' },
   { id: 'pared', label: 'Pared', icon: BrickWall, help: 'Pinta pared casilla a casilla (arrastra).' },
   { id: 'suelo', label: 'Suelo', icon: Square, help: 'Pinta suelo casilla a casilla (arrastra).' },
   { id: 'puerta', label: 'Puerta', icon: DoorOpen, help: 'Haz clic en una pared para abrir una puerta.' },
   { id: 'fuera', label: 'Exterior', icon: Trees, help: 'Pinta césped: lo de fuera del edificio.' },
 ];
+// Miniatura de un mueble (para el catálogo).
+function Thumb({ type, w = 1, h = 1 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv || !objectDef(type)) return;
+    const s = objectSprite({ type, x: 0, y: 0, w, h }, 1, 0);
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.imageSmoothingEnabled = false;
+    const k = Math.min(cv.width / s.canvas.width, cv.height / s.canvas.height);
+    ctx.drawImage(s.canvas, (cv.width - s.canvas.width * k) / 2, (cv.height - s.canvas.height * k) / 2, s.canvas.width * k, s.canvas.height * k);
+  }, [type, w, h]);
+  return <canvas ref={ref} width={44} height={32} className="dz-thumb" aria-hidden />;
+}
+
 const WALL_COLORS = ['#E9DCC8', '#E7E0D2', '#D9C7A8', '#E3E7EE', '#F0E6D6', '#E4D3EE', '#CFE6EA', '#B9C0CD', '#D9D4C7'];
 const MIN_ZOOM = 1;
+const FLOOR_NAMES = { wood: 'Madera', parquet: 'Parqué', carpet: 'Moqueta', tiles: 'Baldosa', marble: 'Mármol', bath: 'Azulejo', server: 'Técnico', deck: 'Tarima' };
 
 // Un plano de plantilla, en el formato del diseñador (cada sala con su tipo).
 export function toDrawn(plan) {
@@ -173,6 +191,24 @@ export default function Designer({ planId, base, onBack }) {
       change(p => setTile(p.grid, x, y, 'D'));
       return;
     }
+    if (tool === 'girar') {
+      const i = objectAt(plan, x, y);
+      if (i < 0) return;
+      const o = plan.objects[i];
+      const c = catalog && catalog.objects.find(k => k.type === o.type);
+      if (!c || !c.rotatable) { setError(`${c ? c.label : 'Ese mueble'} solo se ve de frente: no se puede girar.`); return; }
+      setError('');
+      // Gira sobre su centro (no sobre la esquina), sin salirse del plano.
+      change(p => {
+        const ob = p.objects[i];
+        const w = ob.w || 1; const h = ob.h || 1;
+        const cx = ob.x + w / 2; const cy = ob.y + h / 2;
+        ob.w = h; ob.h = w;
+        ob.x = Math.max(0, Math.min(p.cols - ob.w, Math.round(cx - ob.w / 2)));
+        ob.y = Math.max(0, Math.min(p.rows - ob.h, Math.round(cy - ob.h / 2)));
+      });
+      return;
+    }
     if (tool === 'borrar') {
       const i = objectAt(plan, x, y);
       if (i >= 0) change(p => { p.objects.splice(i, 1); });
@@ -323,7 +359,9 @@ export default function Designer({ planId, base, onBack }) {
               <h3>Muebles</h3>
               <div className="dz-chips">
                 {catalog.objects.map(o => (
-                  <button key={o.type} type="button" className={`onb-chip ${furniture === o.type ? 'is-on' : ''}`} onClick={() => setFurniture(o.type)}>{o.label}</button>
+                  <button key={o.type} type="button" className={`dz-item ${furniture === o.type ? 'is-on' : ''}`} onClick={() => setFurniture(o.type)} title={o.label}>
+                    <Thumb type={o.type} w={o.w} h={o.h} /><span>{o.label}</span>
+                  </button>
                 ))}
               </div>
               <p className="muted dz-note">Las mesas necesitan la casilla de arriba libre (ahí se sienta la persona). Lo de pared (ventanas, cuadros, tele) va encima de una pared.</p>
@@ -338,8 +376,10 @@ export default function Designer({ planId, base, onBack }) {
                     <input value={r.label || ''} maxLength={40} placeholder={r.type} aria-label="Nombre de la sala"
                       onChange={e => change(p => { p.rooms[i].label = e.target.value; })} />
                     <select value={r.floor} aria-label="Suelo" onChange={e => change(p => { p.rooms[i].floor = e.target.value; })}>
-                      {catalog && catalog.floors.map(f => <option key={f} value={f}>{f}</option>)}
+                      {catalog && catalog.floors.map(f => <option key={f} value={f}>{FLOOR_NAMES[f] || f}</option>)}
                     </select>
+                    <input type="color" value={r.wall || '#E9DCC8'} aria-label={`Color de pared de ${r.label || r.type}`} title="Color de las paredes"
+                      onChange={e => { const v = e.target.value; change(p => { p.rooms[i].wall = v; }); }} />
                     <button type="button" className="btn btn-ghost btn-sm" aria-label={`Quitar la sala ${r.label || r.type}`}
                       onClick={() => change(p => { p.rooms.splice(i, 1); })}>✕</button>
                   </li>

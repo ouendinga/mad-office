@@ -24,3 +24,11 @@
 .dz-size { display: flex; gap: 0.6rem; }
 .dz-size label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: var(--text-secondary); }
 .dz-size input { width: 80px; }
+.dz-rooms li { grid-template-columns: 1fr 86px 34px auto; }
+.dz-rooms input[type="color"] { padding: 0; height: 28px; width: 34px; border-radius: 6px; cursor: pointer; }
+.dz-item { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; width: 86px; padding: 0.3rem 0.2rem; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-secondary); font: 600 0.68rem Inter, sans-serif; cursor: pointer; text-align: center; }
+.dz-item:hover { color: var(--text-primary); border-color: var(--primary-light); }
+.dz-item.is-on { border-color: var(--primary); background: rgba(108, 92, 231, 0.22); color: var(--text-primary); }
+.dz-item span { line-height: 1.15; }
+.dz-thumb { image-rendering: pixelated; }

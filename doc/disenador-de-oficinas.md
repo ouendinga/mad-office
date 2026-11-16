@@ -149,5 +149,6 @@ catálogo de la fase 4.
   El validador encontró dos puertas tapadas en las plantillas (el kanban del Loft y la encimera de
   la Planta grande), ya arregladas.
 
-Pendiente del diseñador: girar muebles, color de pared por sala desde el panel y elegir el muñeco
-de cada mueble con miniatura.
+- ✅ (2026-11-16) **Girar muebles.** Se giran sobre su centro la alfombra, la mesa de reuniones, el
+  ping-pong y la mampara; el resto se dibuja de frente y lo dice al intentarlo. **Color de pared por
+  sala** desde el panel. **Miniaturas** de cada mueble en el catálogo. Suelos con nombre en español.
