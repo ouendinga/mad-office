@@ -163,8 +163,10 @@ class Sim {
       // Primer momento del día: ha dormido y desayunado. Si en esta oficina no hay mesa para él
       // (un Loft de 8 con 16 en plantilla), ese día teletrabaja.
       const noDesk = this.layout && !(c.place && c.place !== 'mesa') && (c.desk_index || 0) >= this.layout.desks.length;
+      // Un suceso de fuera (nevada, huelga, puente) también puede dejarle en casa.
+      const forced = !!this.life.outsideMode(c, day);
       await this.pool.query(
-        `INSERT INTO day_status (character_id, day, mode) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [c.id, day, noDesk ? 'remoto' : 'oficina']);
+        `INSERT INTO day_status (character_id, day, mode) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [c.id, day, noDesk || forced ? 'remoto' : 'oficina']);
       await this.saveStats(c, stats.morning(c.stats));
       r = await this.pool.query('SELECT mode, ida, vuelta, extra FROM day_status WHERE character_id = $1 AND day = $2', [c.id, day]);
     }
@@ -179,6 +181,14 @@ class Sim {
       [c.id, day, next.mode, next.ida, next.vuelta, !!next.extra]);
     this.days.set(`${c.id}|${day}`, next);
     return next;
+  }
+
+  // Un suceso de fuera le manda a casa con el día ya empezado: su plan de piloto automático se rehace en casa.
+  async sendHome(c, day) {
+    await this.setDay(c, day, { mode: 'remoto', ida: null });
+    const r = await this.pool.query(
+      `DELETE FROM plans WHERE character_id = $1 AND day = $2 AND source = 'autopiloto' RETURNING block`, [c.id, day]);
+    for (const row of r.rows) this.plans.delete(`${c.id}|${day}|${row.block}`);
   }
 
   // Tope por reglas: como mucho MAX_REMOTE_PER_WEEK días en casa por semana (lunes a viernes).
@@ -262,7 +272,7 @@ class Sim {
     const [events, plan, d] = await Promise.all([
       this.pool.query(
         `SELECT id, character_id, con_id, lugar, min, text, kind, private FROM feed
-          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita', 'incidente', 'evento', 'charla')
+          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita', 'incidente', 'evento', 'charla', 'fuera')
             AND (min IS NULL OR min <= $2) ORDER BY id`,
         [day, untilMin, this.companyId]),
       this.dayActions(c, day),
@@ -305,6 +315,8 @@ class Sim {
     if (this.ensured.has(key)) return;
     this.ensured.add(key);
     if (!this.aiFor(c)) return; // ficticio sin IA: piloto automático
+    const own = this.life.outsideMode(c, day);
+    if (own === 'puente') return; // de puente no piensa en la oficina (ni gasta)
     const prev = await this.pool.query(
       `SELECT kind, block FROM turns WHERE character_id = $1 AND office_day = $2 AND kind IN ('despertar', 'tarde')
          AND status IN ('queued', 'running', 'done')`, [c.id, day]);
@@ -323,7 +335,8 @@ class Sim {
       ? (ctx.prevDay ? await this.heard(c, ctx.prevDay) : [])
       : await this.heard(c, day, this.sch.BLOCKS.tarde.from);
     let remoteRule = 'no';
-    if (kind === 'despertar') remoteRule = (await this.canRemote(c, day, weekday)) ? 'puede' : 'no';
+    if (own === 'remoto') remoteRule = 'remoto'; // teletrabajo forzado por lo de fuera: no lo decide la IA
+    else if (kind === 'despertar') remoteRule = (await this.canRemote(c, day, weekday)) ? 'puede' : 'no';
     else if (d.mode === 'remoto') remoteRule = 'remoto';
     const extraRule = block === 'tarde' && (await this.canExtra(c, day)) ? 'puede' : 'no';
     const wl = await this.workload(day);
@@ -385,6 +398,7 @@ class Sim {
     const view = [];
     const working = [];
     await this.life.moveTick(day, p);
+    await this.life.outsideTick(day, p); // el suceso de fuera de hoy (outside.js), antes de decidir el día
 
     for (const c of chars) {
       const workday = isWorkday(p.weekday);
@@ -410,6 +424,16 @@ class Sim {
       const workBlock = inExtra ? 'tarde' : block;
       const actions = await this.getPlan(c, day, workBlock);
       await this.ensureTurn(c, day, workBlock, p.weekday);
+      // Llega tarde por lo de fuera (nieve, huelga): sigue de camino y, al llegar, se cuenta.
+      const lateTo = block === 'manana' ? this.life.lateUntil(c, day, d) : 0;
+      if (p.minutes < lateTo) {
+        view.push(this.viewOf(c, null, cast, { phase: 'ida', day: { ...d, ida: this.life.lateText(c) } }));
+        continue;
+      }
+      if (lateTo && p.minutes - lateTo < 5 && !this.ensured.has(`tarde|${day}|${c.id}`)) {
+        this.ensured.add(`tarde|${day}|${c.id}`);
+        await this.post(c, 'trayecto', `⏰ ${c.name} llega ${lateTo - B.manana.from} minutos tarde: ${this.life.lateText(c).toLowerCase()}.`, day, { lugar: 'recepcion', min: p.minutes });
+      }
       let idx = 0;
       for (let i = 0; i < actions.length; i++) if (actions[i].min <= p.minutes) idx = i;
       working.push({ c, d, workBlock, idx, a0: actions[idx] });
@@ -421,16 +445,19 @@ class Sim {
     // Lo que hace cada uno de verdad: el evento, si va; huir de la cocina si apesta; a oscuras en un apagón.
     for (const w of working) {
       w.base = w.a0;
-      if (w.d.mode !== 'oficina') continue;
+      // Lo de fuera: la tele de la final, la guerra de bolas, la inspección, el cliente al teléfono…
+      const ox = this.life.outsideFor(w.c, p.minutes, w.d, w.a0);
+      if (w.d.mode !== 'oficina') { if (ox) w.base = { ...w.a0, ...ox }; continue; }
       const ev = this.life.eventFor(w.c, p.minutes);
       if (ev) w.base = { ...w.a0, lugar: ev.place, que: ev.title, frase: ev.frase, con: null, evento: ev.id };
+      else if (ox) w.base = { ...w.a0, ...ox, fuera: true };
       else if (eff.avoid.has(w.a0.lugar)) w.base = { ...w.a0, lugar: 'terraza', que: `${w.a0.que} (en la terraza: la cocina apesta)` };
       else if (eff.apagon && w.a0.lugar === 'mesa') w.base = { ...w.a0, que: 'A oscuras, esperando a que vuelva la luz', frase: '' };
       else if (eff.noWifi && w.a0.lugar === 'mesa') w.base = { ...w.a0, que: 'Sin wifi: tira de los datos del móvil', frase: '' };
     }
 
     // Escapadas cortas (micro.js): solo quien está ahora en su mesa, en la oficina (y no en un apagón).
-    const atDesk = eff.apagon ? [] : working.filter(w => w.d.mode === 'oficina' && w.base.lugar === 'mesa' && !w.base.con && !w.base.evento)
+    const atDesk = eff.apagon ? [] : working.filter(w => w.d.mode === 'oficina' && w.base.lugar === 'mesa' && !w.base.con && !w.base.evento && !w.base.fuera)
       .map(w => w.c.id).sort((a, b) => a - b);
     const groups = micro.groupPlans(this.companyId, day, p.minutes, atDesk);
     const byDesk = new Map(working.map(w => [w.c.desk_index, w.c.id]));
@@ -461,9 +488,9 @@ class Sim {
             { lugar: 'descanso', con: m.con, min: p.minutes });
         }
       }
-      // Al llegar a un sitio con un incidente, lo comenta (y le afecta).
-      if (d.mode === 'oficina') {
-        const rx = this.life.reactionFor(c, a.lugar);
+      // Al llegar a un sitio con un incidente, lo comenta (y le afecta). Lo de fuera, también desde casa.
+      {
+        const rx = this.life.reactionFor(c, a.lugar, d.mode);
         if (rx) {
           const now = this.current.get(c.id);
           now.action = { ...now.action, frase: rx.text };
@@ -521,13 +548,13 @@ class Sim {
   async visitorViews(day, minutes, chars) {
     const out = [];
     const list = [...visitorsFor(day, this.companyId, this.sch, chars), ...this.life.technicians(day)
-      .map(t => ({ ...t, name: 'Técnico', avatar: VISITOR_KINDS.mantenimiento.avatar }))];
+      .map(t => ({ ...t, name: 'Técnico', avatar: VISITOR_KINDS.mantenimiento.avatar })), ...this.life.outsideVisitors()];
     for (const [i, e] of list.entries()) {
       if (minutes < e.from || minutes >= e.to) continue;
       const fresh = !this.ensured.has(`visita|${e.key}`);
       if (fresh) {
         this.ensured.add(`visita|${e.key}`);
-        await this.post(null, 'visita', `${e.kind === 'repartidor' ? '📦' : e.kind === 'limpieza' ? '🧹' : '🔧'} ${e.name}: ${e.que} — «${e.frase}»`, day,
+        await this.post(null, 'visita', `${e.icon || (e.kind === 'repartidor' ? '📦' : e.kind === 'limpieza' ? '🧹' : '🔧')} ${e.name}: ${e.que} — «${e.frase}»`, day,
           { lugar: e.place, con: e.forId || null, min: e.from });
       }
       // La limpieza va de mesa en mesa por el open space; los demás, en su sitio.
@@ -555,6 +582,8 @@ class Sim {
     const who = con ? con.name : a.externo;
     const text = `${isCall ? '📞 ' : ''}${c.name}: ${a.que}${who ? ` (${isCall ? 'llamada con' : 'con'} ${who})` : ''}${a.frase ? ` — «${a.frase}»` : ''}`;
     await this.post(c, isCall ? 'llamada' : 'accion', text, day, { lugar: a.lugar, con: a.con, externo: a.externo, min: a.min });
+    // El percance que propuso su IA para este momento (ya aceptado por el Game Master): pasa si las reglas de ahora lo dejan.
+    if (a.incidente) await this.life.startSmall(c, a.incidente, day, a.min, d.mode);
     // La IA trae su pensamiento; sin IA, sale de su estado y de su ficha (thoughts.js).
     const piensa = a.piensa || thoughtFor(c, a, `${day}|${a.min}`);
     if (piensa) await this.post(c, 'pensamiento', piensa, day, { lugar: a.lugar, min: a.min, private: true });
@@ -638,12 +667,23 @@ class Sim {
     const day = turn.office_day;
     if (turn.kind === 'despertar' || turn.kind === 'tarde') {
       const rules = (turn.request && turn.request.rules) || {};
+      // Si lo de fuera le deja en casa (nevada, huelga, puente), eso no lo decide la IA.
+      const forced = !!this.life.outsideMode(c, day);
       const v = gm.validateWake(out, {
         block: turn.block, names: this.chars, selfId: c.id,
         sch: this.sch,
-        decideMode: turn.kind === 'despertar', canRemote: rules.canRemote === true, remote: rules.remote === true,
+        decideMode: turn.kind === 'despertar' && !forced, canRemote: rules.canRemote === true, remote: forced || rules.remote === true,
         canExtra: rules.canExtra === true,
       });
+      // Su percance propuesto (como mucho uno): el Game Master decide y, si pasa, se cuelga de ese momento del plan.
+      const prop = gm.validateIncidentProposal(out && out.incidente, {
+        plan: v.plan, character: c, names: this.chars, remote: v.mode === 'remoto', day,
+        mapTypes: this.layout ? this.layout.objectTypes : null,
+      });
+      if (prop && prop.ok) {
+        const at = v.plan.find(x => x.min === prop.min);
+        if (at) at.incidente = { tipo: prop.kind, frase: prop.frase };
+      }
       if (turn.kind === 'despertar') await this.applyMode(c, day, v);
       if (turn.block === 'tarde' && v.extra) {
         await this.setDay(c, day, { extra: true });

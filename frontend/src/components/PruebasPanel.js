@@ -60,6 +60,7 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
   const [catalogo, setCatalogo] = useState(null);
   const [incKind, setIncKind] = useState('');
   const [evKind, setEvKind] = useState('afterwork');
+  const [outKind, setOutKind] = useState('nevada');
   const [done, setDone] = useState('');
 
   const load = useCallback(() => {
@@ -148,7 +149,7 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
 
             {catalogo && (
               <section className="pruebas-sec">
-                <h3>💥 Incidentes y eventos</h3>
+                <h3>💥 Incidentes, eventos y sucesos de fuera</h3>
                 <p className="pruebas-help">Provócalos ahora para ver cómo se ven y cómo reacciona la gente (normalmente salen solos, con su probabilidad).</p>
                 <div className="pruebas-row">
                   <select value={incKind} onChange={e => setIncKind(e.target.value)} aria-label="Incidente">
@@ -164,6 +165,15 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
                   <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
                     onClick={async () => { setErr(''); setDone(''); try { await capi('/pruebas/evento', { method: 'POST', body: { kind: evKind } }); setDone('Evento en marcha durante 40 minutos de oficina.'); } catch (e) { setErr(e.message); } }}>Empezar ahora</button>
                 </div>
+                {catalogo.outside && (
+                  <div className="pruebas-row">
+                    <select value={outKind} onChange={e => setOutKind(e.target.value)} aria-label="Suceso de fuera">
+                      {catalogo.outside.map(x => <option key={x.kind} value={x.kind}>{x.label}</option>)}
+                    </select>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+                      onClick={async () => { setErr(''); setDone(''); try { await capi('/pruebas/fuera', { method: 'POST', body: { kind: outKind } }); setDone('Suceso de fuera en marcha hoy: mira la oficina y el feed.'); } catch (e) { setErr(e.message); } }}>Que pase hoy</button>
+                  </div>
+                )}
                 {done && <p className="pruebas-help" role="status">{done}</p>}
               </section>
             )}

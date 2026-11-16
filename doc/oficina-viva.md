@@ -410,7 +410,40 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
   personajes se enteran, van o no según su carácter, y lo comentan.
 - ✅ (2026-11-16) **Incidentes, segunda tanda:** 20 tipos con varias versiones de texto (nevera, wifi, planta,
   fluorescente, paquete, obras, mosca, perro, fuente, calefacción) e indicadores de ánimo en la lupa.
-  Pendiente: que la IA proponga incidentes pequeños que una regla valide.
+  ✅ (2026-11-16) Que la IA proponga incidentes pequeños que una regla valide: ver «Percances que
+  propone la IA» más abajo.
+- ✅ (2026-11-16, `world/outside.js`) **Sucesos de FUERA que revolucionan la oficina:** como mucho uno al
+  día, tirado por reglas a las 08:00 con datos reales (tiempo de Open-Meteo, día de la semana, época,
+  festivos nacionales) y guardado en `office_outside` (migración 008). Catálogo y probabilidad por día:
+
+  | Suceso | Cuándo | Qué cambia |
+  |---|---|---|
+  | ❄️ Nevada | 90 % si nieva (WMO 71-77, 85-86); 40 % con ≤ 1 °C y precipitación | 55 % llega tarde (20-70 min), 25 % teletrabajo forzado, guerra de bolas en la terraza antes de comer |
+  | 🥵 Ola de calor | 85 % con ≥ 34 °C; 35 % con ≥ 30 °C en julio-agosto | se abanican en la mesa, asalto al congelador a media tarde; el aire se rompe más |
+  | ⚽ Final de fútbol | 6 % martes-jueves de abril a julio; 1,2 % el resto | porra por la mañana; la última hora, la previa en la tele de la zona chill (y la mitad, en la cocina) |
+  | 📰 Noticia gorda | 4 % | media hora comentándola en la cocina (3 versiones) |
+  | 📞 Cliente enfadado | 7 % los lunes, 4 % el resto | los de clientes/cuentas, al teléfono toda la mañana y estresados |
+  | 📋 Inspección | 2 % martes-jueves, 1 % el resto | dos horas todos en su mesa «como que trabajan», sin escapadas; el inspector en recepción; la cocina reluce |
+  | 🚇 Huelga de transporte | 3 % lunes y viernes, 1,5 % el resto (nunca en agosto) | 50 % llega tarde (30-90 min), 25 % teletrabaja |
+  | 🏖️ Puente | siempre: lunes antes de martes festivo o viernes tras jueves festivo | la mitad no viene (ni gasta IA); el resto, a medio gas |
+  | ☔ Diluvio | 70 % con lluvia fuerte (WMO 63, 65, 81, 82) | 35 % llega tarde (10-35 min); paraguas en recepción |
+  | 🤫 Rumor de subida (de vales de café) | 2 % | cuchicheos en la cocina por la tarde |
+  | 🎄 Lotería de Navidad | siempre el 22 de diciembre | la radio en la cocina con el sorteo |
+
+  Lo seguro por calendario va primero; el resto, en ese orden con un dado por empresa y día. Cada
+  uno reacciona a su manera (frases por rasgo: mala leche, torpe, manitas) y le mueve el pentágono
+  una vez. Se ve en el mapa (arte propio y carteles), en «Ahora en la oficina», en el feed (kind
+  `fuera`, que oye todo el mundo, también desde casa) y en el prompt («Fuera pasa algo gordo: …»,
+  una línea). El modo pruebas los provoca («Que pase hoy»).
+- ✅ (2026-11-16) **Percances que propone la IA:** en el turno de plan que ya se hace, el JSON admite un
+  campo opcional `incidente` { tipo, hora, texto } con un tipo de un catálogo cerrado de 8 percances
+  que le pasan a él (café en el teclado, nevera abierta, silla que baja, cable pisado, persiana,
+  maceta, grapadora, palomitas quemadas). `gameMaster.validateIncidentProposal` decide al recibirlo
+  (hora de un momento de su plan y en el sitio de ese percance, objeto en el plano, no en casa,
+  carácter: lo de torpes al que no lo es le pasa la mitad de los días y la ficha que lo contradice
+  lo veta; el texto es dato: sin temas sensibles, insultos, enlaces, órdenes al sistema ni nombres de
+  otros) y `incidents.canStartSmall` al llegar la hora (4 por oficina y día, 1 por persona, no
+  repetido, sitio abierto). Sin llamadas nuevas: ~30 tokens más por turno.
 - ✅ (2026-11-16) **Qué se ve de los demás:** de otro personaje, solo lo que se nota desde fuera (puesto,
   personalidad, manías, muletillas, «se le nota cansado»); su objetivo, diario, números, pensamientos y
   sueños, solo su dueño y quien lleva la empresa. Lo decide el servidor (`routes/office.js`).

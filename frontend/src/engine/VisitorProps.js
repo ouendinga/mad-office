@@ -1,6 +1,6 @@
 // Lo que lleva cada visitante encima de su sprite de 32x32 (x, y = esquina de arriba a la
 // izquierda del sprite): el repartidor, su caja; mantenimiento, la caja de herramientas; la
-// limpieza, el cubo y la fregona. Pixel art con contorno, como el resto.
+// limpieza, el cubo y la fregona; el inspector, su carpeta. Pixel art con contorno, como el resto.
 
 const OUT = '#2A1F2D';
 
@@ -46,6 +46,16 @@ export function drawVisitorProps(ctx, kind, x, y) {
     ctx.fillRect(x + 19, y + 28, 6, 2);
     ctx.fillStyle = OUT;
     ctx.fillRect(x + 19, y + 30, 6, 1);
+  } else if (kind === 'inspector') {
+    // carpeta con un folio y un boli: el inspector de los sucesos de fuera
+    box(ctx, x + 20, y + 16, 8, 10, '#5D6D7E', '#4A5866');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x + 21, y + 17, 6, 7);
+    ctx.fillStyle = '#9AA5B1';
+    ctx.fillRect(x + 22, y + 19, 4, 1);
+    ctx.fillRect(x + 22, y + 21, 4, 1);
+    ctx.fillStyle = '#2E86DE';
+    ctx.fillRect(x + 27, y + 14, 1, 6);
   }
   ctx.restore();
 }

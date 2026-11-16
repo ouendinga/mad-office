@@ -13,7 +13,7 @@ import StatsPentagon from '../components/StatsPentagon';
 import PruebasPanel from '../components/PruebasPanel';
 import { getPlan, setPlan } from '../canvas/plan';
 import { FlaskConical, Network, Settings, UserRound, LogOut, UserPlus, ScrollText, AlertTriangle, PartyPopper, LayoutGrid, Eye,
-  MoreHorizontal, Map as MapIcon, Footprints, Building2, Moon, Radio, Sparkles, Check, Repeat, ChevronDown } from 'lucide-react';
+  MoreHorizontal, Map as MapIcon, Footprints, Building2, Moon, Radio, Sparkles, Check, Repeat, ChevronDown, Globe } from 'lucide-react';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -498,11 +498,21 @@ const PLACE_LABEL = { terraza: 'terraza', descanso: 'zona chill', reuniones: 'sa
 
 // Lo que pasa ahora en la oficina: incidentes abiertos y eventos de hoy.
 function OfficeNow({ office }) {
-  if (!office || (!office.incidents.length && !office.events.length)) return null;
+  const outside = (office && office.outside) || [];
+  if (!office || (!office.incidents.length && !office.events.length && !outside.length)) return null;
   return (
     <section className="sidebar-section office-now">
       <h3 className="sidebar-title">Ahora en la oficina</h3>
       <ul className="office-now-list">
+        {outside.map(o => (
+          <li key={`o${o.id}`} className="office-now-out">
+            <Globe size={14} aria-hidden />
+            <span>
+              {String(o.title).replace(/^\S+\s/, '').split(/\. |: /)[0]}
+              {o.place && <span className="muted"> · {o.from}–{o.to} en {PLACE_LABEL[o.place] || o.place}{o.active ? ' · ahora' : ''}</span>}
+            </span>
+          </li>
+        ))}
         {office.incidents.map(i => (
           <li key={`i${i.id}`} className="office-now-inc"><AlertTriangle size={14} aria-hidden /> {String(i.title).split('. ')[0]}</li>
         ))}
@@ -614,6 +624,7 @@ function roomOfPlace(lugar) {
 function knows(f, mine, placeLog) {
   if (!mine) return false;
   if (f.character_id === mine.id || f.con_id === mine.id) return true;
+  if (f.kind === 'fuera' && !f.lugar) return true; // lo de fuera lo sabe todo el mundo
   if (f.min == null || !f.lugar || !f.office_day) return false;
   const day = String(f.office_day).slice(0, 10);
   for (const m of [f.min, f.min + 1, f.min - 1]) {

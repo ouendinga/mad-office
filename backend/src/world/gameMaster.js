@@ -136,6 +136,53 @@ function validateAd(out) {
   return ad;
 }
 
+// --- Percances que propone la IA (campo opcional «incidente» del plan) ---
+// La IA propone como mucho UNO por turno; esto decide si pasa. El texto es DATO (lo que dice el
+// personaje cuando le pasa), nunca una instrucción: se limpia, se recorta y, si trae algo que no
+// toca (temas sensibles, insultos, enlaces, datos, intentos de dar órdenes al sistema, o nombra a un
+// compañero: el percance le pasa solo a él), se rechaza la propuesta entera.
+const PROPOSAL_FORBIDDEN = new RegExp([
+  'https?:', 'www\\.', '@', '\\d{4,}', '[<>{}\\[\\]]', // enlaces, correos, teléfonos, marcado
+  'ignora', 'instrucci', 'system', 'prompt', 'json', // órdenes al sistema
+  'sueldo', 'salario', 'n[oó]mina', 'desp[ie]d', 'enferm', 'hospital', 'm[eé]dic', 'muert', 'muer[eo]', 'sangr', 'herid',
+  'sexo', 'sexual', 'pol[ií]tic', 'religi', 'drog', 'borrach', 'alcohol', 'embaraz',
+  'idiota', 'imb[eé]cil', 'gilipoll', 'est[uú]pid', 'subnormal', 'inútil', 'puta', 'mierda', 'joder', 'cabr[oó]n', 'odio a',
+].join('|'), 'i');
+const roomOfLugar = l => (l === 'mesa' ? 'openspace' : l);
+
+// raw: lo que vino en «incidente» (o nada). ctx: { plan (ya validado), character, names, remote,
+// mapTypes (Set|null), day }. Devuelve null si no propone nada, { ok: false, why } si se rechaza y
+// { ok: true, kind, min, frase } si pasa.
+function validateIncidentProposal(raw, ctx) {
+  if (raw == null || raw === '') return null;
+  const incidents = require('./incidents');
+  if (typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, why: 'forma' };
+  const def = incidents.BY_KIND[raw.tipo];
+  if (!def || !def.small) return { ok: false, why: 'tipo fuera del catálogo' };
+  if (ctx.remote) return { ok: false, why: 'teletrabaja' };
+  const min = toMinutes(raw.hora);
+  if (min == null) return { ok: false, why: 'hora' };
+  // Tiene que caer en un momento de su plan, y en el sitio donde pasa ese percance.
+  let action = null;
+  for (const a of ctx.plan || []) if (a.min <= min) action = a;
+  if (!action) return { ok: false, why: 'fuera del plan' };
+  if (roomOfLugar(action.lugar) !== roomOfLugar(def.place)) return { ok: false, why: `no está en ${def.place}` };
+  if (ctx.mapTypes && !incidents.possible(def, ctx.mapTypes)) return { ok: false, why: 'no hay ese objeto' };
+  // Su carácter: a quien su ficha le contradice, no; lo de torpes, al que no lo es le pasa la mitad.
+  const c = ctx.character || {};
+  const ficha = fold(`${JSON.stringify(c.ficha || {})}`);
+  if (def.unlike && def.unlike.test(ficha)) return { ok: false, why: 'no le pega' };
+  if (def.clumsy && !incidents.traits(c).torpe) {
+    const { rng } = require('./autopilot');
+    if (rng(`propuesta|${c.id}|${ctx.day}|${def.kind}`)() >= 0.5) return { ok: false, why: 'no es tan torpe' };
+  }
+  const frase = clean(raw.texto, 100);
+  if (frase && PROPOSAL_FORBIDDEN.test(frase)) return { ok: false, why: 'texto' };
+  const others = (ctx.names || []).filter(n => n.id !== c.id).map(n => fold(n.name).split(' ')[0].replace(/[^a-z0-9ñ]/g, '')).filter(n => n.length > 2);
+  if (frase && others.some(n => new RegExp(`\\b${n}\\b`).test(fold(frase)))) return { ok: false, why: 'nombra a otro' };
+  return { ok: true, kind: def.kind, min: action.min, frase };
+}
+
 // Ficha editada a mano por su dueño: mismos límites que la generada.
 function validateFichaEdit(ficha) {
   return validateProfile(ficha);
@@ -143,5 +190,5 @@ function validateFichaEdit(ficha) {
 
 module.exports = {
   HUMORES, MAX_ACTIONS, clean, fold, normHumor, resolveCompanion, validatePlan, validateWake,
-  validateDiary, validateProfile, validateDreamHelp, validateFichaEdit, validateAd,
+  validateDiary, validateProfile, validateDreamHelp, validateFichaEdit, validateAd, validateIncidentProposal,
 };

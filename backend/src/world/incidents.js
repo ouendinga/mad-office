@@ -204,6 +204,80 @@ const CATALOG = [
     stats: { energia: -0.2 },
   },
 ];
+
+// Percances PEQUEÑOS que el propio personaje puede proponer en su turno de IA (campo «incidente» del
+// plan). Nunca salen solos (chance 0): solo si la IA los propone y las reglas los aceptan
+// (gameMaster.validateIncidentProposal al recibirlo y canStartSmall al llegar la hora). Siempre le
+// pasan a quien los propone: no hay víctimas. `clumsy`: cosa de torpes (al que no lo es, le pasa
+// menos); `unlike`: no le pega a quien su ficha dice eso.
+const SMALL = [
+  {
+    kind: 'cafe_teclado', place: 'mesa', needs: [], clumsy: true, unlike: /odia el caf|no (toma|bebe) caf|solo (toma|bebe) t[eé]\b/,
+    title: c => `☕ A ${name(c)} se le cae el café en el teclado. Ahora la E escribe «eeeeee».`,
+    react: ['¡Arroz! ¡Traed arroz!', 'Ese teclado ya ha visto cosas.', 'Usa el del portátil, hombre.'],
+    fixed: () => '⌨️ El teclado empapado se seca. Huele a café, pero teclea.',
+  },
+  {
+    kind: 'nevera_abierta', place: 'cafe', needs: ['fridge'], sign: 'PIIIP',
+    title: c => `🧊 ${name(c)} se deja la puerta de la nevera abierta. Pita como una alarma de submarino.`,
+    react: ['¿Quién ha dejado la nevera abierta?', 'Ese pitido me va a volver loco.', 'Cierra, que se escapa el frío.'],
+    fixed: c => `🧊 ${name(c)} cierra la nevera. Se hace el silencio.`,
+  },
+  {
+    kind: 'silla_baja', place: 'mesa', needs: [],
+    title: c => `🪑 La silla de ${name(c)} baja sola hasta el suelo. Ahora teclea a la altura de la barbilla.`,
+    react: ['¿Estás más bajito?', 'Esa silla tiene vida propia.', 'Es la palanca de la derecha. No, la otra.'],
+    fixed: c => `🪑 ${name(c)} encuentra la palanca de la silla. Vuelve la altura humana.`,
+  },
+  {
+    kind: 'cable_pisado', place: 'mesa', needs: [], clumsy: true,
+    title: c => `🔌 ${name(c)} se tropieza con un cable y desenchufa media fila de monitores.`,
+    react: ['¡Mi pantalla!', '¿Quién ha apagado el mundo?', 'Guardad, guardad.'],
+    fixed: c => `🔌 ${name(c)} vuelve a enchufar los monitores. Ahora todos guardan cada diez segundos.`,
+  },
+  {
+    kind: 'persiana_atascada', place: 'mesa', needs: [],
+    title: c => `🪟 ${name(c)} tira del cordón de la persiana y se queda atascada a medio bajar. Hay sol justo en una pantalla.`,
+    react: ['No veo nada, solo luz.', '¿Eso es el sol o una reunión?', 'Gafas de sol en la oficina, lo que faltaba.'],
+    fixed: c => `🪟 ${name(c)} desatasca la persiana con un boli. Vuelve la penumbra laboral.`,
+  },
+  {
+    kind: 'maceta_volcada', place: 'mesa', needs: ['plant'], clumsy: true,
+    title: c => `🪴 ${name(c)} tira una maceta con el codo. Hay tierra hasta en el teclado de al lado.`,
+    react: ['¡Mi teclado tiene tierra!', 'Pobre planta.', 'Eso es abono para la productividad.'],
+    fixed: c => `🧹 ${name(c)} barre la tierra de la maceta. La planta, ofendida, sobrevive.`,
+  },
+  {
+    kind: 'grapadora_atascada', place: 'mesa', needs: ['printer'],
+    title: c => `📎 ${name(c)} atasca la grapadora grande. Ahora grapa el aire con mucha fuerza.`,
+    react: ['¿Quién ha roto la grapadora?', 'Usa un clip, como en el siglo pasado.', 'Esa grapadora tenía un carácter…'],
+    fixed: c => `📎 ${name(c)} saca la grapa atascada con un cuchillo de untar. Funciona.`,
+  },
+  {
+    kind: 'palomitas_quemadas', place: 'cafe', needs: ['kitchen_counter'], clumsy: true,
+    title: c => `🍿 A ${name(c)} se le queman las palomitas en el micro. La cocina huele a cine en llamas.`,
+    react: ['¿Huele a quemado?', '¿Quién hace palomitas a estas horas?', 'Abrid la ventana, porfa.'],
+    fixed: () => '🌬️ Se va el olor a palomitas quemadas. Casi.',
+    stats: { calma: -0.1 },
+  },
+].map(d => ({ ...d, small: true, repair: 'tiempo', duration: d.duration || [20, 50], chance: () => 0, cause: null }));
+CATALOG.push(...SMALL);
+const SMALL_KINDS = SMALL.map(d => d.kind);
+const MAX_SMALL_PER_DAY = 4; // por oficina
+const MAX_SMALL_PER_CHAR = 1; // por persona y día
+
+// ¿Puede empezar ya un percance propuesto? (las reglas que dependen del momento: cupo, que no esté
+// pasando ya, que el sitio no esté cerrado y que esté en la oficina).
+// s: { def, mode, countToday, charToday, active, closed }
+function canStartSmall(s) {
+  if (!s.def || !s.def.small) return 'tipo';
+  if (s.mode !== 'oficina') return 'no está en la oficina';
+  if (s.countToday >= MAX_SMALL_PER_DAY) return 'cupo de la oficina';
+  if (s.charToday >= MAX_SMALL_PER_CHAR) return 'cupo de la persona';
+  if (s.active.some(a => a.kind === s.def.kind)) return 'ya está pasando';
+  if (s.closed && s.closed.has(s.def.place)) return 'sitio cerrado';
+  return null;
+}
 const BY_KIND = Object.fromEntries(CATALOG.map(x => [x.kind, x]));
 
 // ¿Puede pasar en esta oficina? (tiene los objetos que hacen falta)
@@ -226,7 +300,7 @@ function roll(ctx) {
   if (ctx.startedToday >= MAX_PER_DAY) return [];
   const out = [];
   for (const def of CATALOG) {
-    if (!possible(def, ctx.mapTypes) || ctx.active.some(a => a.kind === def.kind)) continue;
+    if (def.small || !possible(def, ctx.mapTypes) || ctx.active.some(a => a.kind === def.kind)) continue;
     // La sala tiene que existir en esta oficina (en el Loft no hay cuarto de servidores).
     if (ctx.places && !['oficina', 'mesa'].includes(def.place) && !ctx.places.has(def.place)) continue;
     const r = rng(`${ctx.companyId}|${ctx.day}|${ctx.min}|${def.kind}`);
@@ -263,4 +337,7 @@ function reaction(kind, r) {
   return def ? def.react[Math.floor(r() * def.react.length)] : null;
 }
 
-module.exports = { CATALOG, BY_KIND, MAX_PER_DAY, ALGUIEN_MAX_MIN, traits, possible, roll, effects, reaction };
+module.exports = {
+  CATALOG, BY_KIND, MAX_PER_DAY, ALGUIEN_MAX_MIN, SMALL_KINDS, MAX_SMALL_PER_DAY, MAX_SMALL_PER_CHAR,
+  traits, possible, roll, effects, reaction, canStartSmall,
+};

@@ -14,6 +14,7 @@ const { NPCS, SPARE_NAMES, avatar } = require('../company/template');
 const { addMember } = require('./companies');
 const incidentsLib = require('../world/incidents');
 const eventsLib = require('../world/events');
+const outsideLib = require('../world/outside');
 
 const SPEEDS = [1, 2, 5, 10, 30, 60];
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -156,7 +157,20 @@ function router({ world }) {
   r.get('/catalogo', (req, res) => res.json({
     incidents: incidentsLib.CATALOG.map(d => ({ kind: d.kind, place: d.place, example: d.title({ name: 'Alguien' }, { name: 'Otro' }) })),
     events: Object.entries(eventsLib.KINDS).map(([k, v]) => ({ kind: k, label: `${v.icon} ${v.label}` })),
+    outside: outsideLib.CATALOG.map(d => ({ kind: d.kind, label: `${d.icon} ${d.sign.charAt(0)}${d.sign.slice(1).toLowerCase()}` })),
   }));
+  // Provocar hoy un suceso de fuera (la nevada, la final…): su franja empieza ya.
+  r.post('/fuera', async (req, res) => {
+    const def = outsideLib.BY_KIND[req.body && req.body.kind];
+    if (!def) return res.status(400).json({ error: 'Ese suceso no existe.' });
+    const life = req.sim.life;
+    const p = clockLib.parts(req.sim.clock.nowMs());
+    if (life.outsideDay !== p.date) await life.loadOutside(p.date);
+    if (life.outside.some(o => o.def.kind === def.kind)) return res.status(409).json({ error: 'Ese ya está pasando hoy.' });
+    const row = await life.startOutside(def, p.date, p.minutes, { forced: true });
+    if (!row) return res.status(409).json({ error: 'Ese ya ha pasado hoy.' });
+    res.status(201).json({ ok: true });
+  });
   r.post('/incidente', async (req, res) => {
     const def = incidentsLib.BY_KIND[req.body && req.body.kind];
     if (!def) return res.status(400).json({ error: 'Ese incidente no existe.' });
@@ -164,7 +178,7 @@ function router({ world }) {
     if (life.active.some(a => a.kind === def.kind)) return res.status(409).json({ error: 'Ese ya está pasando.' });
     const p = clockLib.parts(req.sim.clock.nowMs());
     const chars = await req.sim.loadCharacters();
-    const cause = def.cause ? chars[Math.floor(Math.random() * chars.length)] || null : null;
+    const cause = def.cause || def.small ? chars[Math.floor(Math.random() * chars.length)] || null : null;
     const victim = def.victim ? chars.find(c => !cause || c.id !== cause.id) || null : null;
     const ends = def.duration ? p.minutes + def.duration[0] : null;
     await life.start(def, cause, victim, p.date, p.minutes, ends);
