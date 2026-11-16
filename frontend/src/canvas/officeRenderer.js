@@ -182,7 +182,9 @@ function paintScene(world, animFrame, now) {
           const sit = !p.moving && c.action === 'sentado' ? 3 : 0;
           renderAvatar(ctx, c.avatar_config || {}, Math.round(p.x - 16), Math.round(p.y - 30 + sit), 1,
             // Quieto no anda: «paseando» solo mientras se mueve (antes movía los pies parado en la fuente).
-            animFrame, p.moving ? 'paseando' : (c.action === 'paseando' || c.action === 'corriendo' ? null : c.action), c.representation);
+            animFrame, p.moving ? 'paseando' : (c.action === 'paseando' || c.action === 'corriendo' ? null : c.action), c.representation,
+            // Comiendo (con su estilo) y hablando: lo manda el servidor (eat, talk).
+            { eat: c.eat || null, talking: !!(c.talk && c.talk.speaking && c.bubble), seed: c.id });
           if (c.visitor) drawVisitorProps(ctx, c.visitor.kind, Math.round(p.x - 16), Math.round(p.y - 30));
         },
       });

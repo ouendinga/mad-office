@@ -21,6 +21,8 @@ const { autopilotPlan } = require('./autopilot');
 const gm = require('./gameMaster');
 const stats = require('./stats');
 const { heardBy } = require('./hearing');
+const { Chatter } = require('./chatter');
+const eating = require('./eating');
 const weatherLib = require('./weather');
 const prompts = require('../ai/prompts');
 const turns = require('../ai/turns');
@@ -57,6 +59,7 @@ class Sim {
     this.ensured = new Set(); // turnos ya pedidos o descartados
     this.current = new Map(); // id -> {key, action, bubbleUntil}
     this.life = new OfficeLife(this); // incidentes y eventos de la oficina
+    this.chatter = new Chatter({ companyId }); // conversaciones con bocadillos alternos (chatter.js)
     this.statAcc = new Map(); // id -> deltas del pentágono aún sin guardar
     this.statClock = new Map(); // id -> último minuto contado
     this.notified = new Set(); // avisos de una sola vez (tope gastado)
@@ -259,7 +262,7 @@ class Sim {
     const [events, plan, d] = await Promise.all([
       this.pool.query(
         `SELECT id, character_id, con_id, lugar, min, text, kind, private FROM feed
-          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita', 'incidente', 'evento')
+          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita', 'incidente', 'evento', 'charla')
             AND (min IS NULL OR min <= $2) ORDER BY id`,
         [day, untilMin, this.companyId]),
       this.dayActions(c, day),
@@ -473,6 +476,7 @@ class Sim {
     }
     linkCalls(view);
     spreadZones(view, { closed: eff.closed, L: this.layout });
+    await this.talkTick(view, working, day, p.minutes);
     if (isWorkday(p.weekday)) view.push(...(await this.visitorViews(day, p.minutes, chars)));
 
     const loc = this.weather ? this.weather.location : weatherLib.DEFAULT_LOCATION;
@@ -495,6 +499,22 @@ class Sim {
       characters: view,
       office: this.life.view(p.minutes, day, phase),
     });
+  }
+
+  // Conversaciones (chatter.js): bocadillos alternos entre quienes están juntos y, a veces, una línea al feed.
+  async talkTick(view, working, day, minutes) {
+    const byId = new Map(view.map(v => [v.id, v]));
+    const entries = working.filter(w => byId.has(w.c.id))
+      .map(w => ({ v: byId.get(w.c.id), a: (this.current.get(w.c.id) || {}).action, c: w.c }));
+    const posts = this.chatter.update(entries, Date.now(), {
+      day, minutes, weather: this.weatherNow(),
+      incidents: this.life.active.map(i => ({ kind: i.kind, place: i.place, title: i.data && i.data.title })),
+      events: (this.life.events || []).filter(e => e.to_min > minutes).map(e => ({ title: e.title })),
+    });
+    for (const x of posts) {
+      const c = working.find(w => w.c.id === x.id);
+      await this.post(c ? c.c : null, 'charla', x.text, day, { lugar: x.lugar, con: x.con, min: minutes });
+    }
   }
 
   // Visitantes del día que están ahora en la oficina; al llegar, se anuncian en el feed.
@@ -588,6 +608,8 @@ class Sim {
     // Quien tiene despacho o mostrador, «en su mesa» está allí.
     const own = a.lugar === 'mesa' && withDesk == null && c.place && c.place !== 'mesa';
     const pos = own ? ownSpot(c.place, 0, this.layout) : targetFor({ lugar: a.lugar, deskIndex: c.desk_index, withDeskIndex: withDesk, slot: c.id }, this.layout);
+    // Comiendo: cómo come cada uno lo decide el servidor (eating.js); el navegador solo lo dibuja.
+    const eat = eating.isEating(a) ? eating.eatingStyle(c, a, `${a.min}|${a.que}`) : null;
     return {
       ...base,
       home: false,
@@ -601,6 +623,7 @@ class Sim {
       bubble,
       call: a.externo ? { with: null, externo: a.externo } : null,
       ...(own ? { ownSpot: true } : {}),
+      ...(eat ? { eat } : {}),
     };
   }
 

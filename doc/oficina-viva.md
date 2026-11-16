@@ -235,7 +235,9 @@ characters[]: { id, name, owner_user_id, avatar_config, desk_index, humor, energ
          x, y, lugar, que, action, representation, bubble,      // x/y solo con mode 'oficina'
          call: { with: <id> | null, externo: <texto> | null } | null,
          trayecto: <texto> | null,                               // con mode 'ida'/'vuelta'
-         stats: { energia, animo, saciedad, social, calma } }    // 0-5, un decimal
+         stats: { energia, animo, saciedad, social, calma },     // 0-5, un decimal
+         eat: { style, food } | ausente,                         // comiendo (eating.js)
+         talk: { group, speaking, to } | ausente }               // en una conversación (chatter.js)
 ```
 
 ## Empresas (2026-11-14)
@@ -390,11 +392,15 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
   Las reglas deciden qué pasa (dado + probabilidad + quién está), con tabla y tope por día. La IA
   solo lo usa en el turno que ya hace. Estado persistente: tabla `office_state(company_id,
   object, state, since, until, cause)`.
-- **Que se les vea comer de verdad**, cada uno con su estilo (masticar, gestos), y otras
-  animaciones con estilo propio. Es trabajo de sprites: postura «comiendo» por rasgos de la ficha.
-- **Que se vea que hablan:** hoy los bocadillos solo salen al empezar una acción, unos segundos,
-  y no salen en la lupa. Hacen falta conversaciones visibles entre dos (bocadillos alternos,
-  sacados de las muletillas sin IA) y bocadillos también en la lupa.
+- ✅ (2026-11-16, `world/eating.js`) **Que se les vea comer de verdad**, cada uno con su estilo: el
+  servidor decide si come y cómo (rápido, a bocaditos, táper, palillos, se mancha, con el móvil, habla
+  con la boca llena, bocata) por su ficha, sus rasgos y su id; el sprite tiene bocado, masticado
+  (mofletes) y su ritmo, migas y vaho. Pendiente: otras animaciones con estilo propio.
+- ✅ (2026-11-16, `world/chatter.js`) **Que se vea que hablan:** conversaciones sin IA entre quienes
+  están juntos (corrillos de 2-4 en las salas, visitas a la mesa, ping-pong, consola): bocadillos
+  alternos de 2-4 frases con las muletillas, los incidentes abiertos, los eventos y el tiempo; ritmo
+  de oficina (silencios de 30-80 s). Al feed (`charla`) solo una línea por conversación con tema y
+  como mucho una por sitio cada 45 min; la oye quien estaba en la sala (`hearing.js`).
 - ✅ (Loft, Clásica, Cubículos, Planta grande) **Plantillas de oficina:** más y menos lujo, capacidad y espacios, incluida una de **cubículos**
   de las de antes. Ver `doc/disenador-de-oficinas.md`.
 - **Revisión de UX/UI y de flujos:** `doc/revision-ux-2026-11-15.md`.

@@ -4,7 +4,7 @@
  * Walk animation: 2 frames alternando piernas.
  */
 
-import { drawRepresentation, drawActionIndicator } from '../canvas/avatarSprites';
+import { drawRepresentation, drawActionIndicator, drawEatIndicator } from '../canvas/avatarSprites';
 import { drawCharacter } from './Character';
 
 const SPRITE_BASE = 16;   // Tamano base del sprite en pixels
@@ -78,24 +78,57 @@ function applyWalkFrame2(ctx, config) {
   px(ctx, 9, 15, 3, 1);
 }
 
+// Ritmo de cada forma de comer (fotogramas de animación, ~7,5 por segundo): 0 = con la comida
+// delante, 1 = bocado, 2 = masticando. El estilo lo manda el servidor; esto es solo cómo se ve.
+export const EAT_RHYTHM = {
+  rapido: [0, 1, 2, 0, 1, 2, 0, 1, 2, 2, 0, 1, 2, 0],
+  bocaditos: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  taper: [0, 0, 0, 0, 0, 1, 1, 2, 0, 2, 0, 2, 0, 0, 0, 0],
+  mancha: [0, 0, 0, 1, 1, 2, 0, 2, 0, 0, 0, 0],
+  palillos: [0, 0, 0, 0, 1, 1, 2, 0, 2, 0, 0, 0, 0],
+  movil: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 0, 2, 0, 0, 0],
+  habla: [0, 0, 1, 1, 2, 0, 2, 0, 0, 0],
+  bocata: [0, 0, 0, 0, 1, 1, 1, 2, 0, 2, 0, 2, 0, 0, 0],
+};
+// Hablando: la boca se abre y se cierra (sin compás fijo, como al hablar de verdad).
+const TALK_MOUTH = [1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1];
+
+// Qué dibujar de comer y hablar en este fotograma. extra: { eat, talking, seed }.
+export function eatMods(extra, animFrame) {
+  if (!extra || (!extra.eat && !extra.talking)) return null;
+  const t = animFrame + ((extra.seed | 0) * 7);
+  const open = extra.talking && TALK_MOUTH[t % TALK_MOUTH.length] === 1;
+  if (!extra.eat) return open ? { mouth: 'open' } : null;
+  const rhythm = EAT_RHYTHM[extra.eat.style] || EAT_RHYTHM.taper;
+  let frame = rhythm[t % rhythm.length];
+  // Hablando no se da un bocado (salvo el que habla con la boca llena, que mastica y habla).
+  if (extra.talking && frame === 1) frame = 0;
+  if (open && extra.eat.style !== 'habla') frame = 0;
+  return { eat: extra.eat.style, food: extra.eat.food, frame, mouth: open ? 'open' : null };
+}
+
 /**
  * Renderizar avatar completo en el canvas del juego.
  * Usa cache para el sprite base y dibuja overlays (representaciones, acciones).
+ * extra (opcional): { eat: {style, food}, talking, seed } — comiendo y hablando (lo manda el servidor).
  */
-export function renderAvatar(ctx, config, worldX, worldY, scale, animFrame, action, representation) {
+export function renderAvatar(ctx, config, worldX, worldY, scale, animFrame, action, representation, extra = null) {
   const isWalking = action === 'corriendo' || action === 'paseando';
   const pose = isWalking ? (animFrame % 2 === 0 ? 'walk1' : 'walk2') : 'idle';
   let yOffset = 0;
   if (action === 'celebrando' || action === 'corriendo') yOffset = Math.sin(animFrame * 0.3) * 3;
   const dx = Math.round(worldX);
   const dy = Math.round(worldY + yOffset);
-  drawCharacter(ctx, config, dx, dy, scale, pose);
+  // Andando no se come (se guarda el táper para cuando llegue).
+  const mods = isWalking ? null : eatMods(extra, animFrame);
+  drawCharacter(ctx, config, dx, dy, scale, pose, mods);
 
   // Los indicadores de acción y estado están dibujados sobre una rejilla de 16: doble escala.
   ctx.save();
   ctx.translate(dx, dy);
   if (action) drawActionIndicator(ctx, action, 0, 0, scale * 2, animFrame);
   if (representation) drawRepresentation(ctx, representation, 0, 0, scale * 2, animFrame);
+  if (mods && mods.eat) drawEatIndicator(ctx, mods, 0, 0, scale * 2, animFrame);
   ctx.restore();
 }
 
