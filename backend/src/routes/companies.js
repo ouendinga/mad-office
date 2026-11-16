@@ -11,6 +11,7 @@
 const express = require('express');
 const { requireUser } = require('./auth');
 const gm = require('../world/gameMaster');
+const { join, nextDesk } = require('../company/org');
 
 const VISIBILITY = ['publica', 'privada'];
 
@@ -99,7 +100,23 @@ function router({ world }) {
        RETURNING id, name, visibility`, [name, visibility, req.userId])).rows[0];
     await addMember(db, c.id, req.userId, 'admin');
     await world.ensure(c.id); // siembra el organigrama y arranca su oficina
-    res.status(201).json({ ...c, role: 'admin' });
+    // Quien la crea queda de CEO (el cargo de arriba del todo) por defecto; antes de la entrevista
+    // puede cambiarlo en el organigrama. Su personaje nace sin aprobar: el ficticio sigue en el
+    // puesto hasta que apruebe la ficha.
+    let positionId = null;
+    const top = (await db.query(
+      'SELECT id FROM positions WHERE company_id = $1 AND parent_id IS NULL ORDER BY sort, id LIMIT 1', [c.id])).rows[0];
+    if (top) {
+      const u = (await db.query('SELECT name FROM users WHERE id = $1', [req.userId])).rows[0];
+      const ch = (await db.query(
+        'INSERT INTO characters (company_id, owner_user_id, name, desk_index) VALUES ($1, $2, $3, $4) RETURNING *',
+        [c.id, req.userId, u.name, await nextDesk(db, c.id)])).rows[0];
+      const out = await join(db, ch, top.id);
+      if (out.ok) positionId = top.id;
+      const sim = world.sims && world.sims.get(c.id);
+      if (sim) sim.invalidate();
+    }
+    res.status(201).json({ ...c, role: 'admin', position_id: positionId });
   });
 
   r.get('/public/companies', async (req, res) => {

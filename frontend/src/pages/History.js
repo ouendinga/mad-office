@@ -16,7 +16,9 @@ const KIND = {
 };
 
 function fmtDay(day) {
-  return new Date(`${day}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  // Mayúscula solo al principio: con CSS capitalize salía «16 De Noviembre».
+  const t = new Date(`${day}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 export default function History({ characterId, onBack }) {

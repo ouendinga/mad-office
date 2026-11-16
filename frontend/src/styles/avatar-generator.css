@@ -20,7 +20,7 @@
 }
 
 .avatar-gen-title {
-  font-size: 1.3rem;
+  font-size: var(--fs-lg);
   color: var(--primary-light);
   margin-bottom: 0.5rem;
 }
@@ -75,11 +75,11 @@
   border-radius: var(--radius-sm);
 }
 
-.option-selector label {
-  font-size: 0.9rem;
+.option-selector .option-label {
+  font-size: var(--fs-sm);
   color: var(--text-secondary);
   font-weight: 500;
-  min-width: 120px;
+  min-width: 0;
   text-align: left;
 }
 
@@ -96,7 +96,7 @@
   background: var(--primary);
   color: white;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--fs-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -108,16 +108,33 @@
 .option-value {
   min-width: 80px;
   text-align: center;
-  font-size: 0.9rem;
+  font-size: var(--fs-sm);
   color: var(--text-primary);
 }
 
 @media (max-width: 600px) {
+  .avatar-gen { padding: 1rem; }
+  .avatar-gen-container { padding: 1.5rem 1rem; }
   .avatar-gen-content {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+    gap: 1.5rem;
   }
+  .avatar-preview-section { align-self: center; }
+  /* En móvil la etiqueta va encima y los controles debajo: así no se salen de la tarjeta. */
+  .option-selector { flex-direction: column; align-items: stretch; gap: 0.5rem; padding: 0.6rem 0.75rem; }
+  .option-controls { justify-content: space-between; gap: 0.5rem; }
+  .option-value { min-width: 0; flex: 1; }
 }
 
 .avatar-gen-actions { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
 .avatar-random { margin-top: 0.5rem; }
+
+.option-selector { gap: 0.75rem; }
+.option-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.option-btn { width: 40px; height: 40px; flex-shrink: 0; }
+.option-swatches { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.swatch { width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); padding: 0; }
+.swatch:hover { border-color: rgba(255, 255, 255, 0.6); }
+.swatch.is-on { border-color: #fff; box-shadow: 0 0 0 3px var(--primary); }
+.avatar-logout { display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 1.25rem; color: var(--text-muted); font-size: var(--fs-sm); font-weight: 500; }

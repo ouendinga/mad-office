@@ -118,7 +118,7 @@ export default function Contratacion({ avatar, name, company, position, onDone }
   return (
     <div className="onb">
       <div className="onb-card contrato">
-        <h1 className="pixel-font onb-title">¡Contratado!</h1>
+        <h1 className="onb-title">¡Contratado!</h1>
         <canvas ref={ref} width={W} height={H} className="transfo-canvas" aria-label={`${name} recibe la noticia en casa`} />
         {showLetter ? (
           <div className="contrato-carta" role="status">

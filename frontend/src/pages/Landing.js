@@ -11,6 +11,7 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
   const [modal, setModal] = useState(startWith || (invite ? 'register' : null)); // 'login' | 'register' | null
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,6 +70,7 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
     if (!keepEmail) setEmail('');
     setName('');
     setPassword('');
+    setShowPass(false);
   };
   const companyName = inviteInfo && inviteInfo.company ? inviteInfo.company.name : null;
 
@@ -189,11 +191,16 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
                   <label>Email</label>
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" required />
                 </div>
-                <div className="form-group">
-                  <label>Contraseña</label>
-                  <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
-                    placeholder={needPassword ? '' : 'Si te pusiste una'} required={needPassword} />
-                </div>
+                {/* La contraseña es opcional (salvo fuera de la puerta): plegada bajo «Tengo contraseña». */}
+                {needPassword || showPass ? (
+                  <div className="form-group">
+                    <label htmlFor="login-pass">Contraseña</label>
+                    <input id="login-pass" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
+                      required={needPassword} autoFocus={!needPassword} />
+                  </div>
+                ) : (
+                  <p className="form-fold"><button type="button" className="link-btn" onClick={() => setShowPass(true)}>Tengo contraseña</button></p>
+                )}
                 <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
                   {loading ? 'Entrando...' : 'Entrar'}
                 </button>

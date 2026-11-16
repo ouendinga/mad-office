@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { capi } from '../api';
 
-// Dónde está la oficina (para el tiempo de verdad). Solo la cambia el admin.
-export default function OfficeSettings({ isAdmin, onClose }) {
+// Dónde está la oficina (para el tiempo de verdad). Va dentro de «Ajustes», que solo ve quien
+// lleva la empresa (antes era una ventana aparte, «Oficina»).
+export default function LocationSection() {
   const [loc, setLoc] = useState(null);
   const [weather, setWeather] = useState(null);
   const [city, setCity] = useState('');
@@ -29,27 +30,21 @@ export default function OfficeSettings({ isAdmin, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal">
-        <button type="button" className="modal-close" onClick={onClose} aria-label="Cerrar">&times;</button>
-        <h2 className="modal-title">La oficina</h2>
-        {loc && (
-          <p>
-            📍 Está en <strong>{loc.city}</strong>{loc.country ? `, ${loc.country}` : ''}.
-            {weather && <> Ahora: {weather.desc}, {Math.round(weather.temp)} °C.</>}
-          </p>
-        )}
-        <p className="muted">El tiempo y la estación de la oficina son los de verdad de ese sitio: si llueve allí, llueve aquí.</p>
-        {isAdmin ? (
-          <form onSubmit={save} className="onb-q" style={{ marginTop: '1rem' }}>
-            <label htmlFor="city">Moverla a otra ciudad</label>
-            <input id="city" value={city} onChange={e => setCity(e.target.value)} placeholder="Barcelona, Bilbao, Buenos Aires…" maxLength={80} />
-            <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !city.trim()}>{busy ? 'Buscando…' : 'Mover la oficina'}</button>
-          </form>
-        ) : <p className="muted">Solo quien lleva la oficina puede moverla.</p>}
-        <p className="muted" style={{ marginTop: '0.8rem' }}>El horario, el teletrabajo y la carga de trabajo están en «🏢 Empresa».</p>
-        {error && <div className="modal-error">{error}</div>}
-      </div>
-    </div>
+    <>
+      {loc && (
+        <p>
+          Está en <strong>{loc.city}</strong>{loc.country ? `, ${loc.country}` : ''}.
+          {weather && <> Ahora: {weather.desc}, {Math.round(weather.temp)} °C.</>}
+        </p>
+      )}
+      <p className="muted">El tiempo y la estación de la oficina son los de verdad de ese sitio: si llueve allí, llueve aquí.</p>
+      <form onSubmit={save} className="set-row" style={{ marginTop: '0.6rem' }}>
+        <label>Moverla a otra ciudad
+          <input type="text" value={city} onChange={e => setCity(e.target.value)} placeholder="Barcelona, Bilbao, Buenos Aires…" maxLength={80} />
+        </label>
+        <button type="submit" className="btn btn-secondary btn-sm" disabled={busy || !city.trim()}>{busy ? 'Buscando…' : 'Mover la oficina'}</button>
+      </form>
+      {error && <div className="modal-error">{error}</div>}
+    </>
   );
 }

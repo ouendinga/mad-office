@@ -391,3 +391,4 @@
 .modal-sub { color: var(--text-secondary); font-size: 0.9rem; margin: -0.5rem 0 1rem; }
 .modal-switch { margin-top: 1rem; text-align: center; font-size: 0.88rem; color: var(--text-secondary); }
 .link-btn { background: none; border: 0; padding: 0; color: var(--secondary); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.form-fold { margin: -0.25rem 0 1rem; font-size: 0.875rem; }

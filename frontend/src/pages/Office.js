@@ -12,8 +12,8 @@ import '../styles/history.css';
 import StatsPentagon from '../components/StatsPentagon';
 import PruebasPanel from '../components/PruebasPanel';
 import { getPlan, setPlan } from '../canvas/plan';
-import { FlaskConical, Network, Building2, CloudSun, UserRound, LogOut, UserPlus, ScrollText, AlertTriangle, PartyPopper, LayoutGrid, Eye } from 'lucide-react';
-import OfficeSettings from '../components/OfficeSettings';
+import { FlaskConical, Network, Settings, UserRound, LogOut, UserPlus, ScrollText, AlertTriangle, PartyPopper, LayoutGrid, Eye,
+  MoreHorizontal, Map as MapIcon, Footprints, Building2, Moon, Radio, Sparkles, Check, Repeat, ChevronDown } from 'lucide-react';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -56,7 +56,7 @@ function DayCard({ clock, weather }) {
   const phaseText = { ida: '🚶 Camino del trabajo', vuelta: '🚶 Volviendo a casa' }[clock.phase];
   return (
     <div className={`day-card ${night && !phaseText ? 'is-night' : ''}`}>
-      <div className="day-card-date pixel-font">{WEEKDAYS[clock.weekday]} {d} {MONTHS[m - 1]}</div>
+      <div className="day-card-date">{WEEKDAYS[clock.weekday]} {d} {MONTHS[m - 1]}</div>
       <div className="day-card-meta">
         <span className="day-card-time">{clock.hhmm}</span>
         {icon && <span>{icon} {label} · {temp} °C</span>}
@@ -81,15 +81,39 @@ function Portrait({ config }) {
 }
 const PLACE_TEXT = { mesa: 'en su mesa', cafe: 'en la cocina', reuniones: 'en reunión', lavabo: 'en el baño', visita: 'de visita', descanso: 'en la zona chill', terraza: 'en la terraza', recepcion: 'en recepción', despacho: 'en el despacho', servidores: 'con los servidores' };
 
-function fmtMorning(date) {
+function fmtMorning(date, cap = false) {
   const d = new Date(`${date}T12:00:00`);
-  return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const t = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  // Mayúscula solo al principio («Lunes, 16 de noviembre»): con CSS capitalize salía «De».
+  return cap ? t.charAt(0).toUpperCase() + t.slice(1) : t;
 }
+
+// ¿Pantalla de móvil? (≤ 800 px: pestañas abajo y menú «⋯» arriba)
+function useNarrow() {
+  const q = '(max-width: 800px)';
+  const [narrow, setNarrow] = useState(() => window.matchMedia(q).matches);
+  useEffect(() => {
+    const m = window.matchMedia(q);
+    const on = () => setNarrow(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return narrow;
+}
+
+const TABS = [
+  ['oficina', 'Oficina', MapIcon],
+  ['personaje', 'Mi personaje', UserRound],
+  ['sueno', 'Sueño', Moon],
+  ['feed', 'Feed', Radio],
+];
 
 export default function Office({ me, company, owner, onBecome, onLogout, onEditAvatar, onHistory, onCompanies, onOrg, onOffices, onCompanySettings }) {
   const isAdmin = company.role === 'admin';
   const placeLog = useRef(new Map()); // minuto → sitio de mi personaje (para «lo que sabe»)
-  const [showSettings, setShowSettings] = useState(false);
+  const narrow = useNarrow();
+  const [tab, setTab] = useState('oficina'); // pestaña en móvil
+  const [menu, setMenu] = useState(false); // menú «⋯» en móvil
   const [showPruebas, setShowPruebas] = useState(false);
   const canvasRef = useRef(null);
   const worldRef = useRef(null);
@@ -146,7 +170,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
     let raf;
     const loop = () => {
       const canvas = canvasRef.current;
-      if (canvas) {
+      if (canvas && canvas.offsetParent !== null) { // en móvil, con otra pestaña, no se pinta
         frameRef.current++;
         const wd = worldRef.current;
         if (showStreet(wd, viewRef.current)) renderStreet(canvas.getContext('2d'), canvas, wd, Math.floor(frameRef.current / 8));
@@ -158,16 +182,25 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // El lienzo va a la resolución real de la pantalla (devicePixelRatio): así el pixel art puede
+  // caer en píxeles enteros del dispositivo. Los dibujantes trabajan en px CSS (canvas._dpr).
   useEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return undefined;
     const resize = () => {
-      const c = canvasRef.current;
-      if (!c) return;
-      c.width = c.parentElement.clientWidth;
-      c.height = c.parentElement.clientHeight;
+      const w = c.parentElement.clientWidth;
+      const h = c.parentElement.clientHeight;
+      if (!w || !h) return; // pestaña oculta en móvil
+      const dpr = Math.min(3, window.devicePixelRatio || 1);
+      c._dpr = dpr;
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
     };
     resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(c.parentElement);
     window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
+    return () => { ro.disconnect(); window.removeEventListener('resize', resize); };
   }, []);
 
   const openCharacter = useCallback(async id => {
@@ -202,7 +235,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
   };
 
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') changeFocus(null); };
+    const onKey = e => { if (e.key === 'Escape') { changeFocus(null); setMenu(false); } };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
@@ -215,16 +248,28 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
   const focusRoom = focus && focus.follow && focused ? roomIdOf(focused) : focus && focus.room;
   const roomPeople = focus && world ? world.characters.filter(c => c.mode !== 'remoto' && !c.home && c.x != null && roomIdOf(c) === focusRoom) : [];
 
+  // Lo que va en la cabecera (en móvil, dentro del menú «⋯»). «Ajustes» junta lo que antes eran
+  // «Oficina» (ciudad y tiempo) y «Empresa», y solo lo ve quien lleva la empresa.
+  const menuItems = [
+    owner && isAdmin && ['Pruebas', FlaskConical, () => setShowPruebas(true)],
+    ['Organigrama', Network, onOrg],
+    ['Oficinas', LayoutGrid, onOffices, 'Oficinas: planos y mudanza'],
+    isAdmin && ['Ajustes', Settings, onCompanySettings, 'Ajustes de la empresa y de la oficina'],
+    narrow && ['Cambiar de empresa', Repeat, onCompanies],
+    ['Avatar', UserRound, onEditAvatar],
+    ['Salir', LogOut, onLogout],
+  ].filter(Boolean);
+
   return (
-    <div className="office-page">
+    <div className="office-page" data-tab={narrow ? tab : undefined}>
       <header className="office-header">
         <div className="office-header-left">
           <button type="button" className="office-company" onClick={onCompanies} title="Cambiar de empresa">
-            <span className="office-logo pixel-font">{company.name}</span> <span aria-hidden="true">▾</span>
+            <span className="office-logo pixel-font">{company.name}</span> <ChevronDown size={14} aria-hidden />
           </button>
           {clock && (
             <span className="office-clock" title={clock.date}>
-              {WEEKDAYS[clock.weekday]} {clock.hhmm}
+              <span className="office-clock-day">{WEEKDAYS[clock.weekday]} </span>{clock.hhmm}
             </span>
           )}
           {clock && clock.test && (
@@ -237,13 +282,24 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
         <div className="office-header-right">
           <span className="office-user-name">{me.user.name}</span>
           {isAdmin && <InviteButton />}
-          {owner && isAdmin && <button className="btn btn-ghost btn-sm" title="Pruebas" aria-label="Pruebas" onClick={() => setShowPruebas(true)}><FlaskConical size={16} aria-hidden /> <span className="hb-label">Pruebas</span></button>}
-          <button className="btn btn-ghost btn-sm" title="Organigrama" aria-label="Organigrama" onClick={onOrg}><Network size={16} aria-hidden /> <span className="hb-label">Organigrama</span></button>
-          <button className="btn btn-ghost btn-sm" title="Oficinas: planos y mudanza" aria-label="Oficinas" onClick={onOffices}><LayoutGrid size={16} aria-hidden /> <span className="hb-label">Oficinas</span></button>
-          <button className="btn btn-ghost btn-sm" title="Empresa" aria-label="Empresa" onClick={onCompanySettings}><Building2 size={16} aria-hidden /> <span className="hb-label">Empresa</span></button>
-          <button className="btn btn-ghost btn-sm" title="Oficina: ciudad y tiempo" aria-label="Oficina" onClick={() => setShowSettings(true)}><CloudSun size={16} aria-hidden /> <span className="hb-label">Oficina</span></button>
-          <button className="btn btn-ghost btn-sm" title="Avatar" aria-label="Avatar" onClick={onEditAvatar}><UserRound size={16} aria-hidden /> <span className="hb-label">Avatar</span></button>
-          <button className="btn btn-ghost btn-sm" title="Salir" aria-label="Salir" onClick={onLogout}><LogOut size={16} aria-hidden /> <span className="hb-label">Salir</span></button>
+          {narrow ? (
+            <div className="office-more">
+              <button type="button" className="btn btn-ghost btn-sm" aria-label="Más opciones" aria-expanded={menu} aria-haspopup="menu"
+                onClick={() => setMenu(!menu)}><MoreHorizontal size={20} aria-hidden /></button>
+              {menu && (
+                <>
+                  <div className="office-more-backdrop" onClick={() => setMenu(false)} />
+                  <div className="office-more-menu" role="menu">
+                    {menuItems.map(([label, Icon, fn]) => (
+                      <button key={label} type="button" role="menuitem" onClick={() => { setMenu(false); fn(); }}><Icon size={18} aria-hidden /> {label}</button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : menuItems.map(([label, Icon, fn, title]) => (
+            <button key={label} className="btn btn-ghost btn-sm" title={title || label} aria-label={label} onClick={fn}><Icon size={16} aria-hidden /> <span className="hb-label">{label}</span></button>
+          ))}
         </div>
       </header>
 
@@ -255,8 +311,8 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
           {DEMO && <div className="demo-badge">DEMO</div>}
           {streetTime && (
             <div className="view-switch">
-              <button type="button" className={`btn btn-sm ${inStreet ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeView('street')}>🚶 La calle</button>
-              <button type="button" className={`btn btn-sm ${!inStreet ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeView('office')}>🏢 La oficina</button>
+              <button type="button" className={`btn btn-sm ${inStreet ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeView('street')}><Footprints size={15} aria-hidden /> La calle</button>
+              <button type="button" className={`btn btn-sm ${!inStreet ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeView('office')}><Building2 size={15} aria-hidden /> La oficina</button>
             </div>
           )}
           {!inStreet && mine && mine.mode === 'oficina' && !(focus && focus.follow) && (
@@ -266,7 +322,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
           {!inStreet && !focus && <HomeStrip world={world} />}
           {focus && !inStreet && (
             <div className="lupa-box">
-              {focused ? <Portrait config={focused.avatar_config} /> : <div className="lupa-portrait lupa-room">🏢</div>}
+              {focused ? <Portrait config={focused.avatar_config} /> : <div className="lupa-portrait lupa-room"><Building2 size={22} aria-hidden /></div>}
               <div className="lupa-text">
                 {focused ? (
                   <>
@@ -283,7 +339,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
                   </>
                 )}
                 <div className="lupa-meta">
-                  {WEEKDAYS[clock.weekday]} · {clock.hhmm} · {roomLabel(focus.room)}
+                  {WEEKDAYS[clock.weekday].replace(/^./, c => c.toUpperCase())} · {clock.hhmm} · {roomLabel(focus.room)}
                 </div>
               </div>
               <div className="lupa-actions">
@@ -320,7 +376,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
                 {selected.diaries.length === 0 && <p className="muted">Aún no ha escrito nada.</p>}
                 {selected.diaries.map(d => (
                   <div key={d.day} className="char-diary">
-                    <div className="char-diary-day">{fmtMorning(d.day)}</div>
+                    <div className="char-diary-day">{fmtMorning(d.day, true)}</div>
                     <p>{d.text}</p>
                   </div>
                 ))}
@@ -331,7 +387,16 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
           </div>
         </div>
       )}
-      {showSettings && <OfficeSettings isAdmin={isAdmin} onClose={() => setShowSettings(false)} />}
+      {narrow && (
+        <nav className="office-tabs" role="tablist" aria-label="Secciones">
+          {TABS.map(([id, label, Icon]) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'is-on' : ''}
+              onClick={() => { setTab(id); window.scrollTo(0, 0); }}>
+              <Icon size={20} aria-hidden /><span>{label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
@@ -498,7 +563,7 @@ function DreamPanel({ clock }) {
 
   return (
     <section className="sidebar-section dream">
-      <h3 className="sidebar-title">🌙 El sueño de esta noche</h3>
+      <h3 className="sidebar-title"><Moon size={14} aria-hidden /> El sueño de esta noche</h3>
       {state && state.last && (
         <p className="dream-last">
           Soñó «{state.last.text}» y {state.last.followed ? 'le hizo caso' : 'pasó'}: <em>{state.last.reason}</em>
@@ -519,9 +584,9 @@ function DreamPanel({ clock }) {
           />
           <div className="dream-row">
             <span className="muted">{text.length}/200</span>
-            <button className="btn btn-ghost btn-sm" onClick={askHelp} disabled={busy}>Ayúdame ✨</button>
+            <button className="btn btn-secondary btn-sm" onClick={askHelp} disabled={busy}><Sparkles size={15} aria-hidden /> Ayúdame</button>
             <button className="btn btn-primary btn-sm" onClick={save} disabled={busy || !text.trim() || text === saved}>
-              {saved && text === saved ? 'Guardado ✓' : 'Guardar'}
+              {saved && text === saved ? <><Check size={15} aria-hidden /> Guardado</> : 'Guardar'}
             </button>
           </div>
           {help && (
@@ -564,7 +629,7 @@ function Feed({ feed, mine, placeLog }) {
   const items = onlyMine ? all.filter(f => knows(f, mine, placeLog)) : all;
   return (
     <section className="sidebar-section feed">
-      <h3 className="sidebar-title">📻 Todo lo que pasa</h3>
+      <h3 className="sidebar-title"><Radio size={14} aria-hidden /> Todo lo que pasa</h3>
       <label className="feed-toggle">
         <input type="checkbox" checked={onlyMine} onChange={e => setOnlyMine(e.target.checked)} />
         {' '}Solo lo que sabe mi personaje

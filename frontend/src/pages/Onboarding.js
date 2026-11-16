@@ -117,7 +117,7 @@ export default function Onboarding({ user, character, company, onDone, onBack })
       <div className="onb-card">
         {step === 'entrevista' ? (
           <>
-            <h1 className="pixel-font onb-title">La entrevista</h1>
+            <h1 className="onb-title">La entrevista</h1>
             <p className="onb-sub">
               Contesta lo que quieras (mínimo 3) o tira el dado. Con esto la IA hará una caricatura cariñosa de ti, {user.name}, para {company ? company.name : 'la oficina'}, sea cual sea tu trabajo.
               Luego la retocas tú.
@@ -168,7 +168,7 @@ export default function Onboarding({ user, character, company, onDone, onBack })
           </>
         ) : (
           <>
-            <h1 className="pixel-font onb-title">Tu personaje</h1>
+            <h1 className="onb-title">Tu personaje</h1>
             <p className="onb-sub">Así vivirá en la oficina. Cambia lo que quieras: es tu caricatura y mandas tú.</p>
             <div className="onb-q">
               <label>Puesto <span className="muted">(cómo describe su cargo{company && company.position_title ? `: ${company.position_title}` : ''})</span></label>

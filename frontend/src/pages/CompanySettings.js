@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { capi } from '../api';
 import '../styles/companies.css';
+import { Settings, Home, Clock, TrendingUp, PartyPopper, Mail, DoorOpen, MapPin, Building2 } from 'lucide-react';
+import LocationSection from '../components/OfficeSettings';
 
-// «Empresa»: cómo es la empresa (no el edificio). Solo el admin edita; los demás lo ven.
+// «Ajustes»: la empresa (nombre, teletrabajo, horario, carga, eventos, invitaciones) y dónde está
+// la oficina (ciudad y tiempo). Antes eran dos sitios («Oficina» y «Empresa»); ahora uno, y solo
+// para quien lleva la empresa: al resto no se le enseña lo que no puede tocar.
 const DAYS = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V']];
 const LEVELS = [
   [0, '😌 Tranquila'], [1, '🙂 Normal'], [2, '😰 Alta'], [3, '🔥 A tope'],
@@ -76,17 +80,14 @@ export default function CompanySettings({ company, onChanged, onBack }) {
     }
   };
 
-  const saveGeneral = e => {
+  // Un solo «Guardar» para lo general, el teletrabajo y el horario (antes había uno por bloque).
+  const saveAll = e => {
     e.preventDefault();
     run(async () => {
       await capi('/', { method: 'PUT', body: { name: info.name, visibility: info.visibility, settings: info.settings } });
+      if (hours) await capi('/settings/hours', { method: 'PUT', body: hours });
       await onChanged();
-    }, 'Guardado ✓');
-  };
-
-  const saveHours = e => {
-    e.preventDefault();
-    run(() => capi('/settings/hours', { method: 'PUT', body: hours }), 'Horario guardado ✓');
+    }, 'Cambios guardados.');
   };
 
   const saveDay = e => {
@@ -112,6 +113,9 @@ export default function CompanySettings({ company, onChanged, onBack }) {
     }
   };
 
+  if (!isAdmin) {
+    return <div className="loading">Los ajustes los lleva quien lleva la empresa. <button type="button" className="link-btn" onClick={onBack}>Volver</button></div>;
+  }
   if (!info) {
     return <div className="loading">{error || 'Abriendo los papeles de la empresa…'}</div>;
   }
@@ -128,13 +132,12 @@ export default function CompanySettings({ company, onChanged, onBack }) {
         <button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>← Oficina</button>
       </header>
       <main className="cos-main">
-        <h1 className="cos-title">🏢 La empresa</h1>
-        {!isAdmin && <p className="muted">Esto lo decide quien lleva la empresa. Tú puedes mirarlo.</p>}
+        <h1 className="cos-title"><Settings size={20} aria-hidden /> Ajustes</h1>
         {msg && <div className="cos-notice" role="status">{msg}</div>}
         {error && <div className="modal-error">{error}</div>}
 
-        <form className="set-section" onSubmit={saveGeneral}>
-          <h2>General</h2>
+        <form className="set-section" onSubmit={saveAll}>
+          <h2><Building2 size={17} aria-hidden /> La empresa</h2>
           <div className="set-row">
             <label>Nombre<input type="text" maxLength={60} value={info.name} disabled={!isAdmin} onChange={e => setInfo({ ...info, name: e.target.value })} /></label>
             <label>Quién la ve
@@ -146,17 +149,17 @@ export default function CompanySettings({ company, onChanged, onBack }) {
           </div>
           <label className="org-check">
             <input type="checkbox" checked={set.jobBoard} disabled={!isAdmin} onChange={e => setInfo({ ...info, settings: { ...set, jobBoard: e.target.checked } })} />
-            {' '}📰 Publicar las vacantes en «Se busca personal» (solo si es pública; la IA escribe cada oferta una vez)
+            {' '}Publicar las vacantes en «Se busca personal» (solo si es pública; la IA escribe cada oferta una vez)
           </label>
-          <h2 style={{ marginTop: '1rem' }}>🏠 Teletrabajo</h2>
+          <h2 className="set-sub"><Home size={17} aria-hidden /> Teletrabajo</h2>
           <div className="set-row">
             <label>Días de casa por semana
               <select value={set.remotePerWeek} disabled={!isAdmin} onChange={e => setInfo({ ...info, settings: { ...set, remotePerWeek: Number(e.target.value) } })}>
                 {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n === 0 ? 'Nunca (todo presencial)' : n}</option>)}
               </select>
             </label>
-            <div>
-              <div className="muted" style={{ fontSize: '0.82rem' }}>Días que toca oficina sí o sí</div>
+            <div className="set-field">
+              <div className="set-label">Días que toca oficina sí o sí</div>
               <div className="set-days">
                 {DAYS.map(([n, l]) => (
                   <button key={n} type="button" disabled={!isAdmin} aria-pressed={set.officeDays.includes(n)}
@@ -166,12 +169,9 @@ export default function CompanySettings({ company, onChanged, onBack }) {
               </div>
             </div>
           </div>
-          {isAdmin && <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Guardar</button>}
-        </form>
-
         {hours && (
-          <form className="set-section" onSubmit={saveHours}>
-            <h2>🕘 Horario</h2>
+          <>
+            <h2 className="set-sub"><Clock size={17} aria-hidden /> Horario</h2>
             <div className="set-row">
               <label>Entrada<input type="time" value={hours.start} disabled={!isAdmin} onChange={e => setHours({ ...hours, start: e.target.value })} /></label>
               <label>Salida<input type="time" value={hours.end} disabled={!isAdmin} onChange={e => setHours({ ...hours, end: e.target.value })} /></label>
@@ -179,13 +179,25 @@ export default function CompanySettings({ company, onChanged, onBack }) {
               <label>Minutos para comer<input type="number" min={15} max={120} step={5} value={hours.lunchMin} disabled={!isAdmin} onChange={e => setHours({ ...hours, lunchMin: e.target.value })} /></label>
             </div>
             <p className="muted">Vienen media hora antes de entrar y se van al salir. Las horas extra solo pasan con carga alta o a tope.</p>
-            {isAdmin && <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Guardar horario</button>}
-          </form>
+          </>
         )}
+          <div className="set-save">
+            <button type="submit" className="btn btn-primary" disabled={busy}>Guardar cambios</button>
+          </div>
+        </form>
 
         <section className="set-section">
-          <h2>📈 Carga de trabajo</h2>
-          <p className="muted">{isAdmin ? 'Toca un día para marcar cómo viene. Con carga alta o a tope, alguno se quedará haciendo horas extra.' : 'Cómo viene el trabajo estas semanas.'}</p>
+          <h2><MapPin size={17} aria-hidden /> Dónde está la oficina</h2>
+          <LocationSection />
+        </section>
+
+        <section className="set-section">
+          <h2><TrendingUp size={17} aria-hidden /> Carga de trabajo</h2>
+          <p className="muted">Toca un día para marcar cómo viene. Con carga alta o a tope, alguno se quedará haciendo horas extra.</p>
+          <ul className="cal-legend" aria-label="Leyenda">
+            {LEVELS.map(([n, l]) => <li key={n}><span className={`cal-swatch lvl-${n}`} aria-hidden /> {l}</li>)}
+            <li><span className="cal-swatch is-today" aria-hidden /> Hoy</li>
+          </ul>
           <div className="cal" role="grid" aria-label="Carga de trabajo por día">
             {DAYS.map(([n, l]) => <div key={n} className="cal-head">{l}</div>)}
             {days.map(d => {
@@ -211,7 +223,7 @@ export default function CompanySettings({ company, onChanged, onBack }) {
               </label>
               <label>Nota (opcional)<input maxLength={140} value={dayEdit.note} placeholder="Entrega al cliente X" onChange={e => setDayEdit({ ...dayEdit, note: e.target.value })} /></label>
               <div className="org-actions">
-                <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Guardar</button>
+                <button type="submit" className="btn btn-secondary btn-sm" disabled={busy}>Marcar el día</button>
                 <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={clearDay}>Dejar normal</button>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDayEdit(null)}>Cancelar</button>
               </div>
@@ -220,7 +232,7 @@ export default function CompanySettings({ company, onChanged, onBack }) {
         </section>
 
         <section className="set-section">
-          <h2>🎉 Eventos</h2>
+          <h2><PartyPopper size={17} aria-hidden /> Eventos</h2>
           <p className="muted">
             Afterworks, talleres, team building… Los personajes se enteran y van (o no) según su carácter. Algunos los
             propone la oficina sola (el afterwork de los viernes, los cumpleaños); si no te gusta alguno, bórralo.
@@ -266,19 +278,19 @@ export default function CompanySettings({ company, onChanged, onBack }) {
               <label>Día<input type="date" required value={evForm.day} onChange={e => setEvForm({ ...evForm, day: e.target.value })} /></label>
               <label>De<input type="time" required value={evForm.from} onChange={e => setEvForm({ ...evForm, from: e.target.value })} /></label>
               <label>A<input type="time" required value={evForm.to} onChange={e => setEvForm({ ...evForm, to: e.target.value })} /></label>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Crear evento</button>
+              <button type="submit" className="btn btn-secondary btn-sm" disabled={busy}>Crear evento</button>
             </form>
           )}
         </section>
 
         {isAdmin && (
           <section className="set-section">
-            <h2>✉️ Invitaciones</h2>
+            <h2><Mail size={17} aria-hidden /> Invitaciones</h2>
             <p className="muted">Crea un enlace y pásalo por WhatsApp o por correo. Quien lo abra entra directo en la empresa.</p>
             <div className="set-row">
               <label>Caduca en (días)<input type="number" min={1} max={30} value={invDays} onChange={e => setInvDays(e.target.value)} /></label>
               <label>Usos<input type="number" min={1} max={100} value={invUses} onChange={e => setInvUses(e.target.value)} /></label>
-              <button type="button" className="btn btn-primary btn-sm" disabled={busy}
+              <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
                 onClick={() => run(() => capi('/invitations', { method: 'POST', body: { days: Number(invDays), max_uses: Number(invUses) } }), 'Enlace creado: cópialo y compártelo.')}>Crear enlace</button>
             </div>
             <ul className="cos-list">
@@ -288,7 +300,7 @@ export default function CompanySettings({ company, onChanged, onBack }) {
                     <span className="inv-link">{link(i.code)}</span>
                     <span className="muted">{i.uses}/{i.max_uses} usos · caduca el {new Date(i.expires_at).toLocaleDateString('es-ES')}</span>
                   </div>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => copy(i.code)}>{copied === i.code ? 'Copiado ✓' : 'Copiar'}</button>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => copy(i.code)}>{copied === i.code ? 'Copiado' : 'Copiar'}</button>
                   <button type="button" className="btn btn-ghost btn-sm" disabled={busy}
                     onClick={() => run(() => capi(`/invitations/${i.id}`, { method: 'DELETE' }), 'Enlace anulado.')}>Anular</button>
                 </li>
@@ -299,7 +311,7 @@ export default function CompanySettings({ company, onChanged, onBack }) {
 
         {isAdmin && (
           <section className="set-section">
-            <h2>🙋 Quieren entrar</h2>
+            <h2><DoorOpen size={17} aria-hidden /> Quieren entrar</h2>
             {joins.length === 0 && <p className="muted">Nadie llamando a la puerta.</p>}
             <ul className="cos-list">
               {joins.map(j => (
@@ -308,7 +320,7 @@ export default function CompanySettings({ company, onChanged, onBack }) {
                     <strong>{j.name}{j.position ? ` → ${j.position}` : ''}</strong>
                     {j.message && <span className="muted">«{j.message}»</span>}
                   </div>
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy}
+                  <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
                     onClick={() => run(() => capi(`/join-requests/${j.id}`, { method: 'POST', body: { accept: true } }), `${j.name} ya está dentro.`)}>Aceptar</button>
                   <button type="button" className="btn btn-ghost btn-sm" disabled={busy}
                     onClick={() => run(() => capi(`/join-requests/${j.id}`, { method: 'POST', body: { accept: false } }), 'Rechazada.')}>Rechazar</button>
