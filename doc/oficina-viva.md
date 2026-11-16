@@ -403,7 +403,7 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
   como mucho una por sitio cada 45 min; la oye quien estaba en la sala (`hearing.js`).
 - ✅ (Loft, Clásica, Cubículos, Planta grande) **Plantillas de oficina:** más y menos lujo, capacidad y espacios, incluida una de **cubículos**
   de las de antes. Ver `doc/disenador-de-oficinas.md`.
-- **Revisión de UX/UI y de flujos:** `doc/revision-ux-2026-11-15.md`.
+- ✅ **Revisión de UX/UI y de flujos:** `doc/revision-ux-2026-11-15.md` (todo hecho).
 - ✅ (afterwork de los viernes, taller, team building, cumpleaños; el admin los crea en Empresa → Eventos) **Eventos de oficina en la terraza** (pedido el 2026-11-16): afterworks, talleres, team building…
   Algunos salen solos por reglas (el viernes por la tarde, un cumpleaños) y otros los configura el
   admin desde un calendario: qué, cuándo y dónde. Van con los incidentes con estado: los
@@ -447,7 +447,7 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
 - ✅ (2026-11-16) **Qué se ve de los demás:** de otro personaje, solo lo que se nota desde fuera (puesto,
   personalidad, manías, muletillas, «se le nota cansado»); su objetivo, diario, números, pensamientos y
   sueños, solo su dueño y quien lleva la empresa. Lo decide el servidor (`routes/office.js`).
-- **Revisión de legibilidad del pixel art (2026-11-16):** hechos canaleta de cables, taza y planta,
+- ✅ (los pendientes, hechos el 2026-11-16) **Revisión de legibilidad del pixel art (2026-11-16):** hechos canaleta de cables, taza y planta,
   silla, indicadores de ánimo en la rejilla de 32, rubor según la piel, rótulos al zócalo y
   sombrilla. ✅ (16-11) sombra de los árboles sin aro (la sombra y las hojas caídas se pintan tras
   el contorno: opciones `shadow` y `after` de `def`), lámpara del jefe en la esquina de la mesa,
