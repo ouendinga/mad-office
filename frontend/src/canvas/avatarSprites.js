@@ -430,6 +430,34 @@ export function drawActionIndicator(ctx, action, ox, oy, scale, frame) {
   }
 }
 
+// Lo que acompaña a comer, en la rejilla de 32: migas que caen (quien come rápido o se mancha),
+// migas que salen volando (quien habla con la boca llena) y el vaho del táper recién calentado.
+// mods: lo que sale de eatMods (SpriteSheet.js): { eat, food, frame, mouth }.
+const CRUMB = '#E8C07A';
+const HOT = ['pasta', 'arroz', 'lentejas', 'fideos'];
+export function drawEatIndicator(ctx, mods, ox, oy, scale, frame) {
+  const style = mods.eat;
+  if ((style === 'rapido' || style === 'mancha' || style === 'bocata') && mods.frame === 2) {
+    const k = frame % 3;
+    p32(ctx, ox, oy, 13, 17 + k, CRUMB, scale);
+    p32(ctx, ox, oy, 18, 18 + ((k + 1) % 3), CRUMB, scale);
+  }
+  if (style === 'habla' && mods.mouth === 'open') {
+    const k = frame % 3;
+    p32(ctx, ox, oy, 19 + k, 14 - k, CRUMB, scale);
+    p32(ctx, ox, oy, 20 + k, 16 - k, CRUMB, scale);
+  }
+  if (HOT.includes(mods.food) && mods.frame === 0 && style !== 'bocata') {
+    // vaho: dos volutas que suben del táper y se desvanecen
+    const k = frame % 4;
+    ctx.save();
+    ctx.globalAlpha = 0.55 - k * 0.12;
+    p32(ctx, ox, oy, 14 + (k % 2), 19 - k, '#FFFFFF', scale);
+    p32(ctx, ox, oy, 17 - (k % 2), 18 - k, '#FFFFFF', scale);
+    ctx.restore();
+  }
+}
+
 export function drawAvatar(ctx, config, ox, oy, scale) {
   drawBody(ctx, config.skinTone || 0, ox, oy, scale);
   drawClothes(ctx, config.clothes || 0, ox, oy, scale);

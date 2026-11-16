@@ -211,13 +211,133 @@ function accessory(d, idx) {
   }
 }
 
+// --- comer y hablar ---
+//
+// Cómo come cada uno lo decide el servidor (`eat: { style, food }` en el estado del mundo); aquí solo
+// se dibuja. `frame`: 0 = con la comida delante, 1 = bocado (la mano o el bocata a la boca),
+// 2 = masticando (mofletes hinchados). `mouth: 'open'` = hablando.
+
+// Color de cada comida: [principal, detalle].
+export const FOOD_COLORS = {
+  pasta: ['#F2C14E', '#D9822B'], ensalada: ['#6DBE45', '#E74C3C'], arroz: ['#F5F0E1', '#E3A33A'],
+  lentejas: ['#8A5A2B', '#D35400'], tortilla: ['#F7D774', '#C99A3B'], pizza: ['#E8B04F', '#C0392B'],
+  sushi: ['#FFFFFF', '#F28B82'], fideos: ['#F3D58A', '#6DBE45'], bocata: ['#D9A05B', '#C0392B'], fruta: ['#E74C3C', '#F39C12'],
+};
+const FORK = '#C9CED6';
+const STICK = '#8B5A2B';
+const SAUCE = '#B5462A';
+const RIM = '#3B3346';
+
+// Brazo doblado: manga desde el hombro y la mano donde toque. side: 'l' (izquierda en pantalla) o 'r'.
+function bentArm(d, side, sleeve, skin, hand) {
+  const { r, clear } = d;
+  const x0 = side === 'l' ? 8 : 22;
+  for (let y = 20; y <= 24; y++) { clear(x0, y); clear(x0 + 1, y); }
+  r(x0, 19, 2, 1, sleeve);
+  const [hx, hy] = hand;
+  // la manga va del hombro a la mano en diagonal
+  const steps = Math.max(Math.abs(hx - x0), Math.abs(hy - 20));
+  for (let i = 0; i <= steps; i++) {
+    const x = Math.round(x0 + ((hx - x0) * i) / Math.max(1, steps));
+    const y = Math.round(20 + ((hy - 20) * i) / Math.max(1, steps));
+    r(x, y, 2, 1, sleeve);
+  }
+  r(hx, hy, 2, 2, skin);
+}
+
+// Un recipiente con borde oscuro (sobre la ropa no se distinguía): x0, y0, ancho, alto.
+function vessel(d, x0, y0, w, h, body, food, detail) {
+  const { r, p } = d;
+  r(x0, y0, w, h, RIM);
+  r(x0 + 1, y0 + 1, w - 2, h - 2, body);
+  r(x0 + 1, y0 + 1, w - 2, 1, food);
+  p(x0 + 2, y0 + 1, detail);
+  if (w > 6) p(x0 + w - 3, y0 + 1, detail);
+}
+
+// El bocado: la mano bajo la barbilla, el cubierto en diagonal y la comida en la boca.
+function biteTo(d, sleeve, skin, tool, food, detail) {
+  const { r, p } = d;
+  bentArm(d, 'r', sleeve, skin, [18, 18]);
+  p(17, 17, tool); p(17, 16, tool);
+  r(15, 14, 2, 1, food); r(15, 15, 2, 1, detail);
+}
+
+function eatPose(d, mods, skin, clothesIdx) {
+  const { r, p } = d;
+  const c = tones(CLOTHES_COLORS[clothesIdx % CLOTHES_COLORS.length]);
+  const [food, detail] = FOOD_COLORS[mods.food] || FOOD_COLORS.pasta;
+  const style = mods.eat;
+  const f = mods.frame | 0;
+  const bite = f === 1;
+  if (style === 'bocata') {
+    // El bocata, a dos manos: delante del pecho o en la boca (tapándola).
+    const y = bite ? 14 : 21;
+    bentArm(d, 'l', c.base, skin.base, bite ? [10, 16] : [9, 21]);
+    bentArm(d, 'r', c.dark, skin.dark, bite ? [20, 16] : [21, 21]);
+    r(11, y - 1, 10, 4, RIM);
+    r(12, y, 8, 2, food); r(12, y, 8, 1, shift(food, 24));
+    for (let x = 12; x < 20; x += 2) { p(x, y + 1, detail); p(x + 1, y + 1, '#6DBE45'); }
+    if (f === 2) { d.clear(20, y - 1); d.clear(20, y); d.clear(19, y - 1); } // el mordisco
+  } else if (style === 'palillos') {
+    // Bol y palillos.
+    bentArm(d, 'l', c.base, skin.base, [10, 21]);
+    vessel(d, 12, 21, 8, 4, '#C0392B', food, detail);
+    p(15, 23, '#FFFFFF');
+    if (bite) biteTo(d, c.dark, skin.dark, STICK, food, detail);
+    else {
+      bentArm(d, 'r', c.dark, skin.dark, [20, 21]);
+      p(19, 20, STICK); p(18, 19, STICK); p(20, 19, STICK); p(19, 18, STICK);
+    }
+  } else if (style === 'movil') {
+    // El móvil en una mano (con la pantalla encendida) y el táper en la otra; mira hacia abajo.
+    bentArm(d, 'l', c.base, skin.base, [9, 21]);
+    r(10, 19, 4, 5, '#22222B'); r(11, 20, 2, 3, '#7FD3FF');
+    vessel(d, 15, 21, 6, 4, '#E8F4FA', food, detail);
+    if (bite) biteTo(d, c.dark, skin.dark, FORK, food, detail);
+    else bentArm(d, 'r', c.dark, skin.dark, [21, 21]);
+    for (const x of [11, 19]) r(x, 10, 2, 1, skin.base); // los ojos, al móvil
+  } else {
+    // Táper y tenedor (taper, rapido, mancha, habla) o un bol pequeño de picotear (bocaditos).
+    const small = style === 'bocaditos';
+    const x0 = small ? 13 : 11;
+    const w = small ? 6 : 10;
+    bentArm(d, 'l', c.base, skin.base, [x0 - 2, 21]);
+    vessel(d, x0, 21, w, 4, small ? '#FFFFFF' : '#E8F4FA', food, detail);
+    if (bite) biteTo(d, c.dark, skin.dark, FORK, food, detail);
+    else {
+      bentArm(d, 'r', c.dark, skin.dark, [20, 21]);
+      p(20, 20, FORK); p(20, 19, FORK); p(21, 19, FORK);
+    }
+    if (style === 'mancha') { p(12, 26, SAUCE); p(19, 25, SAUCE); p(18, 26, SAUCE); p(17, 15, SAUCE); }
+  }
+  if (f === 2) puffCheeks(d, skin);
+}
+
+// Masticando: los mofletes se hinchan (la cara se ensancha un píxel a cada lado).
+function puffCheeks(d, skin) {
+  const { r } = d;
+  r(7, 13, 1, 3, skin.base);
+  r(24, 13, 1, 3, skin.dark);
+  r(14, 14, 4, 1, '#8A3F3F');
+}
+
+// Hablando: la boca abierta.
+function openMouth(d) {
+  const { r, p } = d;
+  r(14, 14, 4, 2, '#5A2328');
+  p(15, 15, '#C25B5B'); p(16, 15, '#C25B5B');
+}
+
 // --- generación y caché ---
 
 const CACHE = new Map();
-const key = (c, pose) => `${c.skinTone | 0}-${c.hairStyle | 0}-${c.hairColor | 0}-${c.clothes | 0}-${c.accessory | 0}-${pose}`;
+const modsKey = m => (m ? `${m.eat || ''}.${m.food || ''}.${m.frame | 0}.${m.mouth || ''}` : '');
+const key = (c, pose, m) => `${c.skinTone | 0}-${c.hairStyle | 0}-${c.hairColor | 0}-${c.clothes | 0}-${c.accessory | 0}-${pose}-${modsKey(m)}`;
 
-export function characterSprite(config = {}, pose = 'idle') {
-  const k = key(config, pose);
+// mods (opcional): { eat, food, frame, mouth } para comer y hablar.
+export function characterSprite(config = {}, pose = 'idle', mods = null) {
+  const k = key(config, pose, mods);
   if (CACHE.has(k)) return CACHE.get(k);
   const d = grid();
   const tone = (config.skinTone | 0) % SKIN_TONES.length;
@@ -227,6 +347,8 @@ export function characterSprite(config = {}, pose = 'idle') {
   head(d, skin);
   hair(d, config.hairStyle | 0, HAIR_COLORS[(config.hairColor | 0) % HAIR_COLORS.length]);
   accessory(d, config.accessory | 0);
+  if (mods && mods.eat) eatPose(d, mods, skin, config.clothes | 0);
+  if (mods && mods.mouth === 'open') openMouth(d);
   const g = outline(d.g);
 
   const canvas = document.createElement('canvas');
@@ -245,11 +367,11 @@ export function characterSprite(config = {}, pose = 'idle') {
 }
 
 // Dibuja el personaje con su sombra en el suelo.
-export function drawCharacter(ctx, config, x, y, scale = 1, pose = 'idle') {
+export function drawCharacter(ctx, config, x, y, scale = 1, pose = 'idle', mods = null) {
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.beginPath();
   ctx.ellipse(x + (SIZE * scale) / 2, y + 30 * scale, 8 * scale, 2 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.drawImage(characterSprite(config, pose), Math.round(x), Math.round(y), SIZE * scale, SIZE * scale);
+  ctx.drawImage(characterSprite(config, pose, mods), Math.round(x), Math.round(y), SIZE * scale, SIZE * scale);
 }
