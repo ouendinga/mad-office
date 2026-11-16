@@ -287,3 +287,9 @@
   .office-header-right .hb-label { display: none; }
   .office-user-name { display: none; }
 }
+
+.pruebas-switch { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.75rem; margin: 0.5rem 0 0.75rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-surface); cursor: pointer; }
+.pruebas-switch input { width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; accent-color: var(--secondary); }
+.pruebas-switch span { display: flex; flex-direction: column; gap: 0.2rem; }
+.pruebas-switch small { color: var(--text-secondary); font-size: 0.8rem; }

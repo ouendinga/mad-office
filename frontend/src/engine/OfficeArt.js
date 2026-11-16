@@ -268,8 +268,9 @@ def('desk', (b, w, h, o, ctx) => {
   b.p(7, -6, '#8EC5FF'); b.p(24, -5, '#8EC5FF');
   // teclado no se ve (está al otro lado); papeles, taza y planta mini
   b.r(2, 4, 5, 4, '#F5F3EE'); b.r(3, 5, 3, 1, '#C9C4BA');
-  b.r(25, 4, 3, 4, '#E3584B'); b.p(28, 5, '#E3584B');
-  if (o.seed % 3 === 0) { b.r(25, 0, 3, 3, '#3F9C45'); b.r(25, 3, 3, 1, '#C66B3D'); }
+  b.r(24, 4, 3, 4, '#E3584B'); b.p(27, 5, '#E3584B'); // taza
+  // planta mini en la esquina, al lado de la taza (antes se pintaba encima de ella)
+  if (o.seed % 3 === 0) { b.r(29, 1, 3, 3, '#3F9C45'); b.r(29, 4, 3, 3, '#C66B3D'); }
 }, { up: 8 });
 
 def('boss_desk', (b, w) => {
@@ -300,6 +301,26 @@ def('plant_big', (b, w, h, o) => {
   leaves(b, 4, -9, 4, ['#256B33', '#358A41', '#57B04F'], o.seed + 2);
   leaves(b, 12, -10, 4, ['#256B33', '#358A41', '#57B04F'], o.seed + 3);
 }, { up: 15 });
+
+// Silla de oficina vista de frente: el respaldo asoma por detrás de quien se sienta (o se ve
+// entera si la mesa está vacía). La del jefe, de piel y más alta.
+def('office_chair', (b, w, h, o) => {
+  const boss = o.color === 'boss';
+  const back = boss ? '#5A2E1E' : '#3B3F52';
+  const light = boss ? '#7A4430' : '#555A70';
+  const cx = Math.floor(w / 2);
+  const bw = boss ? 20 : 16;
+  const top = boss ? -14 : -8;
+  b.r(cx - bw / 2, top, bw, 16 - top - 4, back); b.r(cx - bw / 2 + 2, top + 2, bw - 4, 2, light);
+  b.r(cx - bw / 2 - 1, 8, bw + 2, 4, back); // asiento
+  b.r(cx - 1, 12, 2, 3, DARK); b.r(cx - 5, 15, 10, 1, DARK); // pie y ruedas
+}, { up: 14, flat: true }); // flat: va en la capa de abajo, detrás de quien se sienta
+
+// Silla de visitas (delante del despacho del jefe).
+def('guest_chair', b => {
+  b.r(3, -2, 10, 9, '#7A4B2C'); b.r(4, -1, 8, 2, '#9A6640');
+  b.r(2, 7, 12, 4, '#8E3B46'); b.r(3, 11, 2, 4, '#5A3420'); b.r(11, 11, 2, 4, '#5A3420');
+}, { up: 2, flat: true });
 
 def('armchair', b => {
   b.r(1, 2, 14, 12, '#D9694C'); b.r(1, 2, 14, 2, '#EC8869'); b.r(1, 2, 3, 12, '#B9533A'); b.r(12, 2, 3, 12, '#B9533A');

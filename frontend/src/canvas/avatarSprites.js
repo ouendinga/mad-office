@@ -326,26 +326,14 @@ export function drawRepresentation(ctx, representation, ox, oy, scale, frame) {
       break;
 
     case 'enfadado':
-      // Cara roja + cejas fruncidas
-      setPixel(ctx, ox + 5, oy + 4, '#FF6B6B', scale);
-      setPixel(ctx, ox + 10, oy + 4, '#FF6B6B', scale);
-      // Cejas enfadadas
-      setPixel(ctx, ox + 5, oy + 2, '#1A1A2E', scale);
-      setPixel(ctx, ox + 6, oy + 2, '#1A1A2E', scale);
-      setPixel(ctx, ox + 9, oy + 2, '#1A1A2E', scale);
-      setPixel(ctx, ox + 10, oy + 2, '#1A1A2E', scale);
-      if (frame % 2 === 0) {
-        setPixel(ctx, ox + 6, oy - 1, '#FF4444', scale);
-        setPixel(ctx, ox + 9, oy - 1, '#FF4444', scale);
+      // Marca de enfado encima de la cabeza (las de la cara caían fuera de sitio con los sprites nuevos).
+      {
+        const c = frame % 2 === 0 ? '#FF4444' : '#D63031';
+        for (const [x, y] of [[12, -3], [14, -3], [13, -2], [12, -1], [14, -1], [11, -2], [15, -2]]) setPixel(ctx, ox + x, oy + y, c, scale);
       }
       break;
 
     case 'somnoliento':
-      // Ojos cerrados + ZZZ
-      setPixel(ctx, ox + 6, oy + 3, '#1A1A2E', scale);
-      setPixel(ctx, ox + 7, oy + 3, '#1A1A2E', scale);
-      setPixel(ctx, ox + 8, oy + 3, '#1A1A2E', scale);
-      setPixel(ctx, ox + 9, oy + 3, '#1A1A2E', scale);
       // ZZZ burbujas
       {
         const zOff = frame % 4;
@@ -368,9 +356,6 @@ export function drawRepresentation(ctx, representation, ox, oy, scale, frame) {
         ctx.font = `${scale * 2}px sans-serif`;
         ctx.fillText('\u266B', (ox + 2 - nOff) * scale, (oy + 1 - nOff) * scale);
       }
-      // Boca abierta (sonrisa grande)
-      setPixel(ctx, ox + 7, oy + 5, '#E74C3C', scale);
-      setPixel(ctx, ox + 8, oy + 5, '#E74C3C', scale);
       break;
 
     case 'tirandose_del_pelo':
@@ -409,13 +394,14 @@ export function drawRepresentation(ctx, representation, ox, oy, scale, frame) {
 // Indicadores de accion del avatar
 export function drawActionIndicator(ctx, action, ox, oy, scale, frame) {
   switch (action) {
-    case 'durmiendo':
-      // Ojos cerrados
-      setPixel(ctx, ox + 6, oy + 3, '#1A1A2E', scale);
-      setPixel(ctx, ox + 7, oy + 3, '#1A1A2E', scale);
-      setPixel(ctx, ox + 8, oy + 3, '#1A1A2E', scale);
-      setPixel(ctx, ox + 9, oy + 3, '#1A1A2E', scale);
+    case 'durmiendo': {
+      // Zzz encima de la cabeza (los ojos pintados caían fuera de la cara con los sprites nuevos).
+      const zOff = frame % 4;
+      ctx.fillStyle = '#A29BFE';
+      ctx.font = `${scale * 3}px 'Press Start 2P', monospace`;
+      ctx.fillText('z', (ox + 12) * scale, (oy - zOff) * scale);
       break;
+    }
 
     case 'celebrando':
       // Brazos arriba
@@ -424,9 +410,7 @@ export function drawActionIndicator(ctx, action, ox, oy, scale, frame) {
       break;
 
     case 'rabieta':
-      // Cara roja + vapor
-      setPixel(ctx, ox + 5, oy + 4, '#FF0000', scale);
-      setPixel(ctx, ox + 10, oy + 4, '#FF0000', scale);
+      // Vapor encima de la cabeza
       if (frame % 2 === 0) {
         setPixel(ctx, ox + 6, oy - 1, '#FF4444', scale);
         setPixel(ctx, ox + 9, oy - 1, '#FF4444', scale);
@@ -446,9 +430,7 @@ export function drawActionIndicator(ctx, action, ox, oy, scale, frame) {
       break;
 
     case 'holgazaneando':
-      // Ojos medio cerrados
-      setPixel(ctx, ox + 6, oy + 3, '#1A1A2E', scale);
-      setPixel(ctx, ox + 9, oy + 3, '#1A1A2E', scale);
+      // Sin marca: estar tranquilo no necesita dibujo (antes pintaba ojos fuera de sitio).
       break;
 
     default:

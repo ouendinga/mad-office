@@ -10,7 +10,7 @@
 
 const clockLib = require('./clock');
 const { parts, blockOf, phaseOf, isWorkday, dreamWindowOpen, nextMorning, addDays } = clockLib;
-const { ACTION_FOR_PLACE, targetFor, zonePos, zoneSpotFixed, zoneCapacity, deskPos, spotPos, ZONES } = require('./places');
+const { ACTION_FOR_PLACE, targetFor, zonePos, ownSpot, zoneSpotFixed, zoneCapacity, deskPos, spotPos, ZONES } = require('./places');
 const micro = require('./micro');
 const { lunchGroups } = require('./lunch');
 const { thoughtFor } = require('./thoughts');
@@ -545,7 +545,7 @@ class Sim {
     const lugar = a.lugar === 'mesa' && withDesk != null ? 'visita' : a.lugar;
     // Quien tiene despacho o mostrador, «en su mesa» está allí.
     const own = a.lugar === 'mesa' && withDesk == null && c.place && c.place !== 'mesa';
-    const pos = own ? zonePos(c.place, c.id) : targetFor({ lugar: a.lugar, deskIndex: c.desk_index, withDeskIndex: withDesk, slot: c.id });
+    const pos = own ? ownSpot(c.place) : targetFor({ lugar: a.lugar, deskIndex: c.desk_index, withDeskIndex: withDesk, slot: c.id });
     return {
       ...base,
       home: false,

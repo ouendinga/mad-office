@@ -108,6 +108,15 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
         {err && <div className="modal-error">{err}</div>}
         {!st ? <p>Cargando…</p> : (
           <>
+            <label className="pruebas-switch">
+              <input type="checkbox" role="switch" checked={st.active} disabled={busy}
+                onChange={e => call('/pruebas/modo', { method: 'PUT', body: { on: e.target.checked } })} />
+              <span><strong>Modo pruebas {st.active ? 'activado' : 'desactivado'}</strong>
+                <small>{st.active
+                  ? 'Al desactivarlo, la oficina vuelve al día y la hora reales y los jugadores de prueba se van a casa (no se borran).'
+                  : 'La oficina va con la hora real y sin jugadores de prueba. Actívalo para mover el reloj o traerlos de vuelta.'}</small>
+              </span>
+            </label>
             <section className="pruebas-sec">
               <h3>🕐 Reloj</h3>
               <p className="pruebas-now">

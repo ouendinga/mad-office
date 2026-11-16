@@ -398,3 +398,7 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
 - **Plantillas de oficina:** más y menos lujo, capacidad y espacios, incluida una de **cubículos**
   de las de antes. Ver `doc/disenador-de-oficinas.md`.
 - **Revisión de UX/UI y de flujos:** `doc/revision-ux-2026-11-15.md`.
+- **Eventos de oficina en la terraza** (pedido el 2026-11-16): afterworks, talleres, team building…
+  Algunos salen solos por reglas (el viernes por la tarde, un cumpleaños) y otros los configura el
+  admin desde un calendario: qué, cuándo y dónde. Van con los incidentes con estado: los
+  personajes se enteran, van o no según su carácter, y lo comentan.

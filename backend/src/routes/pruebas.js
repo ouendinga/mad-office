@@ -39,14 +39,34 @@ function router({ world }) {
         WHERE u.is_test ORDER BY u.id`, [req.companyId])).rows;
     const p = clockLib.parts(req.sim.clock.nowMs());
     const reloj = c.settings.reloj || null;
-    return { now: { date: p.date, hhmm: p.hhmm, weekday: p.weekday }, moved: !!reloj, speed: reloj ? reloj.speed : 1, players };
+    return { active: !c.settings.pruebas_apagado, now: { date: p.date, hhmm: p.hhmm, weekday: p.weekday }, moved: !!reloj, speed: reloj ? reloj.speed : 1, players };
   };
 
   r.get('/', async (req, res) => res.json(await state(req)));
 
+  // Interruptor del modo pruebas. Apagado: la oficina vuelve a la hora real y los jugadores de
+  // prueba se pausan (no salen en la oficina, pero no se borran). Encendido: vuelven.
+  const setActive = async (req, on) => {
+    const pool = db(req);
+    const cur = (await pool.query('SELECT settings FROM companies WHERE id = $1', [req.companyId])).rows[0].settings;
+    if (on) delete cur.pruebas_apagado;
+    else { cur.pruebas_apagado = true; delete cur.reloj; }
+    await pool.query('UPDATE companies SET settings = $2 WHERE id = $1', [req.companyId, cur]);
+    await pool.query(
+      `UPDATE characters SET paused = $2 WHERE company_id = $1 AND owner_user_id IN (SELECT id FROM users WHERE is_test)`,
+      [req.companyId, !on]);
+    await world.reload(req.companyId);
+    req.sim.invalidate();
+  };
+  r.put('/modo', async (req, res) => {
+    await setActive(req, req.body && req.body.on === true);
+    res.json(await state(req));
+  });
+
   // Reloj: { reset } | { hhmm, day: 'hoy'|'laborable', speed } | { plus: minutos } | { speed }.
   r.put('/reloj', async (req, res) => {
     const b = req.body || {};
+    if (!b.reset) await setActive(req, true);
     const base = req.sim.baseClock;
     const now = req.sim.clock.nowMs();
     const cur = (await db(req).query('SELECT settings FROM companies WHERE id = $1', [req.companyId])).rows[0].settings;
@@ -80,6 +100,7 @@ function router({ world }) {
   // (o en uno de plazas). Por defecto sin IA (piloto automático, gratis).
   r.post('/jugadores', async (req, res) => {
     const pool = db(req);
+    await setActive(req, true);
     const b = req.body || {};
     const n = (await pool.query(
       `SELECT COUNT(*)::int AS n FROM users u JOIN memberships m ON m.user_id = u.id AND m.company_id = $1 WHERE u.is_test`,

@@ -165,8 +165,11 @@ function paintScene(world, animFrame, now) {
       items.push({
         y: p.y,
         draw: () => {
-          renderAvatar(ctx, c.avatar_config || {}, Math.round(p.x - 16), Math.round(p.y - 30), 1,
-            animFrame, p.moving ? 'paseando' : c.action, c.representation);
+          // Sentado: un poco más abajo, como hundido en la silla.
+          const sit = !p.moving && c.action === 'sentado' ? 3 : 0;
+          renderAvatar(ctx, c.avatar_config || {}, Math.round(p.x - 16), Math.round(p.y - 30 + sit), 1,
+            // Quieto no anda: «paseando» solo mientras se mueve (antes movía los pies parado en la fuente).
+            animFrame, p.moving ? 'paseando' : (c.action === 'paseando' || c.action === 'corriendo' ? null : c.action), c.representation);
           if (c.visitor) drawVisitorProps(ctx, c.visitor.kind, Math.round(p.x - 16), Math.round(p.y - 30));
         },
       });

@@ -40,10 +40,19 @@ for i in 1 2 3 4 5; do st -X POST -H "$J" -d '{"email":"compi@x.es","password":"
 c=$(st -X POST -H "$J" -d '{"email":"compi@x.es","password":"compi-pass-1"}' $B/auth/login); ok 19 429 "$c" "tras 5 fallos"
 c=$(st -H "$A" -X DELETE $B/companies/1/pruebas/jugadores/$PID); ok 20 200 "$c" "borrar jugador"; echo "    $(python3 -c "import json;print(json.load(open('$R'))['players'])")"
 c=$(st -H "$A" -X PUT -H "$J" -d '{"reset":true}' $B/companies/1/pruebas/reloj); ok 21 200 "$c" "reloj real"; echo "    $(python3 -c "import json;d=json.load(open('$R'));print(d['now'],d['moved'])")"
+# Interruptor del modo pruebas: apagado vuelve a la hora real y pausa a los jugadores de prueba.
+st -H "$A" -X POST -H "$J" -d '{"name":"Pausable"}' $B/companies/1/pruebas/jugadores >/dev/null
+st -H "$A" -X PUT -H "$J" -d '{"hhmm":"11:30","day":"laborable","speed":5}' $B/companies/1/pruebas/reloj >/dev/null
+c=$(st -H "$A" -X PUT -H "$J" -d '{"on":false}' $B/companies/1/pruebas/modo); ok 22 200 "$c" "apagar modo pruebas"
+python3 -c "import json;d=json.load(open('$R'));assert d['active'] is False and d['moved'] is False, d" && echo "    apagado: hora real" || { echo "  ✗ sigue con el reloj movido"; fallos=1; }
+c=$(st -H "$A" $B/companies/1/org); python3 -c "import json;d=json.load(open('$R'));names=[h['name'] for p in d['positions'] for h in p['holders']];assert 'Pausable' not in names, names" && echo "    el jugador de prueba no está en la oficina" || { echo "  ✗ el jugador pausado sigue en el organigrama"; fallos=1; }
+c=$(st -H "$A" -X PUT -H "$J" -d '{"on":true}' $B/companies/1/pruebas/modo); ok 23 200 "$c" "encender modo pruebas"
+c=$(st -H "$A" $B/companies/1/org); python3 -c "import json;d=json.load(open('$R'));names=[h['name'] for p in d['positions'] for h in p['holders']];assert 'Pausable' in names, names" && echo "    vuelve" || { echo "  ✗ no vuelve al encender"; fallos=1; }
+
 # Sin despertador, rehacer la ficha no gasta intentos: se reutiliza el turno que espera en la cola.
 IV='{"answers":{"a":"La montaña","b":"Café","c":"Programar"}}'
-T1=""; for i in 22 23 24 25; do
-  c=$(st -H "$A" -X POST -H "$J" -d "$IV" $B/companies/1/me/interview); ok $i 202 "$c" "entrevista nº$((i-21)) sin despertador"
+T1=""; for i in 24 25 26 27; do
+  c=$(st -H "$A" -X POST -H "$J" -d "$IV" $B/companies/1/me/interview); ok $i 202 "$c" "entrevista nº$((i-23)) sin despertador"
   T=$(python3 -c "import json;print(json.load(open('$R')).get('turnId'))"); [ -z "$T1" ] && T1=$T
   [ "$T" = "$T1" ] && echo "    mismo turno ($T), quedan $(python3 -c "import json;print(json.load(open('$R'))['attemptsLeft'])")" || { echo "  ✗ turno nuevo $T (esperaba $T1)"; fallos=1; }
 done

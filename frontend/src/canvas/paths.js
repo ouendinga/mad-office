@@ -5,7 +5,7 @@
 
 const FREE_TILES = new Set(['.', 'D', '=']);
 // Los asientos tampoco: la gente se sienta en ellos (sillas de la sala, taburetes, sofá, puf, bancos).
-const NOT_BLOCKING = new Set(['rug', 'cable_floor', 'string_lights', 'tv', 'chairs_row', 'stools', 'sofa', 'beanbag', 'armchair', 'bench']);
+const NOT_BLOCKING = new Set(['rug', 'cable_floor', 'string_lights', 'tv', 'chairs_row', 'stools', 'sofa', 'beanbag', 'armchair', 'bench', 'office_chair', 'guest_chair']);
 
 export function buildWalkable(map, objectDef) {
   const { cols, rows, grid } = map;
