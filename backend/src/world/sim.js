@@ -71,7 +71,7 @@ class Sim {
     this.company = r.rows[0];
     this.clock = clockLib.shiftedClock(this.baseClock, this.company.settings.reloj);
     // Su oficina (plano): la Clásica si no ha elegido otra.
-    this.layout = layouts.get(this.company.settings.oficina);
+    this.layout = await layouts.getFor(this.pool, this.companyId, this.company.settings.oficina);
     const h = this.company.settings.hours;
     if (h && this.sch.set(h)) console.error(`empresa ${this.companyId}: horario guardado no válido`);
     return this.company;

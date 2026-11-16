@@ -56,6 +56,14 @@ python3 -c "import json;d=json.load(open('$R'));assert d['full'] is False and 'o
 c=$(st -H "$A" $B/companies/1/characters/$CID); python3 -c "import json;d=json.load(open('$R'));assert d['full'] is True and 'objetivo' in d['ficha'] and 'stats' in d, d" && echo "    quien lleva la empresa lo ve todo" || { echo "  ✗ el admin no lo ve todo"; fallos=1; }
 c=$(st -H "Authorization: Bearer $CT" "$B/companies/1/characters/$CID/history"); python3 -c "import json;d=json.load(open('$R'));assert d['mine'] is False and d['diaries']==[] and d['dreams']==[], d" && echo "    historial del compi sin diarios ni sueños" || { echo "  ✗ historial con de más"; fallos=1; }
 
+# Diseñador: un plano roto no se guarda; uno bueno sí, y el compi no puede guardar.
+c=$(st -H "$A" -X POST -H "$J" -d '{"name":"Rota","plan":{"cols":20,"rows":14,"grid":[],"rooms":[],"objects":[]}}' $B/companies/1/planos); ok 23c 400 "$c" "plano roto no se guarda"
+PLAN=$(curl -s -H "$A" $B/companies/1/oficinas | python3 -c "
+import json,sys;d=json.load(sys.stdin);t=[x for x in d['templates'] if x['id']=='loft'][0]['plan']
+print(json.dumps({'name':'Copia del loft','plan':{'cols':t['cols'],'rows':t['rows'],'grid':t['grid'],'objects':t['objects'],'rooms':[dict(type=r['id'],label=r['label'],x=r['x'],y=r['y'],w=r['w'],h=r['h'],floor=r['floor'],wall=r['wall']) for r in t['rooms']]}}))")
+c=$(st -H "$A" -X POST -H "$J" -d "$PLAN" $B/companies/1/planos); ok 23d 201 "$c" "plano bueno se guarda"
+c=$(st -H "Authorization: Bearer $CT" -X POST -H "$J" -d "$PLAN" $B/companies/1/planos); ok 23e 403 "$c" "el compi no guarda planos"
+
 # Sin despertador, rehacer la ficha no gasta intentos: se reutiliza el turno que espera en la cola.
 IV='{"answers":{"a":"La montaña","b":"Café","c":"Programar"}}'
 T1=""; for i in 24 25 26 27; do

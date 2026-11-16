@@ -70,7 +70,7 @@ def loft():
         *[{'type': 'desk', 'x': d['x'], 'y': d['y'], 'w': 2} for d in desks],
         {'type': 'wall_window', 'x': 3, 'y': 0, 'w': 2}, {'type': 'wall_window', 'x': 9, 'y': 0, 'w': 2},
         {'type': 'wall_art', 'x': 14, 'y': 0}, {'type': 'wall_kanban', 'x': 6, 'y': 0, 'w': 2},
-        {'type': 'kanban', 'x': 14, 'y': 4, 'w': 2}, {'type': 'printer', 'x': 14, 'y': 12},
+        {'type': 'kanban', 'x': 13, 'y': 6, 'w': 2}, {'type': 'printer', 'x': 14, 'y': 12},
         {'type': 'water_cooler', 'x': 14, 'y': 15}, {'type': 'rack', 'x': 1, 'y': 15},
         {'type': 'plant_big', 'x': 1, 'y': 1}, {'type': 'plant', 'x': 15, 'y': 1}, {'type': 'plant', 'x': 5, 'y': 15},
         {'type': 'lamp', 'x': 9, 'y': 15},
@@ -98,7 +98,7 @@ def loft():
         'desks': desks,
         'zones': {'cafe': {'x': 18, 'y': 6, 'w': 6, 'h': 1}, 'descanso': {'x': 18, 'y': 12, 'w': 4, 'h': 3}, 'lavabo': {'x': 25, 'y': 11, 'w': 1, 'h': 4}},
         'zoneSpots': {'lavabo': [[24, 11], [25, 13], [26, 15]]},
-        'spots': {'impresora': [[14, 13]], 'fuente': [[13, 15]], 'kanban': [[14, 6]], 'maquina': [[23, 2]], 'consola': [[18.5, 10], [19.5, 10]]},
+        'spots': {'impresora': [[14, 13]], 'fuente': [[13, 15]], 'kanban': [[14, 7]], 'maquina': [[23, 2]], 'consola': [[18.5, 10], [19.5, 10]]},
         'objects': objs,
     })
 
@@ -212,7 +212,7 @@ def planta():
             room('banos', 'Baños', 38, 20, 4, 11, 'bath', '#CFE6EA'),
             room('terraza', 'Terraza', 43, 1, 7, 30, 'deck', '#C9A06A'),
         ],
-        'doors': [(5, 8), (13, 8), (14, 8), (23, 8), (24, 8), (33, 8), (13, 11), (14, 11), (34, 11), (27, 20), (37, 24), (42, 9), (42, 10), (13, 31)],
+        'doors': [(5, 8), (13, 8), (14, 8), (23, 8), (24, 8), (33, 8), (13, 11), (14, 11), (41, 11), (27, 14), (27, 20), (37, 24), (42, 9), (42, 10), (13, 31)],
         'desks': desks,
         'zones': {
             'recepcion': {'x': 2, 'y': 5, 'w': 5, 'h': 2}, 'despacho': {'x': 11, 'y': 5, 'w': 5, 'h': 2},

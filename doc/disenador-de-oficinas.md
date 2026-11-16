@@ -128,4 +128,26 @@ catálogo de la fase 4.
 - **Decidido por Álvaro:** el diseñador será solo para ordenador; en el móvil, la oficina se ve
   pero no se edita.
 
-Pendiente: la lupa usa las escenas de la Clásica para cualquier plano (fase 3) y el diseñador (fase 4).
+- **Fase 3 (lupa).** Ya no es una escena dibujada aparte: es un zoom de la oficina real, así que
+  sirve con cualquier plano y cada persona sale en su sitio. «Tu vista» sigue a tu personaje y deja
+  en penumbra lo que queda fuera de su sala. `engine/RoomScenes.js` se ha quedado sin uso.
+- **Fase 4 (diseñador).** Es `pages/Designer.js`, solo para ordenador: en el móvil, la oficina se
+  ve pero no se edita.
+  - **Herramientas:** sala (arrastrando: pone paredes y suelo), mueble (catálogo de unos 50),
+    mover, borrar, pared, suelo, puerta y exterior.
+  - **Edición:** deshacer, cambiar el tamaño, renombrar salas y cambiarles el suelo.
+  - **Validación en vivo** desde el servidor (`world/planCheck.js`), con frases legibles («No se
+    puede entrar en «X»: ponle una puerta», «Una mesa no tiene sitio libre detrás…»). Con errores
+    no se puede guardar.
+  - **Qué se deduce del dibujo:** las mesas, los huecos de cada sala, el sillón del jefe y el
+    mostrador, y los sitios para las escapadas.
+  - **Guardado:** en la tabla `office_plans`, con identificador `p<n>`. Para usarla se programa una
+    mudanza.
+  - **Desde la galería:** «Empezar en blanco», «Copiar y editar» cualquier plantilla, y editar o
+    borrar las propias (no la vuestra actual ni aquella a la que os mudáis).
+
+  El validador encontró dos puertas tapadas en las plantillas (el kanban del Loft y la encimera de
+  la Planta grande), ya arregladas.
+
+Pendiente del diseñador: girar muebles, color de pared por sala desde el panel y elegir el muñeco
+de cada mueble con miniatura.

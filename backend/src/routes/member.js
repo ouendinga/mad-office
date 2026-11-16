@@ -370,16 +370,70 @@ function router({ world }) {
     return plain;
   };
   r.get('/oficina', (req, res) => res.json(planOf(req.sim.layout || layouts.get())));
-  r.get('/oficinas', (req, res) => {
+  r.get('/oficinas', async (req, res) => {
     const current = (req.sim.layout || layouts.get()).id;
-    res.json({ current, mudanza: (req.sim.company.settings || {}).mudanza || null,
-      templates: layouts.ids().map(id => layouts.get(id)).map(L => ({ ...layouts.summary(L), plan: planOf(L) })) });
+    const custom = await layouts.customFor(req.app.get('db'), req.companyId);
+    res.json({
+      current, mudanza: (req.sim.company.settings || {}).mudanza || null,
+      templates: [...layouts.ids().map(id => layouts.get(id)), ...custom]
+        .map(L => ({ ...layouts.summary(L), plan: planOf(L), custom: layouts.isCustom(L.id) })),
+    });
+  });
+
+  // Diseñador de oficinas (planCheck.js): validar, guardar, editar y borrar planos propios.
+  const planCheck = require('../world/planCheck');
+  const clean = b => ({
+    cols: b.cols, rows: b.rows, grid: b.grid, description: gm.clean(b.description || '', 200),
+    rooms: (b.rooms || []).map(r => ({ type: r.type, label: r.label == null ? undefined : gm.clean(r.label, 40), x: r.x, y: r.y, w: r.w, h: r.h, floor: r.floor, wall: r.wall })),
+    objects: (b.objects || []).map(o => ({ type: o.type, x: o.x, y: o.y, ...(o.w > 1 ? { w: o.w } : {}), ...(o.h > 1 ? { h: o.h } : {}), ...(o.color ? { color: String(o.color).slice(0, 12) } : {}) })),
+  });
+  r.get('/planos/catalogo', (req, res) => res.json({
+    rooms: Object.entries(planCheck.ROOM_TYPES).map(([type, v]) => ({ type, label: v.label || 'Pasillo' })),
+    floors: planCheck.FLOORS, limits: planCheck.LIMITS,
+    objects: Object.entries(planCheck.CATALOG).map(([type, v]) => ({ type, ...v })),
+  }));
+  r.post('/planos/validar', (req, res) => res.json(planCheck.validate(clean((req.body && req.body.plan) || {}))));
+  r.get('/planos/:id', async (req, res) => {
+    const row = (await req.app.get('db').query('SELECT id, name, data FROM office_plans WHERE id = $1 AND company_id = $2', [req.params.id, req.companyId])).rows[0];
+    if (!row) return res.status(404).json({ error: 'Ese plano no existe.' });
+    res.json({ id: row.id, name: row.name, plan: row.data });
+  });
+  const savePlan = async (req, res, id) => {
+    const b = req.body || {};
+    const name = gm.clean(b.name || '', 60);
+    if (!name) return res.status(400).json({ error: 'Ponle un nombre a la oficina.' });
+    const plan = clean(b.plan || {});
+    const v = planCheck.validate(plan);
+    if (v.errors.length) return res.status(400).json({ error: v.errors[0], ...v });
+    const pool = req.app.get('db');
+    const row = id
+      ? (await pool.query('UPDATE office_plans SET name = $3, data = $4, updated_at = NOW() WHERE id = $1 AND company_id = $2 RETURNING id',
+        [id, req.companyId, name, plan])).rows[0]
+      : (await pool.query('INSERT INTO office_plans (company_id, name, data, created_by) VALUES ($1, $2, $3, $4) RETURNING id',
+        [req.companyId, name, plan, req.userId])).rows[0];
+    if (!row) return res.status(404).json({ error: 'Ese plano no existe.' });
+    // Si es la oficina en la que están, se ve el cambio al momento (con la gente recolocada).
+    if (id && (req.sim.layout || {}).id === `p${id}`) await world.reload(req.companyId);
+    res.status(id ? 200 : 201).json({ id: row.id, ...v });
+  };
+  r.post('/planos', admin, (req, res) => savePlan(req, res, null));
+  r.put('/planos/:id', admin, (req, res) => savePlan(req, res, Number(req.params.id)));
+  r.delete('/planos/:id', admin, async (req, res) => {
+    const id = `p${Number(req.params.id)}`;
+    const st = req.sim.company.settings || {};
+    if ((req.sim.layout || {}).id === id || (st.mudanza && st.mudanza.to === id)) {
+      return res.status(400).json({ error: 'No puedes borrar la oficina en la que estáis (o a la que os mudáis).' });
+    }
+    await req.app.get('db').query('DELETE FROM office_plans WHERE id = $1 AND company_id = $2', [Number(req.params.id), req.companyId]);
+    res.json({ ok: true });
   });
 
   // Mudanza: el admin elige oficina y día (laborable, a partir de mañana). Ver world/mudanza.js.
   r.post('/mudanza', admin, async (req, res) => {
     const b = req.body || {};
-    if (!layouts.ids().includes(b.to)) return res.status(400).json({ error: 'Esa oficina no existe.' });
+    const exists = layouts.ids().includes(b.to) || (layouts.isCustom(b.to)
+      && (await req.app.get('db').query('SELECT 1 FROM office_plans WHERE id = $1 AND company_id = $2', [Number(b.to.slice(1)), req.companyId])).rows.length);
+    if (!exists) return res.status(400).json({ error: 'Esa oficina no existe.' });
     if ((req.sim.layout || layouts.get()).id === b.to) return res.status(400).json({ error: 'Ya estáis en esa oficina.' });
     const clk = require('../world/clock');
     const today = clk.parts(req.sim.clock.nowMs()).date;

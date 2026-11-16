@@ -1,0 +1,26 @@
+/* Diseñador de oficinas (escritorio) */
+.dz { display: flex; flex-direction: column; height: 100vh; background: var(--bg-dark); }
+.dz-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); background: var(--bg-card); }
+.dz-name { font: 700 1rem Inter, sans-serif; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.35rem 0.6rem; min-width: 260px; }
+.dz-body { flex: 1; display: grid; grid-template-columns: 150px 1fr 320px; min-height: 0; }
+.dz-tools { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.75rem; border-right: 1px solid var(--border); background: var(--bg-card); }
+.dz-tool { display: flex; align-items: center; gap: 0.45rem; padding: 0.5rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid transparent; background: none; color: var(--text-secondary); font: 600 0.85rem Inter, sans-serif; cursor: pointer; text-align: left; }
+.dz-tool:hover { background: var(--bg-surface); color: var(--text-primary); }
+.dz-tool.is-on { background: rgba(108, 92, 231, 0.22); border-color: rgba(108, 92, 231, 0.6); color: var(--text-primary); }
+.dz-zoom { margin-top: auto; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; color: var(--text-secondary); }
+.dz-canvas-wrap { overflow: auto; padding: 0.75rem; }
+.dz-help { color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.dz-canvas { image-rendering: pixelated; cursor: crosshair; display: block; box-shadow: 0 0 0 1px var(--border); }
+.dz-side { overflow-y: auto; border-left: 1px solid var(--border); background: var(--bg-card); padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.dz-sec h3 { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; margin-bottom: 0.4rem; }
+.dz-list { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; padding: 0; }
+.dz-err { color: #ff9b9b; }
+.dz-warn { color: var(--warning); }
+.dz-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.dz-note { font-size: 0.78rem; margin-top: 0.4rem; }
+.dz-rooms { list-style: none; display: flex; flex-direction: column; gap: 0.35rem; padding: 0; }
+.dz-rooms li { display: grid; grid-template-columns: 1fr 90px auto; gap: 0.3rem; align-items: center; }
+.dz-rooms input, .dz-rooms select, .dz-size input { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.4rem; font-size: 0.8rem; min-width: 0; }
+.dz-size { display: flex; gap: 0.6rem; }
+.dz-size label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: var(--text-secondary); }
+.dz-size input { width: 80px; }

@@ -244,7 +244,8 @@ class OfficeLife {
     const mv = this.move;
     if (!mv) return;
     const sch = this.sim.sch;
-    const to = layouts.get(mv.to);
+    if (!this.moveTo || this.moveTo.id !== mv.to) this.moveTo = await layouts.getFor(this.pool, this.companyId, mv.to);
+    const to = this.moveTo;
     if (day > mv.day) { await this.saveSettings({ mudanza: null }); return; }
     if (day < mv.day) {
       if (nextWorkday(day) === mv.day && p.minutes >= sch.BLOCKS.tarde.from + 60 && !this.announced.has(`emp|${mv.day}`)) {
@@ -298,7 +299,7 @@ class OfficeLife {
     const mv = this.move;
     return {
       cajas: this.boxes(day, m),
-      mudanza: mv ? { to: mv.to, toName: layouts.get(mv.to).name, day: mv.day, camion: mv.day === day && phase === 'ida' } : null,
+      mudanza: mv ? { to: mv.to, toName: (this.moveTo && this.moveTo.id === mv.to ? this.moveTo : layouts.get(mv.to)).name, day: mv.day, camion: mv.day === day && phase === 'ida' } : null,
       incidents: this.active.map(i => ({ id: i.id, kind: i.kind, place: i.place, title: i.data.title, sign: i.data.sign || null })),
       events: this.events.map(e => ({
         id: e.id, kind: e.kind, title: e.title, place: events.placeFor(e, this.sim.weatherNow()),

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Building2, Truck, X, FlaskConical } from 'lucide-react';
+import { Building2, Truck, X, FlaskConical, Pencil, Trash2, PencilRuler } from 'lucide-react';
+import { toDrawn, blankPlan } from './Designer';
 import { capi } from '../api';
 import { drawPlanPreview } from '../canvas/planPreview';
 import '../styles/companies.css';
@@ -19,7 +20,7 @@ const nextWorkday = () => {
 };
 const fmt = day => new Date(`${day}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
 
-export default function Offices({ company, owner, onBack }) {
+export default function Offices({ company, owner, onBack, onDesign }) {
   const isAdmin = company.role === 'admin';
   const [data, setData] = useState(null);
   const [pick, setPick] = useState(null); // id de la oficina a la que mudarse
@@ -64,6 +65,13 @@ export default function Offices({ company, owner, onBack }) {
             )}
           </div>
         )}
+        {isAdmin && data && window.innerWidth >= 900 && (
+          <div className="ofi-design">
+            <PencilRuler size={18} aria-hidden /> <strong>Diseñador:</strong> dibuja vuestra oficina (paredes, suelos, salas y muebles).
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onDesign({ base: blankPlan() })}>Empezar en blanco</button>
+            <span className="muted">o parte de una de abajo con «Copiar y editar».</span>
+          </div>
+        )}
         {!data && !error && <p className="muted">Cargando planos…</p>}
         <ul className="ofi-grid">
           {data && data.templates.map(t => (
@@ -73,6 +81,22 @@ export default function Offices({ company, owner, onBack }) {
                 <h2>{t.name} {t.id === data.current && <span className="ofi-badge">Vuestra oficina</span>}</h2>
                 <p className="ofi-meta">{t.desks} mesas · {t.rooms.filter(r => !/open space|loft|cubículos/i.test(r)).join(', ')}</p>
                 <p className="muted">{t.description}</p>
+                {isAdmin && window.innerWidth >= 900 && (
+                  <div className="ofi-pick">
+                    {t.custom ? (
+                      <>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => onDesign({ planId: Number(t.id.slice(1)) })}><Pencil size={15} aria-hidden /> Editar</button>
+                        {t.id !== data.current && (
+                          <button type="button" className="btn btn-danger btn-sm" disabled={busy}
+                            onClick={() => window.confirm(`¿Borrar la oficina «${t.name}»?`) && run(() => capi(`/planos/${t.id.slice(1)}`, { method: 'DELETE' }), 'Oficina borrada.')}>
+                            <Trash2 size={15} aria-hidden /> Borrar</button>
+                        )}
+                      </>
+                    ) : (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onDesign({ base: toDrawn(t.plan) })}><Pencil size={15} aria-hidden /> Copiar y editar</button>
+                    )}
+                  </div>
+                )}
                 {isAdmin && t.id !== data.current && (pick === t.id ? (
                   <div className="ofi-pick">
                     <label>¿Qué día?<input type="date" value={day} min={nextWorkday()} onChange={e => setDay(e.target.value)} /></label>

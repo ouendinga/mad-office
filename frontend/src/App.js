@@ -3,6 +3,7 @@ import Landing from './pages/Landing';
 import AvatarGenerator from './pages/AvatarGenerator';
 import Onboarding from './pages/Onboarding';
 import Offices from './pages/Offices';
+import Designer from './pages/Designer';
 import Office from './pages/Office';
 import Gate from './pages/Gate';
 import History from './pages/History';
@@ -23,6 +24,7 @@ export default function App() {
   const [historyOf, setHistoryOf] = useState(null);
   const [editAvatar, setEditAvatar] = useState(false);
   const [notice, setNotice] = useState('');
+  const [design, setDesign] = useState(null); // { planId } o { base } para el diseñador
 
   // «Atrás» del navegador o del móvil: cada vista deja su entrada en el historial y volver atrás
   // lleva a la anterior (antes sacaba de la app). Lo que llega por popstate no se vuelve a apilar.
@@ -203,7 +205,11 @@ export default function App() {
 
   if (view === 'history' && historyOf) return <History characterId={historyOf} onBack={() => setView('office')} />;
   if (view === 'org') return <OrgChart company={active} mode="manage" onDone={load} onBack={() => setView('office')} />;
-  if (view === 'oficinas') return <Offices company={active} owner={!!user.is_admin && !owner} onBack={() => setView('office')} />;
+  if (view === 'oficinas') {
+    return <Offices company={active} owner={!!user.is_admin && !owner} onBack={() => setView('office')}
+      onDesign={d => { setDesign(d); setView('disenador'); }} />;
+  }
+  if (view === 'disenador' && design) return <Designer planId={design.planId} base={design.base} onBack={() => setView('oficinas')} />;
   if (view === 'empresa') return <CompanySettings company={active} onChanged={load} onBack={() => setView('office')} />;
 
   return (

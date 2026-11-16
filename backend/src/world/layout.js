@@ -8,14 +8,19 @@
 
 const fs = require('fs');
 const path = require('path');
+const { derive } = require('./planCheck');
 
 const DIR = path.join(__dirname, '..', 'layouts');
 const DEFAULT_ID = 'clasica';
 const cache = new Map();
 
 function load(id) {
-  const file = path.join(DIR, `${id}.json`);
-  const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  return fromData(JSON.parse(fs.readFileSync(path.join(DIR, `${id}.json`), 'utf8')));
+}
+
+// Un plano (plantilla o dibujado con el diseñador) listo para usar: lo que no traiga se deduce.
+function fromData(data) {
+  const raw = derive(data);
   const L = {
     ...raw,
     zoneSpots: raw.zoneSpots || {},
@@ -38,6 +43,21 @@ function get(id) {
   return cache.get(key);
 }
 
+// Las dibujadas por la empresa van en la base de datos con id 'p<n>'.
+const isCustom = id => /^p\d+$/.test(String(id || ''));
+
+async function getFor(pool, companyId, id) {
+  if (!isCustom(id)) return get(id);
+  const row = (await pool.query('SELECT id, name, data FROM office_plans WHERE id = $1 AND company_id = $2', [Number(id.slice(1)), companyId])).rows[0];
+  if (!row) return get(DEFAULT_ID);
+  return fromData({ ...row.data, id: `p${row.id}`, name: row.name, description: row.data.description || 'Dibujada con el diseñador.' });
+}
+
+async function customFor(pool, companyId) {
+  const rows = (await pool.query('SELECT id, name, data FROM office_plans WHERE company_id = $1 ORDER BY id', [companyId])).rows;
+  return rows.map(r => fromData({ ...r.data, id: `p${r.id}`, name: r.name, description: r.data.description || 'Dibujada con el diseñador.' }));
+}
+
 // Para la galería: lo justo para enseñarla y compararla.
 function summary(L) {
   return {
@@ -46,4 +66,4 @@ function summary(L) {
   };
 }
 
-module.exports = { get, ids, summary, DEFAULT_ID };
+module.exports = { get, getFor, customFor, fromData, isCustom, ids, summary, DEFAULT_ID };

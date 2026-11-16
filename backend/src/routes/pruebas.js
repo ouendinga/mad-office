@@ -188,7 +188,9 @@ function router({ world }) {
   r.post('/mudanza', async (req, res) => {
     const layouts = require('../world/layout');
     const to = req.body && req.body.to;
-    if (!layouts.ids().includes(to) || to === req.sim.layout.id) return res.status(400).json({ error: 'Elige otra oficina.' });
+    const exists = layouts.ids().includes(to) || (layouts.isCustom(to)
+      && (await db(req).query('SELECT 1 FROM office_plans WHERE id = $1 AND company_id = $2', [Number(to.slice(1)), req.companyId])).rows.length);
+    if (!exists || to === req.sim.layout.id) return res.status(400).json({ error: 'Elige otra oficina.' });
     await setActive(req, true);
     const now = req.sim.clock.nowMs();
     let date = clockLib.addDays(clockLib.parts(now).date, 1);
