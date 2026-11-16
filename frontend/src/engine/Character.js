@@ -9,6 +9,7 @@
 export const SIZE = 32;
 
 export const SKIN_TONES = ['#FFD9B8', '#E9AE85', '#C68642', '#8D5524'];
+const BLUSH = ['#F4A99A', '#DE8F78', '#B0683F', '#7A4226'];
 export const HAIR_STYLES = ['Corto', 'Largo', 'Rizado', 'De punta', 'Rapado', 'Media melena', 'Coleta', 'Cresta'];
 export const HAIR_COLORS = ['#2C1E1A', '#6B3A2A', '#B8860B', '#F2CF4E', '#A3271F', '#8E8E99'];
 export const CLOTHES = ['Camiseta', 'Camisa', 'Sudadera', 'Traje', 'Vestido', 'Polo'];
@@ -73,7 +74,7 @@ function head(d, skin) {
   r(11, 10, 2, 3, EYE); p(11, 10, '#FFFFFF');
   r(19, 10, 2, 3, EYE); p(19, 10, '#FFFFFF');
   // mofletes y boca
-  p(10, 14, '#E98B7E'); p(21, 14, '#E98B7E');
+  p(10, 14, skin.blush || '#E98B7E'); p(21, 14, skin.blush || '#E98B7E');
   r(15, 14, 2, 1, '#8A3F3F');
   // cuello
   r(14, 18, 4, 1, skin.dark);
@@ -219,7 +220,9 @@ export function characterSprite(config = {}, pose = 'idle') {
   const k = key(config, pose);
   if (CACHE.has(k)) return CACHE.get(k);
   const d = grid();
-  const skin = tones(SKIN_TONES[(config.skinTone | 0) % SKIN_TONES.length]);
+  const tone = (config.skinTone | 0) % SKIN_TONES.length;
+  // Rubor según el tono: el rosa fijo se leía como una mancha roja en la piel oscura.
+  const skin = { ...tones(SKIN_TONES[tone]), blush: BLUSH[tone] };
   body(d, config.clothes | 0, skin, pose);
   head(d, skin);
   hair(d, config.hairStyle | 0, HAIR_COLORS[(config.hairColor | 0) % HAIR_COLORS.length]);

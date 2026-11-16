@@ -22,8 +22,10 @@ function heardBy(events, listener, plans) {
     if (e.private) return e.character_id === listener.id; // los pensamientos, solo el suyo
     if (e.character_id === listener.id || e.con_id === listener.id) return true;
     if (listener.mode === 'remoto') return false;
+    // Lo que pasa en toda la oficina (un apagón) lo nota todo el que esté dentro.
+    if (e.kind === 'incidente' && !e.lugar) return true;
     if (e.min == null || !e.lugar || e.lugar === 'casa') return false;
-    if (e.kind !== 'accion') return false;
+    if (!['accion', 'incidente', 'evento'].includes(e.kind)) return false;
     return whereAt(plans, e.min) === roomOf(e.lugar);
   });
 }

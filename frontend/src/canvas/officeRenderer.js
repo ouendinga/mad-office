@@ -21,6 +21,7 @@ import { characterSprite } from '../engine/Character';
 import { makeCanvas } from '../engine/pixel';
 import { SW, SH, paintBack, paintFurniture, paintLight, slotsFor, sceneDef } from '../engine/RoomScenes';
 import { buildWalkable, findPath } from './paths';
+import { drawStateArt, drawStateSigns, drawBlackout } from './officeState';
 import { weatherKind, isWindy, drawPrecip, drawOutdoorTint, drawWindowGlass, seasonOf } from './weather';
 
 export const ART_W = officeMap.cols * T;
@@ -178,10 +179,13 @@ function paintScene(world, animFrame, now) {
   items.sort((a, b) => a.y - b.y);
   for (const it of items) it.draw();
   for (const o of overlayObjects) drawSprite(ctx, o, now, 0);
+  // El estado de la oficina: incidentes (charcos, olor, papeles…) y la guirnalda de los eventos.
+  drawStateArt(ctx, world && world.office, now);
 
   // la intemperie: tinte del día, nieve acumulada, calor y lo que caiga
   drawOutdoorTint(ctx, OUTDOOR, w, now);
   drawPrecip(ctx, OUTDOOR, weatherKind(w), now, { wind: w ? w.wind : 0 });
+  if (!night) drawBlackout(ctx, world && world.office, now, ART_W, ART_H);
 
   if (night) {
     ctx.fillStyle = 'rgba(14, 20, 62, 0.62)';
@@ -286,9 +290,13 @@ export function renderOffice(ctx, canvas, world, animFrame, focus) {
   // Rótulos de las salas
   for (const r of officeMap.rooms) {
     if (!r.label || scale < 0.9) continue; // en pantallas pequeñas se pisan
-    const [x, y] = S((r.x + r.w / 2) * T, r.y * T + 3);
+    // Abajo, en el zócalo: arriba tapaba los racks, la nevera, la consola y la cara del jefe.
+    const [x, y] = S((r.x + r.w / 2) * T, (r.y + r.h) * T - 6);
     pill(ctx, r.label, x, y, { font: '700 10px Inter, sans-serif', bg: 'rgba(30,22,40,0.62)' });
   }
+
+  // Carteles de incidentes y eventos (en pantalla, para que se lean).
+  if (!focus) drawStateSigns(ctx, world && world.office, S, pill);
 
   const focusId = focus && focus.charId;
   // Nombres, llamadas y bocadillos

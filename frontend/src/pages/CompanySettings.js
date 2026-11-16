@@ -26,6 +26,8 @@ function weekdays() {
   return out;
 }
 
+const PLACE_NAME = { terraza: 'Terraza', descanso: 'Zona chill', reuniones: 'Sala de reuniones', cafe: 'Cocina' };
+
 export default function CompanySettings({ company, onChanged, onBack }) {
   const isAdmin = company.role === 'admin';
   const [info, setInfo] = useState(null);
@@ -40,12 +42,15 @@ export default function CompanySettings({ company, onChanged, onBack }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(null);
+  const [eventos, setEventos] = useState(null); // { kinds, places, events }
+  const [evForm, setEvForm] = useState({ kind: 'afterwork', title: 'Afterwork', place: 'terraza', day: new Date().toISOString().slice(0, 10), from: '17:00', to: '18:30' });
 
   const reload = useCallback(async () => {
     try {
       setInfo(await capi('/'));
       setHours(await capi('/settings/hours'));
       setLoad(await capi('/workload'));
+      setEventos(await capi('/eventos'));
       if (isAdmin) {
         setInvites(await capi('/invitations'));
         setJoins(await capi('/join-requests'));
@@ -210,6 +215,58 @@ export default function CompanySettings({ company, onChanged, onBack }) {
                 <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={clearDay}>Dejar normal</button>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDayEdit(null)}>Cancelar</button>
               </div>
+            </form>
+          )}
+        </section>
+
+        <section className="set-section">
+          <h2>🎉 Eventos</h2>
+          <p className="muted">
+            Afterworks, talleres, team building… Los personajes se enteran y van (o no) según su carácter. Algunos los
+            propone la oficina sola (el afterwork de los viernes, los cumpleaños); si no te gusta alguno, bórralo.
+          </p>
+          {eventos && eventos.events.length === 0 && <p className="muted">No hay ninguno a la vista.</p>}
+          {eventos && (
+            <ul className="cos-list">
+              {eventos.events.map(e => (
+                <li key={e.id} className="cos-card">
+                  <div className="cos-card-main">
+                    <strong>{(eventos.kinds.find(k => k.kind === e.kind) || {}).icon} {e.title}</strong>
+                    <span className="muted">
+                      {new Date(`${e.day}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })} · {e.from}-{e.to} · {PLACE_NAME[e.place] || e.place}{e.auto ? ' · lo propuso la oficina' : ''}
+                    </span>
+                  </div>
+                  {isAdmin && (
+                    <button type="button" className="btn btn-danger btn-sm" disabled={busy}
+                      onClick={() => run(() => capi(`/eventos/${e.id}`, { method: 'DELETE' }), 'Evento quitado.')}>Quitar</button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {isAdmin && eventos && (
+            <form className="set-row ev-form" onSubmit={e => {
+              e.preventDefault();
+              run(() => capi('/eventos', { method: 'POST', body: evForm }), 'Evento creado: se enterarán todos.');
+            }}>
+              <label>Tipo
+                <select value={evForm.kind} onChange={e => {
+                  const k = eventos.kinds.find(x => x.kind === e.target.value);
+                  setEvForm({ ...evForm, kind: e.target.value, title: k ? k.label : evForm.title });
+                }}>
+                  {eventos.kinds.map(k => <option key={k.kind} value={k.kind}>{k.icon} {k.label}</option>)}
+                </select>
+              </label>
+              <label>Nombre<input value={evForm.title} maxLength={80} required onChange={e => setEvForm({ ...evForm, title: e.target.value })} /></label>
+              <label>Dónde
+                <select value={evForm.place} onChange={e => setEvForm({ ...evForm, place: e.target.value })}>
+                  {eventos.places.map(pl => <option key={pl} value={pl}>{PLACE_NAME[pl] || pl}</option>)}
+                </select>
+              </label>
+              <label>Día<input type="date" required value={evForm.day} onChange={e => setEvForm({ ...evForm, day: e.target.value })} /></label>
+              <label>De<input type="time" required value={evForm.from} onChange={e => setEvForm({ ...evForm, from: e.target.value })} /></label>
+              <label>A<input type="time" required value={evForm.to} onChange={e => setEvForm({ ...evForm, to: e.target.value })} /></label>
+              <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>Crear evento</button>
             </form>
           )}
         </section>

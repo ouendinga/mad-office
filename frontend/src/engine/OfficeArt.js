@@ -265,12 +265,12 @@ def('desk', (b, w, h, o, ctx) => {
   // monitor visto por detrás: carcasa plateada, peana y un poco de luz de pantalla por los bordes
   b.r(8, -8, 16, 10, '#B9C0CD'); b.r(9, -7, 14, 8, '#D3D9E3'); b.r(9, -7, 14, 1, '#EEF1F6');
   b.r(15, -4, 2, 2, '#A3ABBA'); b.r(14, 2, 4, 1, '#8D97A8'); b.r(12, 3, 8, 1, '#8D97A8');
-  b.p(7, -6, '#8EC5FF'); b.p(24, -5, '#8EC5FF');
   // teclado no se ve (está al otro lado); papeles, taza y planta mini
   b.r(2, 4, 5, 4, '#F5F3EE'); b.r(3, 5, 3, 1, '#C9C4BA');
-  b.r(24, 4, 3, 4, '#E3584B'); b.p(27, 5, '#E3584B'); // taza
-  // planta mini en la esquina, al lado de la taza (antes se pintaba encima de ella)
-  if (o.seed % 3 === 0) { b.r(29, 1, 3, 3, '#3F9C45'); b.r(29, 4, 3, 3, '#C66B3D'); }
+  // taza blanca con café (se lee como taza, no como mancha roja)
+  b.r(22, 5, 3, 3, '#F2EFE8'); b.p(23, 5, '#6B4A30'); b.p(25, 6, '#F2EFE8');
+  // planta mini: copa verde más ancha que la maceta, para que se lea como planta
+  if (o.seed % 3 === 0) { b.r(28, 6, 3, 3, '#C66B3D'); b.r(27, 6, 5, 1, '#DA8256'); b.r(27, 3, 5, 2, '#3F9C45'); b.r(28, 2, 3, 1, '#62C055'); }
 }, { up: 8 });
 
 def('boss_desk', (b, w) => {
@@ -306,13 +306,15 @@ def('plant_big', (b, w, h, o) => {
 // entera si la mesa está vacía). La del jefe, de piel y más alta.
 def('office_chair', (b, w, h, o) => {
   const boss = o.color === 'boss';
-  const back = boss ? '#5A2E1E' : '#3B3F52';
-  const light = boss ? '#7A4430' : '#555A70';
+  const back = boss ? '#5A2E1E' : '#4C5675';
+  const light = boss ? '#7A4430' : '#66729A';
   const cx = Math.floor(w / 2);
   const bw = boss ? 20 : 16;
   const top = boss ? -14 : -8;
-  b.r(cx - bw / 2, top, bw, 16 - top - 4, back); b.r(cx - bw / 2 + 2, top + 2, bw - 4, 2, light);
+  b.r(cx - bw / 2 + 1, top, bw - 2, 1, back); b.r(cx - bw / 2, top + 1, bw, 16 - top - 5, back); // esquinas redondas
+  b.r(cx - bw / 2 + 2, top + 2, bw - 4, 2, light);
   b.r(cx - bw / 2 - 1, 8, bw + 2, 4, back); // asiento
+  b.r(cx - bw / 2 - 2, 6, 2, 4, DARK); b.r(cx + bw / 2, 6, 2, 4, DARK); // reposabrazos
   b.r(cx - 1, 12, 2, 3, DARK); b.r(cx - 5, 15, 10, 1, DARK); // pie y ruedas
 }, { up: 14, flat: true }); // flat: va en la capa de abajo, detrás de quien se sienta
 
@@ -408,8 +410,12 @@ def('ac_unit', b => {
   b.p(12, -8, '#4CF27A');
 }, { up: 10 });
 
+// Canaleta de cables al pie de los racks: de cada rack baja un mazo rojo y azul hasta la canaleta
+// (antes eran tres rayas sueltas en mitad del suelo y nadie entendía qué eran).
 def('cable_floor', (b, w) => {
-  b.r(0, 6, w, 1, '#E3584B'); b.r(0, 8, w, 1, '#3E7CC9'); b.r(0, 10, w - 10, 1, '#F2C14E');
+  b.r(0, 5, w, 6, '#3E465B'); b.r(0, 5, w, 1, '#8D97A8');
+  for (let x = 0; x < w; x += 4) b.r(x + 1, 7, 2, 2, '#262A36');
+  for (let x = 0; x < w; x += 16) { b.r(x + 5, 0, 2, 6, '#E3584B'); b.r(x + 8, 0, 2, 6, '#3E7CC9'); }
 }, { flat: true });
 
 def('small_desk', (b, w) => {
@@ -524,9 +530,16 @@ def('planter', (b, w, h, o) => {
 }, { up: 4 });
 
 def('terrace_table', (b, w) => {
-  b.r(4, 6, w - 8, 6, '#F6F2EA'); b.r(4, 6, w - 8, 1, '#FFFFFF'); b.r(w / 2 - 1, 0, 2, 14, METAL);
-  // sombrilla a rayas
-  for (let x = 0; x < w; x++) b.r(x, -14 + Math.abs(x - w / 2) / 3, 1, 8 - Math.abs(x - w / 2) / 4, Math.floor(x / 4) % 2 ? '#E3584B' : '#FFF4E6');
+  // palo primero (detrás del tablero), luego el tablero con su pata corta: ya no lo atraviesa
+  b.r(w / 2 - 1, -7, 2, 13, METAL);
+  b.r(4, 6, w - 8, 6, '#F6F2EA'); b.r(4, 6, w - 8, 1, '#FFFFFF'); b.r(w / 2 - 1, 12, 2, 2, '#5E6675');
+  // sombrilla a rayas, con una fila más oscura debajo para que no parezca flotar
+  for (let x = 0; x < w; x++) {
+    const top = -14 + Math.abs(x - w / 2) / 3;
+    const hgt = 8 - Math.abs(x - w / 2) / 4;
+    b.r(x, top, 1, hgt, Math.floor(x / 4) % 2 ? '#E3584B' : '#FFF4E6');
+    b.r(x, Math.round(top + hgt), 1, 1, '#B84438');
+  }
 }, { up: 15 });
 
 def('bench', (b, w) => {

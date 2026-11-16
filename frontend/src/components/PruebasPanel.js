@@ -57,11 +57,16 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
   const [ia, setIa] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [catalogo, setCatalogo] = useState(null);
+  const [incKind, setIncKind] = useState('');
+  const [evKind, setEvKind] = useState('afterwork');
+  const [done, setDone] = useState('');
 
   const load = useCallback(() => {
     capi('/pruebas').then(setSt).catch(e => setErr(e.message));
     capi('/org').then(d => setPositions(d.positions)).catch(() => {});
     capi('/me').then(setMe).catch(() => {});
+    capi('/pruebas/catalogo').then(c => { setCatalogo(c); setIncKind(c.incidents[0] ? c.incidents[0].kind : ''); }).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -140,6 +145,28 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
               </div>
               <p className="pruebas-help">Los saltos van al día laborable más cercano (si hoy es sábado, al lunes).</p>
             </section>
+
+            {catalogo && (
+              <section className="pruebas-sec">
+                <h3>💥 Incidentes y eventos</h3>
+                <p className="pruebas-help">Provócalos ahora para ver cómo se ven y cómo reacciona la gente (normalmente salen solos, con su probabilidad).</p>
+                <div className="pruebas-row">
+                  <select value={incKind} onChange={e => setIncKind(e.target.value)} aria-label="Incidente">
+                    {catalogo.incidents.map(i => <option key={i.kind} value={i.kind}>{i.example.split('.')[0].slice(0, 60)}</option>)}
+                  </select>
+                  <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+                    onClick={async () => { setErr(''); setDone(''); try { await capi('/pruebas/incidente', { method: 'POST', body: { kind: incKind } }); setDone('Incidente provocado: míralo en la oficina.'); } catch (e) { setErr(e.message); } }}>Provocar</button>
+                </div>
+                <div className="pruebas-row">
+                  <select value={evKind} onChange={e => setEvKind(e.target.value)} aria-label="Evento">
+                    {catalogo.events.map(x => <option key={x.kind} value={x.kind}>{x.label}</option>)}
+                  </select>
+                  <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+                    onClick={async () => { setErr(''); setDone(''); try { await capi('/pruebas/evento', { method: 'POST', body: { kind: evKind } }); setDone('Evento en marcha durante 40 minutos de oficina.'); } catch (e) { setErr(e.message); } }}>Empezar ahora</button>
+                </div>
+                {done && <p className="pruebas-help" role="status">{done}</p>}
+              </section>
+            )}
 
             <section className="pruebas-sec">
               <h3>🎬 Escenas</h3>

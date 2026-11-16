@@ -293,3 +293,12 @@
 .pruebas-switch input { width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; accent-color: var(--secondary); }
 .pruebas-switch span { display: flex; flex-direction: column; gap: 0.2rem; }
 .pruebas-switch small { color: var(--text-secondary); font-size: 0.8rem; }
+
+/* Ahora en la oficina (incidentes y eventos) */
+.office-now-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.83rem; color: var(--text-secondary); }
+.office-now-list li { display: flex; gap: 0.35rem; align-items: baseline; }
+.office-now-list svg { flex-shrink: 0; position: relative; top: 2px; }
+.office-now-inc { color: #ff9b9b; }
+.office-now-ev.is-on { color: var(--text-primary); }
+.feed-incidente { color: #ffb4a8; }
+.feed-evento { color: #c4b8ff; }

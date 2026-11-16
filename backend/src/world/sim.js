@@ -14,7 +14,8 @@ const { ACTION_FOR_PLACE, targetFor, zonePos, ownSpot, zoneSpotFixed, zoneCapaci
 const micro = require('./micro');
 const { lunchGroups } = require('./lunch');
 const { thoughtFor } = require('./thoughts');
-const { visitorsFor } = require('./visitors');
+const { OfficeLife } = require('./officeLife');
+const { visitorsFor, KINDS: VISITOR_KINDS } = require('./visitors');
 const { autopilotPlan } = require('./autopilot');
 const gm = require('./gameMaster');
 const stats = require('./stats');
@@ -54,6 +55,7 @@ class Sim {
     this.days = new Map(); // `${id}|${day}` -> { mode, ida, vuelta }
     this.ensured = new Set(); // turnos ya pedidos o descartados
     this.current = new Map(); // id -> {key, action, bubbleUntil}
+    this.life = new OfficeLife(this); // incidentes y eventos de la oficina
     this.statAcc = new Map(); // id -> deltas del pentágono aún sin guardar
     this.statClock = new Map(); // id -> último minuto contado
     this.notified = new Set(); // avisos de una sola vez (tope gastado)
@@ -141,7 +143,8 @@ class Sim {
 
   weatherLine(day) {
     const lat = this.weather ? this.weather.location.lat : 40;
-    return weatherLib.promptLine(this.weatherNow(), weatherLib.season(day, lat));
+    const office = this.life ? this.life.promptLine(this.now().minutes) : '';
+    return [weatherLib.promptLine(this.weatherNow(), weatherLib.season(day, lat)), office].filter(Boolean).join(' ');
   }
 
   // --- el día de cada uno: oficina o casa, y sus trayectos ---
@@ -251,7 +254,7 @@ class Sim {
     const [events, plan, d] = await Promise.all([
       this.pool.query(
         `SELECT id, character_id, con_id, lugar, min, text, kind, private FROM feed
-          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita')
+          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita', 'incidente', 'evento')
             AND (min IS NULL OR min <= $2) ORDER BY id`,
         [day, untilMin, this.companyId]),
       this.dayActions(c, day),
@@ -401,26 +404,43 @@ class Sim {
       working.push({ c, d, workBlock, idx, a0: actions[idx] });
     }
 
-    // Escapadas cortas (micro.js): solo quien está ahora en su mesa, en la oficina.
-    const atDesk = working.filter(w => w.d.mode === 'oficina' && w.a0.lugar === 'mesa' && !w.a0.con).map(w => w.c.id).sort((a, b) => a - b);
+    // La oficina: incidentes que empiezan o se arreglan y eventos del día (officeLife.js).
+    await this.life.minute(day, p, working, chars, block);
+    const eff = this.life.effects();
+    // Lo que hace cada uno de verdad: el evento, si va; huir de la cocina si apesta; a oscuras en un apagón.
+    for (const w of working) {
+      w.base = w.a0;
+      if (w.d.mode !== 'oficina') continue;
+      const ev = this.life.eventFor(w.c, p.minutes);
+      if (ev) w.base = { ...w.a0, lugar: ev.place, que: ev.title, frase: ev.frase, con: null, evento: ev.id };
+      else if (eff.avoid.has(w.a0.lugar)) w.base = { ...w.a0, lugar: 'terraza', que: `${w.a0.que} (en la terraza: la cocina apesta)` };
+      else if (eff.apagon && w.a0.lugar === 'mesa') w.base = { ...w.a0, que: 'A oscuras, esperando a que vuelva la luz', frase: '' };
+    }
+
+    // Escapadas cortas (micro.js): solo quien está ahora en su mesa, en la oficina (y no en un apagón).
+    const atDesk = eff.apagon ? [] : working.filter(w => w.d.mode === 'oficina' && w.base.lugar === 'mesa' && !w.base.con && !w.base.evento)
+      .map(w => w.c.id).sort((a, b) => a - b);
     const groups = micro.groupPlans(this.companyId, day, p.minutes, atDesk);
     const byDesk = new Map(working.map(w => [w.c.desk_index, w.c.id]));
-    for (const { c, d, workBlock, idx, a0 } of working) {
+    for (const { c, d, workBlock, idx, a0, base } of working) {
       const m = atDesk.includes(c.id)
         ? micro.microFor(c, day, p.minutes, {
-          group: groups.get(c.id), blockFrom: B[workBlock].from, hungry: c.stats.saciedad < 1.6,
+          group: groups.get(c.id), blockFrom: B[workBlock].from, hungry: c.stats.saciedad < 1.6, noSnack: eff.noSnack,
           neighbor: byDesk.get(c.desk_index % 2 === 0 ? c.desk_index + 1 : c.desk_index - 1) ?? null,
         })
         : null;
-      const a = m ? { ...a0, lugar: m.lugar, que: m.que, frase: m.frase, con: m.con ?? null, micro: m } : a0;
+      const a = m ? { ...base, lugar: m.lugar, que: m.que, frase: m.frase, con: m.con ?? null, micro: m } : base;
       const planKey = `${day}|${workBlock}|${idx}|${a0.que}`;
-      const key = m ? `${planKey}|${m.id}` : planKey;
+      const key = `${planKey}|${base.evento || ''}|${base.que}${m ? `|${m.id}` : ''}`;
       const cur = this.current.get(c.id);
       if (!cur || cur.key !== key) {
         const bubbleUntil = a.frase ? Date.now() + BUBBLE_MS : 0;
         this.current.set(c.id, { key, planKey, action: a, bubbleUntil });
         if (cur && cur.planKey !== planKey) await this.onActionStart(c, a0, cast, day, d);
-        if (m) await this.saveStats(c, stats.applyMicro(c.stats, m.kind));
+        if (m) {
+          await this.saveStats(c, stats.applyMicro(c.stats, m.kind));
+          await this.life.fixByMicro(c, m.kind, day, p.minutes);
+        }
         // El ping-pong se anuncia una vez por partida.
         if (m && m.kind === 'pingpong' && m.spot[1] === 0 && !this.ensured.has(`pp|${day}|${m.id}`)) {
           this.ensured.add(`pp|${day}|${m.id}`);
@@ -429,11 +449,21 @@ class Sim {
             { lugar: 'descanso', con: m.con, min: p.minutes });
         }
       }
+      // Al llegar a un sitio con un incidente, lo comenta (y le afecta).
+      if (d.mode === 'oficina') {
+        const rx = this.life.reactionFor(c, a.lugar);
+        if (rx) {
+          const now = this.current.get(c.id);
+          now.action = { ...now.action, frase: rx.text };
+          now.bubbleUntil = Date.now() + BUBBLE_MS;
+          if (rx.stats) await this.saveStats(c, stats.add(stats.normalize(c.stats), rx.stats));
+        }
+      }
       await this.tickStats(c, d.mode === 'remoto' ? 'casa' : (a.con && a.lugar === 'mesa' ? 'visita' : a.lugar), p.minutes);
       view.push(this.viewOf(c, this.current.get(c.id), cast, { phase, day: d }));
     }
     linkCalls(view);
-    spreadZones(view);
+    spreadZones(view, { closed: eff.closed });
     if (isWorkday(p.weekday)) view.push(...(await this.visitorViews(day, p.minutes, chars)));
 
     const loc = this.weather ? this.weather.location : weatherLib.DEFAULT_LOCATION;
@@ -454,13 +484,16 @@ class Sim {
         test: this.clock.shifted ? { speed: this.clock.speed / this.baseClock.speed } : null,
       },
       characters: view,
+      office: this.life.view(p.minutes),
     });
   }
 
   // Visitantes del día que están ahora en la oficina; al llegar, se anuncian en el feed.
   async visitorViews(day, minutes, chars) {
     const out = [];
-    for (const [i, e] of visitorsFor(day, this.companyId, this.sch, chars).entries()) {
+    const list = [...visitorsFor(day, this.companyId, this.sch, chars), ...this.life.technicians(day)
+      .map(t => ({ ...t, name: 'Técnico', avatar: VISITOR_KINDS.mantenimiento.avatar }))];
+    for (const [i, e] of list.entries()) {
       if (minutes < e.from || minutes >= e.to) continue;
       const fresh = !this.ensured.has(`visita|${e.key}`);
       if (fresh) {
@@ -673,7 +706,7 @@ function charPhase(p, phase, d, sch = clockLib.DEFAULT) {
 // no cabe vuelve a su mesa («lo ha encontrado lleno»). Así nadie se monta encima de otro.
 const PLACE_NAME = { cafe: 'la cocina', reuniones: 'la sala de reuniones', descanso: 'la zona chill', terraza: 'la terraza',
   recepcion: 'recepción', despacho: 'el despacho', servidores: 'servidores', lavabo: 'el baño' };
-function spreadZones(view) {
+function spreadZones(view, { closed = new Set() } = {}) {
   const byZone = new Map();
   for (const v of view) {
     if (v.mode !== 'oficina' || v.visitor || !ZONES[v.lugar] || v.ownSpot) continue;
@@ -681,12 +714,13 @@ function spreadZones(view) {
     byZone.get(v.lugar).push(v);
   }
   for (const [zone, list] of byZone) {
-    const cap = zoneCapacity(zone);
+    const shut = closed.has(zone);
+    const cap = shut ? 0 : zoneCapacity(zone);
     list.sort((a, b) => a.id - b.id).forEach((v, k) => {
       if (k < cap) return Object.assign(v, zoneSpotFixed(zone, k));
       Object.assign(v, deskPos(v.desk_index || 0), {
         lugar: 'mesa', action: ACTION_FOR_PLACE.mesa, full: zone,
-        que: `Iba a ${PLACE_NAME[zone] || zone}, pero estaba lleno`,
+        que: `Iba a ${PLACE_NAME[zone] || zone}, pero ${shut ? 'está cerrado' : 'estaba lleno'}`,
       });
     });
   }

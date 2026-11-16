@@ -312,25 +312,24 @@ function drawAccessory(ctx, accessoryIndex, ox, oy, scale) {
   }
 }
 
+// Píxel en la rejilla de 32 del sprite nuevo (los indicadores llegan con scale = 2 × píxel de 32).
+const p32 = (ctx, ox, oy, x, y, c, scale) => setPixel(ctx, ox * 2 + x, oy * 2 + y, c, scale / 2);
+const VEIN = [[24, -4], [25, -4], [24, -3], [29, -4], [30, -4], [30, -3], [24, 1], [24, 2], [25, 2], [30, 1], [29, 2], [30, 2]];
+
 // Representaciones visuales de estados de animo
 export function drawRepresentation(ctx, representation, ox, oy, scale, frame) {
   switch (representation) {
     case 'llorando':
-      // Lagrimas en ambos lados
-      setPixel(ctx, ox + 5, oy + 4 + (frame % 2), '#87CEEB', scale);
-      setPixel(ctx, ox + 10, oy + 4 + (frame % 2), '#87CEEB', scale);
-      if (frame % 2 === 0) {
-        setPixel(ctx, ox + 5, oy + 5, '#5DADE2', scale);
-        setPixel(ctx, ox + 10, oy + 5, '#5DADE2', scale);
+      // Lágrimas que caen por debajo de los ojos.
+      for (const x of [11, 20]) {
+        p32(ctx, ox, oy, x, 13 + (frame % 2), '#5DADE2', scale);
+        p32(ctx, ox, oy, x, 14 + (frame % 2), '#5DADE2', scale);
       }
       break;
 
     case 'enfadado':
-      // Marca de enfado encima de la cabeza (las de la cara caían fuera de sitio con los sprites nuevos).
-      {
-        const c = frame % 2 === 0 ? '#FF4444' : '#D63031';
-        for (const [x, y] of [[12, -3], [14, -3], [13, -2], [12, -1], [14, -1], [11, -2], [15, -2]]) setPixel(ctx, ox + x, oy + y, c, scale);
-      }
+      // La vena de enfado (💢) junto a la cabeza.
+      for (const [x, y] of VEIN) p32(ctx, ox, oy, x, y + (frame % 2), '#E8323C', scale);
       break;
 
     case 'somnoliento':
@@ -403,23 +402,16 @@ export function drawActionIndicator(ctx, action, ox, oy, scale, frame) {
       break;
     }
 
-    case 'celebrando':
-      // Brazos arriba
-      setPixel(ctx, ox + 3, oy + 7, SKIN_TONES[0], scale);
-      setPixel(ctx, ox + 12, oy + 7, SKIN_TONES[0], scale);
+    case 'celebrando': {
+      // Confeti encima de la cabeza (antes dos cuadrados de piel que parecían orejas).
+      const conf = ['#FFE066', '#F7A8C8', '#8EC5FF'];
+      for (let i = 0; i < 6; i++) p32(ctx, ox, oy, 6 + i * 4, -4 + ((i + frame) % 4), conf[i % 3], scale);
       break;
+    }
 
     case 'rabieta':
-      // Vapor encima de la cabeza
-      if (frame % 2 === 0) {
-        setPixel(ctx, ox + 6, oy - 1, '#FF4444', scale);
-        setPixel(ctx, ox + 9, oy - 1, '#FF4444', scale);
-      }
-      // Pisando fuerte (animacion)
-      if (frame % 3 === 0) {
-        setPixel(ctx, ox + 5, oy + 16, '#FF4444', scale);
-        setPixel(ctx, ox + 10, oy + 16, '#FF4444', scale);
-      }
+      // Vapor saliendo de la cabeza (antes había puntos rojos a los pies que parecían sangre).
+      for (const [x, y] of [[8, -2], [10, -4], [22, -2], [24, -4]]) p32(ctx, ox, oy, x, y - (frame % 2), '#E8ECF2', scale);
       break;
 
     case 'corriendo':

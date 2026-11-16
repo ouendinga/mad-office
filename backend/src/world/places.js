@@ -89,6 +89,10 @@ const spotPos = (name, i = 0) => {
 
 // Huecos fijos de algunas salas (en casillas: los pies). Si una sala no tiene lista, salen de su
 // zona: uno cada dos casillas, sin montarse. El aforo es el número de huecos.
+// Objetos del mapa de los que dependen los incidentes (incidents.js: «si no hay cafetera, no se rompe
+// la cafetera»). Un test comprueba que están en el mapa del frontend.
+const INCIDENT_OBJECTS = ['vending', 'kitchen_counter', 'kanban', 'printer', 'stall', 'ac_unit'];
+
 // Sitio fijo de quien tiene despacho o mostrador: sentado detrás de su mesa.
 const OWN_SPOTS = {
   despacho: [[11, 3]], // sillón del jefe, detrás de su mesa (3 casillas desde la 10)
@@ -128,4 +132,4 @@ function targetFor({ lugar, deskIndex, withDeskIndex, slot }) {
   return zonePos(lugar, slot);
 }
 
-module.exports = { TILE, DESKS, ZONES, ZONE_SPOTS, OWN_SPOTS, ownSpot, PLACES, ACTION_FOR_PLACE, SPOT_TILES, deskPos, zonePos, zoneSpot, zoneSpotFixed, zoneCapacity, spotPos, targetFor };
+module.exports = { INCIDENT_OBJECTS, TILE, DESKS, ZONES, ZONE_SPOTS, OWN_SPOTS, ownSpot, PLACES, ACTION_FOR_PLACE, SPOT_TILES, deskPos, zonePos, zoneSpot, zoneSpotFixed, zoneCapacity, spotPos, targetFor };

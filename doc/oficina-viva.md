@@ -374,7 +374,7 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
 - ✅ **Ritmo (2026-11-15):** el piloto automático da a cada uno su hora de café, de comida y de
   salidas, y su sitio según el cargo. Cada cuarto de hora hay escapadas cortas sin IA
   (`world/micro.js`), y partidas de ping-pong y de consola.
-- **Incidentes con estado (la sitcom, concretada el 2026-11-15):** un catálogo de sucesos con su
+- ✅ (primera tanda, 2026-11-16: `world/incidents.js`, `events.js`, `officeLife.js`) **Incidentes con estado (la sitcom, concretada el 2026-11-15):** un catálogo de sucesos con su
   probabilidad y su causa. Cada suceso cambia el ESTADO de un objeto o de una sala; el cambio se
   ve en el mapa, los demás lo perciben (entra en lo que «oyen» y en sus prompts) y dura hasta que
   se arregla, o cambia la forma de usar ese sitio. Ejemplos:
@@ -398,7 +398,15 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
 - **Plantillas de oficina:** más y menos lujo, capacidad y espacios, incluida una de **cubículos**
   de las de antes. Ver `doc/disenador-de-oficinas.md`.
 - **Revisión de UX/UI y de flujos:** `doc/revision-ux-2026-11-15.md`.
-- **Eventos de oficina en la terraza** (pedido el 2026-11-16): afterworks, talleres, team building…
+- ✅ (afterwork de los viernes, taller, team building, cumpleaños; el admin los crea en Empresa → Eventos) **Eventos de oficina en la terraza** (pedido el 2026-11-16): afterworks, talleres, team building…
   Algunos salen solos por reglas (el viernes por la tarde, un cumpleaños) y otros los configura el
   admin desde un calendario: qué, cuándo y dónde. Van con los incidentes con estado: los
   personajes se enteran, van o no según su carácter, y lo comentan.
+- **Incidentes, siguiente tanda:** más catálogo (cientos de variantes por plantilla y condición),
+  indicadores en la lupa, y que la IA proponga incidentes pequeños que una regla valide.
+- **Revisión de legibilidad del pixel art (2026-11-16):** hechos canaleta de cables, taza y planta,
+  silla, indicadores de ánimo en la rejilla de 32, rubor según la piel, rótulos al zócalo y
+  sombrilla. Pendientes: sombra de los árboles con aro (dibujarla tras el contorno), lámpara del
+  jefe sobre su torso, filas de sillas de reuniones iguales, urinario igual que el lavabo, palas y
+  red del ping-pong, la lupa sin indicadores de ánimo y la escala de 1,5 que hace temblar las
+  formas finas.

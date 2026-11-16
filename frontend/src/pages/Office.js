@@ -11,7 +11,7 @@ import '../styles/office.css';
 import '../styles/history.css';
 import StatsPentagon from '../components/StatsPentagon';
 import PruebasPanel from '../components/PruebasPanel';
-import { FlaskConical, Network, Building2, CloudSun, UserRound, LogOut, UserPlus, ScrollText } from 'lucide-react';
+import { FlaskConical, Network, Building2, CloudSun, UserRound, LogOut, UserPlus, ScrollText, AlertTriangle, PartyPopper } from 'lucide-react';
 import OfficeSettings from '../components/OfficeSettings';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -282,6 +282,7 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
 
         <aside className="office-sidebar">
           <MyCharacter mine={mine} isAdmin={isAdmin} onHistory={onHistory} onOpen={() => mine && openCharacter(mine.id)} />
+          <OfficeNow office={world && world.office} />
           <DreamPanel clock={clock} />
           <Feed feed={feed} mine={mine} placeLog={placeLog} />
         </aside>
@@ -403,6 +404,28 @@ function MyCharacter({ mine, isAdmin, onOpen, onHistory }) {
           {isAdmin ? ' (incluye a los C-suite ficticios)' : ''}
         </p>
       )}
+    </section>
+  );
+}
+
+const PLACE_LABEL = { terraza: 'terraza', descanso: 'zona chill', reuniones: 'sala de reuniones', cafe: 'cocina' };
+
+// Lo que pasa ahora en la oficina: incidentes abiertos y eventos de hoy.
+function OfficeNow({ office }) {
+  if (!office || (!office.incidents.length && !office.events.length)) return null;
+  return (
+    <section className="sidebar-section office-now">
+      <h3 className="sidebar-title">Ahora en la oficina</h3>
+      <ul className="office-now-list">
+        {office.incidents.map(i => (
+          <li key={`i${i.id}`} className="office-now-inc"><AlertTriangle size={14} aria-hidden /> {String(i.title).split('. ')[0]}</li>
+        ))}
+        {office.events.map(e => (
+          <li key={`e${e.id}`} className={`office-now-ev ${e.active ? 'is-on' : ''}`}>
+            <PartyPopper size={14} aria-hidden /> <strong>{e.from}</strong> {e.title} <span className="muted">· {PLACE_LABEL[e.place] || e.place}{e.active ? ' · ahora' : ''}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

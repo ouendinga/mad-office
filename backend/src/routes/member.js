@@ -324,6 +324,45 @@ function router({ world }) {
     res.json({ status: accept ? 'aceptada' : 'rechazada', position_id: j.position_id });
   });
 
+  // Eventos de la oficina (events.js). Los ve cualquiera; los crea y borra el admin. Un automático
+  // borrado se marca como cancelado para que no vuelva a salir.
+  const EV = require('../world/events');
+  const { parts: clockParts } = require('../world/clock');
+  const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  r.get('/eventos', async (req, res) => {
+    const day = clockParts(req.sim.clock.nowMs()).date;
+    const rows = (await req.app.get('db').query(
+      `SELECT id, kind, title, place, day::text, from_min, to_min, auto FROM office_events
+        WHERE company_id = $1 AND day >= $2 AND NOT cancelled ORDER BY day, from_min LIMIT 60`, [req.companyId, day])).rows;
+    res.json({ kinds: Object.entries(EV.KINDS).map(([k, v]) => ({ kind: k, label: v.label, icon: v.icon })), places: EV.PLACES,
+      events: rows.map(e => ({ ...e, from: EV.hhmm(e.from_min), to: EV.hhmm(e.to_min) })) });
+  });
+  r.post('/eventos', admin, async (req, res) => {
+    const b = req.body || {};
+    const kind = EV.KINDS[b.kind] ? b.kind : 'otro';
+    const title = gm.clean(b.title || '', 80);
+    if (!title) return res.status(400).json({ error: 'Ponle un nombre al evento.' });
+    if (!EV.PLACES.includes(b.place)) return res.status(400).json({ error: 'Elige dónde: terraza, zona chill, sala de reuniones o cocina.' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(b.day || '')) return res.status(400).json({ error: 'Elige el día.' });
+    if (!HHMM.test(b.from || '') || !HHMM.test(b.to || '') || toMin(b.to) <= toMin(b.from)) {
+      return res.status(400).json({ error: 'La hora de fin tiene que ir después de la de inicio.' });
+    }
+    const row = (await req.app.get('db').query(
+      `INSERT INTO office_events (company_id, kind, title, place, day, from_min, to_min, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (company_id, day, kind, from_min) DO UPDATE SET title = EXCLUDED.title, place = EXCLUDED.place,
+         to_min = EXCLUDED.to_min, cancelled = FALSE RETURNING id`,
+      [req.companyId, kind, title, b.place, b.day, toMin(b.from), toMin(b.to), req.userId])).rows[0];
+    req.sim.life.invalidateEvents();
+    res.status(201).json(row);
+  });
+  r.delete('/eventos/:id', admin, async (req, res) => {
+    await req.app.get('db').query('UPDATE office_events SET cancelled = TRUE WHERE id = $1 AND company_id = $2', [req.params.id, req.companyId]);
+    req.sim.life.invalidateEvents();
+    res.json({ ok: true });
+  });
+
   r.use('/pruebas', pruebas.router({ world }));
   r.use('/me', me.router());
   r.use('/', office.router({ world }));

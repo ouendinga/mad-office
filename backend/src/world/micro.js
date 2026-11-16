@@ -65,7 +65,7 @@ function groupPlans(companyId, day, minutes, eligible) {
 // Escapada de una persona ahora mismo, o null. group: lo que le toca de groupPlans.
 const SNACK = { kind: 'maquina', que: 'Asalta la máquina de snacks', frases: ['Tengo un hambre…', 'Venga, máquina, no me falles.', 'Solo una bolsa. Bueno, dos.'] };
 
-function microFor(c, day, minutes, { group, blockFrom, neighbor, hungry = false }) {
+function microFor(c, day, minutes, { group, blockFrom, neighbor, hungry = false, noSnack = false }) {
   if (minutes < blockFrom + 10) return null; // nada más llegar, se sienta
   if (group && minutes >= group.from && minutes < group.until) {
     const r = rng(`${c.id}|${day}|${group.slot}|${minutes}`);
@@ -83,7 +83,8 @@ function microFor(c, day, minutes, { group, blockFrom, neighbor, hungry = false 
   const dur = 3 + Math.floor(r() * 5);
   if (minutes < at || minutes >= at + dur) return null;
   // Con hambre (y lejos de la comida), a la máquina.
-  let m = hungry && r() < 0.8 ? SNACK : pickWeighted(SOLO, r());
+  // Con la máquina rota, a la fuente a engañar al estómago.
+  let m = hungry && r() < 0.8 ? (noSnack ? { ...SOLO[1], frases: ['La máquina sigue rota…', 'Agua y paciencia.'] } : SNACK) : pickWeighted(SOLO, r());
   if (m.kind === 'visita' && neighbor == null) m = SOLO[0];
   const frase = m.frases[Math.floor(r() * m.frases.length)];
   const base = { id: `${m.kind}${slot}`, kind: m.kind, que: m.que, frase };
