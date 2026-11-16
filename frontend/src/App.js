@@ -10,6 +10,7 @@ import History from './pages/History';
 import Companies from './pages/Companies';
 import OrgChart from './pages/OrgChart';
 import CompanySettings from './pages/CompanySettings';
+import { FlaskConical } from 'lucide-react';
 import { api, capi, getToken, setToken, getCompany, setCompany, pendingInvite, clearInvite, getOwner, setOwner } from './api';
 
 // Recorrido: entrar → elegir o crear empresa → avatar (una vez) → cargo en el organigrama →
@@ -25,6 +26,9 @@ export default function App() {
   const [editAvatar, setEditAvatar] = useState(false);
   const [notice, setNotice] = useState('');
   const [design, setDesign] = useState(null); // { planId } o { base } para el diseñador
+  // Empresas en las que ya ha dicho qué cargo quiere (quien crea una empresa sale de CEO por
+  // defecto, pero antes de la entrevista se le deja cambiarlo).
+  const [posOk, setPosOk] = useState(() => new Set());
 
   // «Atrás» del navegador o del móvil: cada vista deja su entrada en el historial y volver atrás
   // lleva a la anterior (antes sacaba de la app). Lo que llega por popstate no se vuelve a apilar.
@@ -74,6 +78,11 @@ export default function App() {
       if (cid && !data.companies.some(c => c.id === cid)) {
         setCompany(null);
         setActive(null);
+      }
+      // Con una sola empresa no hay nada que elegir: se entra directo.
+      if (!getCompany() && data.companies.length === 1) {
+        setCompany(data.companies[0].id);
+        setActive(data.companies[0].id);
       }
       setMe(data);
     } catch {
@@ -153,7 +162,7 @@ export default function App() {
   }
   const ownerBar = owner && (
     <div className="owner-bar" role="status">
-      🧪 Estás como <strong>{owner.as}</strong> (jugador de prueba)
+      <FlaskConical size={16} aria-hidden /> Estás como <strong>{owner.as}</strong> (jugador de prueba)
       <button type="button" className="btn btn-primary btn-sm" onClick={backToOwner}>Volver a mi cuenta</button>
     </div>
   );
@@ -167,8 +176,9 @@ export default function App() {
         user={user}
         onAvatarSaved={u => { setEditAvatar(false); setMe({ ...me, user: u }); }}
         // Si ya tenía avatar, vuelve a donde estaba; si es la primera vez, la salida es cerrar sesión.
-        onCancel={hasAvatar ? () => setEditAvatar(false) : logout}
-        cancelLabel={hasAvatar ? 'Volver sin cambiar' : 'Salir'}
+        onCancel={hasAvatar ? () => setEditAvatar(false) : null}
+        onLogout={hasAvatar ? null : logout}
+        first={!hasAvatar}
       />
     );
   }
@@ -187,8 +197,9 @@ export default function App() {
   }
 
   // Primera vez en esta empresa: elegir cargo, luego la entrevista.
-  if (!active.position_id) {
-    return <OrgChart company={active} mode="choose" onDone={load} onBack={() => setView('companies')} />;
+  if (!active.position_id || (!active.approved && active.role === 'admin' && !posOk.has(active.id))) {
+    return <OrgChart company={active} mode="choose" onBack={() => setView('companies')}
+      onDone={() => { setPosOk(new Set([...posOk, active.id])); load(); }} />;
   }
   if (!active.approved) {
     if (!companyMe) return <div className="loading">Preparando tu entrevista…</div>;
@@ -210,7 +221,8 @@ export default function App() {
       onDesign={d => { setDesign(d); setView('disenador'); }} />;
   }
   if (view === 'disenador' && design) return <Designer planId={design.planId} base={design.base} onBack={() => setView('oficinas')} />;
-  if (view === 'empresa') return <CompanySettings company={active} onChanged={load} onBack={() => setView('office')} />;
+  // Ajustes: solo quien lleva la empresa (al resto no se le enseña lo que no puede tocar).
+  if (view === 'empresa' && active.role === 'admin') return <CompanySettings company={active} onChanged={load} onBack={() => setView('office')} />;
 
   return (
     <>{ownerBar}<Office

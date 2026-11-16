@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { SKIN_TONES, HAIR_STYLES, HAIR_COLORS, CLOTHES, ACCESSORIES, characterSprite } from '../engine/Character';
+import { ChevronLeft, ChevronRight, Dices, LogOut } from 'lucide-react';
 import '../styles/avatar-generator.css';
 import { api } from '../api';
 
 
-export default function AvatarGenerator({ user, onAvatarSaved, onCancel, cancelLabel }) {
+// first: es la primera vez (luego viene elegir empresa y cargo). onLogout solo entonces: la única
+// salida es cerrar la sesión, y va pequeña para que no compita con «Guardar».
+export default function AvatarGenerator({ user, onAvatarSaved, onCancel, onLogout, first }) {
   const canvasRef = useRef(null);
   const [config, setConfig] = useState(user.avatar_config && Object.keys(user.avatar_config).length ? user.avatar_config : {
     skinTone: 0,
@@ -63,24 +66,21 @@ export default function AvatarGenerator({ user, onAvatarSaved, onCancel, cancelL
   return (
     <div className="avatar-gen">
       <div className="avatar-gen-container">
-        <h1 className="pixel-font avatar-gen-title">Tu avatar</h1>
-        <p className="avatar-gen-subtitle">Así te verán en la oficina. Luego viene la entrevista.</p>
+        <h1 className="avatar-gen-title">Tu avatar</h1>
+        <p className="avatar-gen-subtitle">
+          {first ? 'Así te verán en la oficina. Es el mismo en todas tus empresas y lo puedes cambiar cuando quieras.' : 'Así te verán en todas tus empresas.'}
+        </p>
 
         <div className="avatar-gen-content">
           <div className="avatar-preview-section">
             <canvas ref={canvasRef} width={128} height={128} className="avatar-canvas" />
             <p className="avatar-name">{user.name}</p>
-            <button type="button" className="btn btn-ghost btn-sm avatar-random" onClick={randomize}>🎲 Al azar</button>
+            <button type="button" className="btn btn-secondary btn-sm avatar-random" onClick={randomize}><Dices size={16} aria-hidden /> Al azar</button>
           </div>
 
           <div className="avatar-options">
-            <OptionSelector
-              label="Tono de piel"
-              value={config.skinTone}
-              max={SKIN_TONES.length}
-              displayValue={`${config.skinTone + 1} / ${SKIN_TONES.length}`}
-              onChange={(delta) => changeOption('skinTone', delta, SKIN_TONES.length)}
-            />
+            <Swatches label="Tono de piel" colors={SKIN_TONES} value={config.skinTone}
+              onPick={i => setConfig(prev => ({ ...prev, skinTone: i }))} />
             <OptionSelector
               label="Estilo de pelo"
               value={config.hairStyle}
@@ -88,13 +88,8 @@ export default function AvatarGenerator({ user, onAvatarSaved, onCancel, cancelL
               displayValue={HAIR_STYLES[config.hairStyle]}
               onChange={(delta) => changeOption('hairStyle', delta, HAIR_STYLES.length)}
             />
-            <OptionSelector
-              label="Color de pelo"
-              value={config.hairColor}
-              max={HAIR_COLORS.length}
-              displayValue={`${config.hairColor + 1} / ${HAIR_COLORS.length}`}
-              onChange={(delta) => changeOption('hairColor', delta, HAIR_COLORS.length)}
-            />
+            <Swatches label="Color de pelo" colors={HAIR_COLORS} value={config.hairColor}
+              onPick={i => setConfig(prev => ({ ...prev, hairColor: i }))} />
             <OptionSelector
               label="Ropa"
               value={config.clothes}
@@ -115,14 +110,37 @@ export default function AvatarGenerator({ user, onAvatarSaved, onCancel, cancelL
         {error && <div className="modal-error">{error}</div>}
         <div className="avatar-gen-actions">
           {onCancel && (
-            <button type="button" className="btn btn-ghost btn-lg" onClick={onCancel} disabled={saving}>
-              ← {cancelLabel || 'Volver'}
-            </button>
+            <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>Volver sin cambiar</button>
           )}
           <button type="button" className="btn btn-primary btn-lg" onClick={handleSave} disabled={saving}>
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
+        {onLogout && (
+          <button type="button" className="link-btn avatar-logout" onClick={onLogout} disabled={saving}>
+            <LogOut size={14} aria-hidden /> No soy yo: cerrar sesión
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Muestras de color: se ve el color y se elige de un toque (antes era «1 / 4» con flechas).
+const COLOR_NAMES = {
+  'Tono de piel': ['Muy clara', 'Clara', 'Morena', 'Oscura'],
+  'Color de pelo': ['Negro', 'Castaño', 'Rubio oscuro', 'Rubio', 'Pelirrojo', 'Canoso'],
+};
+function Swatches({ label, colors, value, onPick }) {
+  const names = COLOR_NAMES[label] || [];
+  return (
+    <div className="option-selector">
+      <span className="option-label" id={`sw-${label}`}>{label}</span>
+      <div className="option-swatches" role="radiogroup" aria-labelledby={`sw-${label}`}>
+        {colors.map((c, i) => (
+          <button key={c} type="button" role="radio" aria-checked={value === i} aria-label={names[i] || `${label} ${i + 1}`}
+            title={names[i]} className={`swatch ${value === i ? 'is-on' : ''}`} style={{ background: c }} onClick={() => onPick(i)} />
+        ))}
       </div>
     </div>
   );
@@ -131,11 +149,11 @@ export default function AvatarGenerator({ user, onAvatarSaved, onCancel, cancelL
 function OptionSelector({ label, displayValue, onChange }) {
   return (
     <div className="option-selector">
-      <label>{label}</label>
+      <span className="option-label">{label}</span>
       <div className="option-controls">
-        <button className="option-btn" onClick={() => onChange(-1)}>&lt;</button>
+        <button type="button" className="option-btn" aria-label={`${label}: anterior`} onClick={() => onChange(-1)}><ChevronLeft size={18} aria-hidden /></button>
         <span className="option-value">{displayValue}</span>
-        <button className="option-btn" onClick={() => onChange(1)}>&gt;</button>
+        <button type="button" className="option-btn" aria-label={`${label}: siguiente`} onClick={() => onChange(1)}><ChevronRight size={18} aria-hidden /></button>
       </div>
     </div>
   );

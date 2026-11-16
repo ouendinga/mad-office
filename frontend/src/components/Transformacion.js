@@ -162,7 +162,7 @@ export default function Transformacion({ avatar, answers, name, done, onFinish }
 
   return (
     <div className="transfo" role="status" aria-live="polite">
-      <div className="transfo-title pixel-font">{done ? '¡Transformación completa!' : 'Transformación en curso'}</div>
+      <div className="transfo-title">{done ? '¡Transformación completa!' : 'Transformación en curso'}</div>
       <canvas ref={ref} width={W} height={H} className="transfo-canvas" aria-label={`Animación: se está formando el personaje de ${name}`} />
       <p className="transfo-caption" key={done ? 'fin' : line}>{caption}</p>
     </div>

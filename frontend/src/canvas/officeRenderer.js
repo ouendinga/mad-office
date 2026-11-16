@@ -14,7 +14,7 @@
  */
 
 import { getPlan, planVersion } from './plan';
-import { buildStatic, objectSprite, objectDef, roomAt, setSeason, T } from '../engine/OfficeArt';
+import { buildStatic, objectSprite, objectDef, prepareObjects, roomAt, setSeason, T } from '../engine/OfficeArt';
 import { renderAvatar } from '../engine/SpriteSheet';
 import { drawVisitorProps } from '../engine/VisitorProps';
 import { characterSprite } from '../engine/Character';
@@ -50,7 +50,7 @@ function rebuild() {
   windows = [];
   lights = [];
   const sctx = staticLayer.getContext('2d');
-  getPlan().objects.forEach((o, i) => {
+  prepareObjects(getPlan().objects).forEach((o, i) => {
     const d = objectDef(o.type);
     if (!d) return;
     const base = { o, seed: i + 1, d, x: o.x * T, y: o.y * T, baseY: (o.y + (o.h || 1)) * T };
@@ -274,6 +274,41 @@ export function bubble(ctx, text, cx, bottom, { maxW = 190, thought = false } = 
   lines.forEach((l, i) => ctx.fillText(l, x + 9, y + 18 + i * 15));
 }
 
+// Escala del mapa. Con escalas como 1,5 cada píxel de arte mide 1 o 2 píxeles de pantalla según
+// dónde caiga, y las formas finas «tiemblan» al moverse. Si cabe, se redondea a un número entero
+// de píxeles del dispositivo (con devicePixelRatio 2, a medios en px CSS); si eso encoge el mapa
+// demasiado, se queda la escala justa y se dibuja con drawCrisp.
+export function crispScale(fit, dpr = 1) {
+  const sd = fit * dpr; // píxeles del dispositivo por píxel de arte
+  if (sd < 1) return fit;
+  const whole = Math.floor(sd);
+  return whole / sd >= 0.85 ? whole / dpr : fit;
+}
+
+// Pintar la escena a una escala de dispositivo `sd`. Entera: vecino más próximo, nítido. No
+// entera: se amplía primero a un entero por encima (vecino más próximo) y se reduce con suavizado
+// («sharp bilinear»): todos los píxeles miden lo mismo y solo se suavizan los bordes.
+let crispBuf = null;
+function drawCrisp(ctx, src, ox, oy, sd, scale) {
+  const W = src.width;
+  const H = src.height;
+  if (Math.abs(sd - Math.round(sd)) < 0.01 || sd < 1) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(src, ox, oy, W * scale, H * scale);
+    return;
+  }
+  const k = Math.ceil(sd);
+  if (!crispBuf || crispBuf.canvas.width !== W * k || crispBuf.canvas.height !== H * k) crispBuf = makeCanvas(W * k, H * k);
+  const b = crispBuf.ctx;
+  b.imageSmoothingEnabled = false;
+  b.clearRect(0, 0, W * k, H * k);
+  b.drawImage(src, 0, 0, W * k, H * k);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'medium';
+  ctx.drawImage(crispBuf.canvas, ox, oy, W * scale, H * scale);
+  ctx.imageSmoothingEnabled = false;
+}
+
 // Texto corto para el indicador de llamada.
 export function callText(c, world) {
   if (!c.call) return null;
@@ -285,19 +320,21 @@ export function callText(c, world) {
 export function renderOffice(ctx, canvas, world, animFrame, focus) {
   ensure(world);
   const now = performance.now();
-  const w = canvas.width;
-  const h = canvas.height;
-  const scale = Math.min(w / ART_W, h / ART_H);
-  const ox = Math.floor((w - ART_W * scale) / 2);
-  const oy = Math.floor((h - ART_H * scale) / 2);
+  // Se dibuja en px CSS; el lienzo va a la resolución del dispositivo (canvas._dpr).
+  const dpr = canvas._dpr || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+  const scale = crispScale(Math.min(w / ART_W, h / ART_H), dpr);
+  const ox = Math.floor(((w - ART_W * scale) / 2) * dpr) / dpr;
+  const oy = Math.floor(((h - ART_H * scale) / 2) * dpr) / dpr;
   view = { scale, ox, oy };
 
   const people = paintScene(world, animFrame, now);
 
   ctx.fillStyle = '#1B1626';
   ctx.fillRect(0, 0, w, h);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(scene.canvas, ox, oy, ART_W * scale, ART_H * scale);
+  drawCrisp(ctx, scene.canvas, ox, oy, scale * dpr, scale);
 
   const S = (x, y) => [ox + x * scale, oy + y * scale];
 

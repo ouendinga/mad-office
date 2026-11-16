@@ -190,8 +190,11 @@ export function renderStreet(ctx, canvas, world, animFrame) {
   drawPrecip(l, { x: 0, y: 0, w: W, h: H }, weatherKind(env.w), now, { wind: env.w ? env.w.wind : 0 });
 
   // a pantalla
-  const cw = canvas.width;
-  const ch = canvas.height;
+  // El lienzo puede ir a la resolución del dispositivo (canvas._dpr): se dibuja en px CSS.
+  const dpr = canvas._dpr || 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cw = canvas.width / dpr;
+  const ch = canvas.height / dpr;
   const scale = Math.min(cw / W, ch / H);
   const ox = Math.floor((cw - W * scale) / 2);
   const oy = Math.floor(ch - H * scale); // apoyada abajo: arriba sigue el cielo

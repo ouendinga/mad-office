@@ -214,7 +214,7 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
         </div>
         <div className="org-actions">
           {p.id === mineId ? <span className="org-mine">Tu cargo</span> : mode === 'choose' ? (
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => take(p)}>Quiero este</button>
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => take(p)}>Quiero este</button>
           ) : confirmTake === p.id ? (
             // Cambiarse de cargo no se deshace con un toque: se confirma diciendo qué va a pasar.
             <span className="org-confirm" role="alert">
@@ -262,6 +262,12 @@ export default function OrgChart({ company, mode, onDone, onBack }) {
       </header>
       <main className="cos-main">
         <h1 className="cos-title">{mode === 'choose' ? '¿Qué eres en esta empresa?' : '🗂️ Organigrama'}</h1>
+        {mode === 'choose' && mineId && (
+          <div className="org-default" role="status">
+            <p>Como has creado la empresa, te hemos puesto de <strong>{mineTitle}</strong>. Si prefieres otro cargo, elígelo abajo.</p>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={onDone}>Seguir como {mineTitle}</button>
+          </div>
+        )}
         <p className="muted">
           {mode === 'choose'
             ? 'Elige tu cargo. Si lo ocupa un ficticio 🤖, se va a su casa en cuanto llegas. No hace falta que esté ocupado el de arriba.'

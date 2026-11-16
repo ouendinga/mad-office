@@ -105,7 +105,8 @@ function router({ world }) {
       `SELECT c.id, c.name, c.position_id, c.owner_user_id, c.approved, c.npc_seat, c.sin_ia,
               COALESCE(u.avatar_config, c.avatar_config) AS avatar_config
          FROM characters c LEFT JOIN users u ON u.id = c.owner_user_id
-        WHERE c.company_id = $1 AND c.position_id IS NOT NULL AND NOT c.retired AND NOT c.paused`, [req.companyId])).rows;
+        WHERE c.company_id = $1 AND c.position_id IS NOT NULL AND NOT c.retired AND NOT c.paused
+        ORDER BY c.id`, [req.companyId])).rows;
     res.json({
       positions: positions.map(p => ({
         ...p,

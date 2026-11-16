@@ -28,11 +28,14 @@ test('empresas de punta a punta', async ({ request }) => {
   expect(me.companies.find(c => c.id === co.id).role).toBe('admin');
   const base = `/api/companies/${co.id}`;
 
-  // El organigrama viene sembrado y con ficticios en sus huecos.
+  // El organigrama viene sembrado y con ficticios en sus huecos. Quien crea la empresa queda de CEO
+  // por defecto (requisito de la revisión de UX del 15-11; antes tenía que elegirlo), pero sin
+  // aprobar: el ficticio de CEO sigue en su puesto hasta que apruebe la ficha.
   let orgData = await json(await request.get(`${base}/org`, { headers: A }));
   const ceo = orgData.positions.find(p => p.title === 'CEO');
   const dev = orgData.positions.find(p => p.title === 'Desarrollo');
-  expect(ceo.holders[0].human).toBe(false);
+  expect(co.position_id).toBe(ceo.id);
+  expect(ceo.holders.map(h => [h.human, !!h.mine])).toEqual([[false, false], [true, true]]);
 
   // A se pone de CEO y aprueba su ficha: el ficticio de CEO se retira.
   await json(await request.post(`${base}/me/position`, { headers: A, data: { position_id: ceo.id } }));

@@ -29,8 +29,9 @@ test('una persona nueva monta su empresa y tiene personaje en menos de 5 minutos
   await page.getByLabel('Nombre de la empresa').fill('Pruebas Recorrido');
   await page.getByRole('button', { name: 'Crear empresa' }).click();
 
-  // Elegir cargo en el organigrama
+  // Elegir cargo en el organigrama: sale de CEO por defecto (por haberla creado), pero puede cambiarlo.
   await expect(page.getByText('¿Qué eres en esta empresa?')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Seguir como CEO' })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/2-cargo.png`, fullPage: true });
   await page.locator('.org-card', { hasText: 'Desarrollo' }).getByRole('button', { name: 'Quiero este' }).click();
 
