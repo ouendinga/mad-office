@@ -435,7 +435,40 @@ export function drawActionIndicator(ctx, action, ox, oy, scale, frame) {
 // mods: lo que sale de eatMods (SpriteSheet.js): { eat, food, frame, mouth }.
 const CRUMB = '#E8C07A';
 const HOT = ['pasta', 'arroz', 'lentejas', 'fideos'];
+// Gestos (los manda el servidor en `gesture`; el teléfono también si hay llamada), cada uno con
+// su estilo según `seed`: estirarse (los dos brazos o uno), el móvil (a la altura del pecho o
+// delante de la cara) y el teléfono en la oreja (derecha o izquierda).
+export function drawGesture(ctx, gesture, ox, oy, scale, frame, seed = 0, skin = '#E9AE85') {
+  const st = Math.abs(seed | 0);
+  if (gesture === 'estira') {
+    const up = frame % 4 < 2 ? 0 : 1; // sube y baja un poco
+    const both = st % 3 !== 0;
+    for (const x of both ? [6, 25] : [25]) {
+      for (let y = 5 + up; y <= 17; y++) p32(ctx, ox, oy, x, y, skin, scale);
+      p32(ctx, ox, oy, x - 1, 4 + up, skin, scale); p32(ctx, ox, oy, x, 4 + up, skin, scale); p32(ctx, ox, oy, x + 1, 4 + up, skin, scale);
+    }
+  } else if (gesture === 'movil') {
+    const y0 = st % 2 ? 19 : 15; // unos lo miran a la altura del pecho; otros, pegado a la cara
+    for (let y = y0; y < y0 + 5; y++) for (let x = 13; x <= 18; x++) p32(ctx, ox, oy, x, y, x === 13 || x === 18 || y === y0 || y === y0 + 4 ? '#2B2F3D' : '#74B9FF', scale);
+    if (frame % 3 === 0) p32(ctx, ox, oy, 15, y0 + 2, '#FFFFFF', scale); // algo se mueve en la pantalla
+    p32(ctx, ox, oy, 12, y0 + 3, skin, scale); p32(ctx, ox, oy, 19, y0 + 3, skin, scale);
+  } else if (gesture === 'telefono') {
+    const x = st % 2 ? 24 : 6; // oreja derecha o izquierda
+    for (let y = 9; y <= 15; y++) { p32(ctx, ox, oy, x, y, '#2B2F3D', scale); p32(ctx, ox, oy, x + (x > 16 ? 1 : -1), y, '#2B2F3D', scale); }
+    p32(ctx, ox, oy, x, 10, '#74B9FF', scale);
+    for (let y = 16; y <= 18; y++) p32(ctx, ox, oy, x, y, skin, scale); // la mano que lo sujeta
+  }
+}
+
 export function drawEatIndicator(ctx, mods, ox, oy, scale, frame) {
+  // Masticando: dos marcas a los lados de la cara que van y vienen; se ve también en el mapa (antes
+  // el bocado y el masticado solo se distinguían en la lupa).
+  if (mods.frame === 2 && frame % 2 === 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    for (const [x, y] of [[6, 12], [6, 14], [25, 12], [25, 14]]) p32(ctx, ox, oy, x, y, '#FFFFFF', scale);
+    ctx.restore();
+  }
   const style = mods.eat;
   if ((style === 'rapido' || style === 'mancha' || style === 'bocata') && mods.frame === 2) {
     const k = frame % 3;

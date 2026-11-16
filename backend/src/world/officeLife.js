@@ -220,7 +220,8 @@ class OfficeLife {
     const w = this.sim.weatherNow();
     if (p.minutes < sch.COMMUTE.ida - 30 || (!w && p.minutes < sch.BLOCKS.manana.from)) return;
     this.outsideRolled = true;
-    const def = outside.rollDay(outside.dayContext(day, p.weekday, w), this.companyId);
+    const region = require('./holidays').regionOf(this.sim.weather && this.sim.weather.location);
+    const def = outside.rollDay(outside.dayContext(day, p.weekday, w, region), this.companyId);
     if (!def) {
       await this.pool.query(
         `INSERT INTO office_outside (company_id, day, kind) VALUES ($1, $2, 'nada') ON CONFLICT DO NOTHING`, [this.companyId, day]);

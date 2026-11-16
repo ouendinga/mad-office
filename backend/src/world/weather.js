@@ -62,7 +62,8 @@ async function geocode(name, fetchImpl = fetch) {
   if (!res.ok) throw new Error(`geocoding ${res.status}`);
   const r = ((await res.json()).results || [])[0];
   if (!r) return null;
-  return { city: r.name, country: r.country || '', lat: r.latitude, lon: r.longitude };
+  // La comunidad (admin1) sirve para los festivos autonómicos (holidays.js).
+  return { city: r.name, country: r.country || '', region: r.admin1 || '', lat: r.latitude, lon: r.longitude };
 }
 
 // Caché compartida por coordenadas: dos empresas en la misma ciudad no piden dos veces.

@@ -457,3 +457,13 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
   a píxeles enteros del dispositivo (medios en px CSS con devicePixelRatio 2); si eso encoge el
   mapa más de un 15 %, se amplía a entero y se reduce con suavizado («sharp bilinear», `drawCrisp`).
   Pendiente: la lupa sin indicadores de ánimo.
+- ✅ (2026-11-16) **Repaso de los sucesos de fuera y mejoras pequeñas:**
+  - El cartel de cada suceso sale todo el día y apilado: antes se pisaban.
+  - La ola de calor se nota, con calima en la terraza.
+  - Con el diluvio llueve aunque el tiempo real no lo traiga.
+  - Festivos: Semana Santa y autonómicos más estables (`world/holidays.js`, aproximados 🔶).
+  - En móvil no salen bocadillos ni nombres de quien queda fuera de la pantalla.
+  - El masticar se ve en el mapa.
+  - Gestos con estilo propio: estirarse, el móvil, el teléfono en la oreja.
+  - Pruebas explica la casilla «IA».
+  - Fuera la lupa antigua (`RoomScenes.js`).

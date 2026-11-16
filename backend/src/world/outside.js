@@ -19,18 +19,19 @@
 const { rng } = require('./autopilot');
 const { traits } = require('./incidents');
 
-// Festivos nacionales fijos (MM-DD). Los autonómicos y los móviles (Semana Santa) no se cuentan.
-const HOLIDAYS = ['01-01', '01-06', '05-01', '08-15', '10-12', '11-01', '12-06', '12-08', '12-25'];
+// Festivos: nacionales, Semana Santa y autonómicos (holidays.js).
+const holidays = require('./holidays');
+const HOLIDAYS = holidays.NATIONAL;
 
 const pick = (list, r) => list[Math.floor(r() * list.length)];
 const addDaysUTC = (day, n) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
-const isHoliday = day => HOLIDAYS.includes(day.slice(5));
+const isHoliday = (day, region = null) => holidays.isHoliday(day, region);
 const isSnow = w => !!w && ((w.code >= 71 && w.code <= 77) || w.code === 85 || w.code === 86);
 const isDownpour = w => !!w && [63, 65, 81, 82].includes(w.code);
 
 // ¿Hoy hace puente? Lunes antes de un martes festivo o viernes después de un jueves festivo.
-function bridgeDay(day, weekday) {
-  return (weekday === 1 && isHoliday(addDaysUTC(day, 1))) || (weekday === 5 && isHoliday(addDaysUTC(day, -1)));
+function bridgeDay(day, weekday, region = null) {
+  return (weekday === 1 && isHoliday(addDaysUTC(day, 1), region)) || (weekday === 5 && isHoliday(addDaysUTC(day, -1), region));
 }
 
 const CLIENT_ROLE = /cuenta|client|comercial|venta|account|negocio|atenci|soporte|customer/;
@@ -169,7 +170,7 @@ const CATALOG = [
   {
     kind: 'puente', icon: '🏖️', sign: 'DÍA DE PUENTE',
     // Festivo nacional en martes (lunes de puente) o en jueves (viernes de puente): pasa siempre.
-    chance: x => (bridgeDay(x.day, x.weekday) ? 1 : 0),
+    chance: x => (bridgeDay(x.day, x.weekday, x.region) ? 1 : 0),
     titles: ['🏖️ Día de puente: media oficina se ha cogido el día y la otra media mira sus mesas vacías.'],
     prompt: 'es día de puente: media oficina se ha cogido el día; los que han venido trabajan a medio gas y con envidia',
     off: { share: 0.5, que: 'De puente (pero contesta un correo desde la playa, por si acaso)' },
@@ -231,8 +232,8 @@ const CATALOG = [
 const BY_KIND = Object.fromEntries(CATALOG.map(d => [d.kind, d]));
 
 // Contexto de reglas para un día: { day, weekday, month, w } (w = tiempo actual o null).
-function dayContext(day, weekday, weather) {
-  return { day, weekday, month: Number(day.slice(5, 7)), w: weather || null };
+function dayContext(day, weekday, weather, region = null) {
+  return { day, weekday, month: Number(day.slice(5, 7)), w: weather || null, region };
 }
 
 // El suceso de hoy (o null). Determinista por empresa y día: se mira en orden y gana el primero

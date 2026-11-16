@@ -270,3 +270,21 @@ test('los percances pequeños nunca salen solos y el esquema del plan los admite
   assert.match(wake.prompt, /teletrabaja desde casa/);
   assert.ok(!/puede elegir/.test(wake.prompt));
 });
+
+const hol = require('../src/world/holidays');
+
+test('festivos: Semana Santa y autonómicos (aproximados)', () => {
+  assert.equal(hol.easter(2026), '2026-04-05');
+  assert.equal(hol.easter(2027), '2027-03-28');
+  assert.ok(hol.isHoliday('2026-04-03')); // Viernes Santo, en toda España
+  assert.ok(hol.isHoliday('2026-04-02', 'madrid')); // Jueves Santo en Madrid
+  assert.ok(!hol.isHoliday('2026-04-02', 'cataluna')); // en Cataluña, no
+  assert.ok(hol.isHoliday('2026-04-06', 'cataluna')); // Lunes de Pascua, sí
+  assert.ok(hol.isHoliday('2026-09-11', 'cataluna'));
+  assert.ok(!hol.isHoliday('2026-09-11', 'madrid'));
+  assert.ok(hol.isHoliday('2026-05-02', 'madrid'));
+  assert.equal(hol.regionOf({ city: 'Málaga' }), 'andalucia');
+  assert.equal(hol.regionOf({ city: 'X', region: 'Comunidad de Madrid' }), 'madrid');
+  assert.equal(hol.regionOf({ city: 'Bilbao' }), 'paisvasco');
+  assert.equal(hol.regionOf({ city: 'Lyon' }), null);
+});

@@ -648,6 +648,9 @@ class Sim {
       lugar,
       que: a.que,
       action: c.stats.energia <= 0.5 ? 'durmiendo' : ACTION_FOR_PLACE[lugar],
+      // Gesto que se ve en el sprite (cada uno a su manera en el navegador): estirarse, el móvil en
+      // la mano o el teléfono en la oreja.
+      gesture: a.micro && ['estira', 'movil'].includes(a.micro.kind) ? a.micro.kind : (a.externo ? 'telefono' : null),
       representation: HUMOR_REPR[c.humor] || null,
       bubble,
       call: a.externo ? { with: null, externo: a.externo } : null,

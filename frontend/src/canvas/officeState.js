@@ -208,6 +208,9 @@ export function drawBlackout(ctx, office, now, w, h) {
   ctx.fillRect(0, 0, w, h);
 }
 
+// ¿Hay que pintar lluvia aunque el tiempo real no la traiga? (el diluvio de los sucesos de fuera)
+export const forcedRain = office => !!(office && office.outside && office.outside.some(o => o.kind === 'diluvio'));
+
 // --- Sucesos de fuera (world.office.outside): la nevada, la final, la inspección… ---
 const out = (office, kind) => (office && office.outside ? office.outside.find(o => o.kind === kind) : null);
 // Lo que pone en la sala donde se junta la gente mientras dura.
@@ -249,8 +252,17 @@ function drawOutsideArt(ctx, office, now) {
   // Ola de calor: toda la oficina, anaranjada y con calima que tiembla.
   if (out(office, 'ola_calor')) {
     const p = getPlan();
-    ctx.fillStyle = `rgba(255, 140, 40, ${0.07 + Math.sin(now / 1100) * 0.025})`;
+    // Más fuerte que antes (no se notaba): tinte cálido y, en la terraza, calima que sube.
+    ctx.fillStyle = `rgba(255, 130, 30, ${0.13 + Math.sin(now / 1100) * 0.03})`;
     ctx.fillRect(0, 0, p.cols * T, p.rows * T);
+    const r = room('terraza');
+    if (r) for (let i = 0; i < 14; i++) {
+      const t = (now / 2600 + i * 0.07) % 1;
+      const x = r.x * T + ((i * 23) % (r.w * T - 8)) + Math.sin(now / 300 + i) * 2;
+      const y = (r.y + r.h) * T - t * r.h * T;
+      ctx.fillStyle = `rgba(255, 240, 200, ${0.35 * (1 - t)})`;
+      ctx.fillRect(Math.round(x), Math.round(y), 8, 1);
+    }
   }
   // Final: la tele de la zona chill encendida, con el campo verde y los jugadores-píxel.
   const final = out(office, 'final_futbol');
@@ -355,12 +367,13 @@ export function drawStateSigns(ctx, office, S, pill) {
     pill(ctx, `🎉 ${ev.title}`, x, y, { font: '800 10px Inter, sans-serif', bg: 'rgba(108, 92, 231, 0.95)' });
   }
   // Lo de fuera, mientras dura: un cartel en el pasillo y otro en la sala donde se junta la gente.
+  // El del pasillo, todo el día (el suceso dura el día entero aunque la gente se junte solo un
+  // rato); uno debajo de otro, separados en px de pantalla para que no se pisen.
   const hall = room('pasillo');
-  (office.outside || []).filter(o => o.active).forEach((o, n) => {
-    // En el pasillo, que no tapa ninguna sala (si la oficina no tiene, arriba del todo).
-    const [x, y] = hall ? S((hall.x + hall.w / 2) * T, (hall.y + 1) * T + n * 14) : S(getPlan().cols * T / 2, T + n * 14);
-    pill(ctx, `${o.icon} ${o.sign}`, x, y, { font: '800 10px Inter, sans-serif', bg: 'rgba(14, 116, 144, 0.95)' });
-    if (!o.place || !GATHER_SIGN[o.kind]) return;
+  (office.outside || []).forEach((o, n) => {
+    const [x, y0] = hall ? S((hall.x + hall.w / 2) * T, (hall.y + 1) * T) : S(getPlan().cols * T / 2, T);
+    pill(ctx, `${o.icon} ${o.sign}`, x, y0 + n * 20, { font: '800 10px Inter, sans-serif', bg: 'rgba(14, 116, 144, 0.95)' });
+    if (!o.active || !o.place || !GATHER_SIGN[o.kind]) return;
     const r = room(PLACE_ROOM[o.place]);
     if (!r) return;
     const [gx, gy] = S((r.x + r.w / 2) * T, (r.y + r.h) * T - 8);

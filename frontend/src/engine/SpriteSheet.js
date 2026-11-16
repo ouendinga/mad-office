@@ -4,8 +4,8 @@
  * Walk animation: 2 frames alternando piernas.
  */
 
-import { drawRepresentation, drawActionIndicator, drawEatIndicator } from '../canvas/avatarSprites';
-import { drawCharacter } from './Character';
+import { drawRepresentation, drawActionIndicator, drawEatIndicator, drawGesture } from '../canvas/avatarSprites';
+import { drawCharacter, SKIN_TONES } from './Character';
 
 const SPRITE_BASE = 16;   // Tamano base del sprite en pixels
 const CACHE = new Map();
@@ -129,6 +129,10 @@ export function renderAvatar(ctx, config, worldX, worldY, scale, animFrame, acti
   if (action) drawActionIndicator(ctx, action, 0, 0, scale * 2, animFrame);
   if (representation) drawRepresentation(ctx, representation, 0, 0, scale * 2, animFrame);
   if (mods && mods.eat) drawEatIndicator(ctx, mods, 0, 0, scale * 2, animFrame);
+  if (extra && extra.gesture && !isWalking && !(mods && mods.eat)) {
+    const skin = SKIN_TONES[(config.skinTone | 0) % SKIN_TONES.length];
+    drawGesture(ctx, extra.gesture, 0, 0, scale * 2, animFrame, extra.seed, skin);
+  }
   ctx.restore();
 }
 

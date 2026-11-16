@@ -192,13 +192,14 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
             <section className="pruebas-sec">
               <h3>👥 Jugadores de prueba</h3>
               {st.players.length === 0 && <p className="pruebas-help">Aún no hay. Crea alguno para ver la oficina con más gente de verdad.</p>}
+              <p className="pruebas-help">La casilla <strong>IA</strong>: marcada, ese jugador piensa con IA (gasta de tu suscripción, unos 0,025 $ al día); sin marcar, va en piloto automático, gratis.</p>
               <ul className="pruebas-players">
                 {st.players.map(p => (
                   <li key={p.id}>
                     <span className="pruebas-pname">{p.name}<small>{p.position || 'sin cargo'}</small></span>
                     <label title="Con IA gasta de tu suscripción (≈0,025 $/día)">
                       <input type="checkbox" checked={!p.sin_ia} disabled={busy}
-                        onChange={e => call(`/pruebas/jugadores/${p.id}`, { method: 'PUT', body: { ia: e.target.checked } })} /> IA
+                        onChange={e => call(`/pruebas/jugadores/${p.id}`, { method: 'PUT', body: { ia: e.target.checked } })} /> IA <span className="sr-only">(piensa con IA y gasta de tu suscripción)</span>
                     </label>
                     <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => become(p)}>Entrar como</button>
                     <button type="button" className="btn btn-ghost btn-sm" disabled={busy} aria-label={`Borrar a ${p.name}`}

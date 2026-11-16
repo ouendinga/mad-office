@@ -20,7 +20,7 @@ import { drawVisitorProps } from '../engine/VisitorProps';
 import { characterSprite } from '../engine/Character';
 import { makeCanvas } from '../engine/pixel';
 import { buildWalkable, findPath } from './paths';
-import { drawStateArt, drawStateSigns, drawBlackout } from './officeState';
+import { drawStateArt, drawStateSigns, drawBlackout, forcedRain } from './officeState';
 import { drawRepresentation } from './avatarSprites';
 import { weatherKind, isWindy, drawPrecip, drawOutdoorTint, drawWindowGlass, seasonOf } from './weather';
 
@@ -190,7 +190,8 @@ function paintScene(world, animFrame, now) {
             // Quieto no anda: «paseando» solo mientras se mueve (antes movía los pies parado en la fuente).
             animFrame, p.moving ? 'paseando' : (c.action === 'paseando' || c.action === 'corriendo' ? null : c.action), c.representation,
             // Comiendo (con su estilo) y hablando: lo manda el servidor (eat, talk).
-            { eat: c.eat || null, talking: !!(c.talk && c.talk.speaking && c.bubble), seed: c.id });
+            { eat: c.eat || null, talking: !!(c.talk && c.talk.speaking && c.bubble), seed: c.id,
+              gesture: c.gesture || (c.call && !c.home ? 'telefono' : null) });
           if (c.visitor) drawVisitorProps(ctx, c.visitor.kind, Math.round(p.x - 16), Math.round(p.y - 30));
         },
       });
@@ -204,7 +205,8 @@ function paintScene(world, animFrame, now) {
 
   // la intemperie: tinte del día, nieve acumulada, calor y lo que caiga
   drawOutdoorTint(ctx, OUTDOOR, w, now);
-  drawPrecip(ctx, OUTDOOR, weatherKind(w), now, { wind: w ? w.wind : 0 });
+  // Con el diluvio de los sucesos de fuera, llueve a mares aunque el tiempo real diga otra cosa.
+  drawPrecip(ctx, OUTDOOR, forcedRain(world && world.office) ? 'heavyrain' : weatherKind(w), now, { wind: w ? w.wind : 0 });
   if (!night) drawBlackout(ctx, world && world.office, now, ART_W, ART_H);
 
   if (night) {
@@ -374,6 +376,7 @@ export function renderOffice(ctx, canvas, world, animFrame, focus) {
   // Nombres, llamadas y bocadillos
   for (const { c, p } of people) {
     const [x, y] = S(p.x, p.y);
+    if (x < -40 || x > w + 40) continue; // fuera de la pantalla (móvil): ni nombre
     const isSel = c.id === focusId;
     pill(ctx, c.name, x, y + 3, {
       font: '700 10px Inter, sans-serif',
@@ -387,6 +390,9 @@ export function renderOffice(ctx, canvas, world, animFrame, focus) {
     for (const { c, p } of people) {
       if (!c.bubble) continue;
       const [x, y] = S(p.x, p.y - 31);
+      // Quien queda fuera de la pantalla (móvil, mapa arrastrado) no habla: si no, sus bocadillos
+      // se amontonaban pegados al borde.
+      if (x < -4 || x > w + 4) continue;
       bubble(ctx, c.bubble, x, y - (c.call ? 20 : 0));
     }
   }
