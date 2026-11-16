@@ -66,11 +66,11 @@ export default function History({ characterId, onBack }) {
           {ch && (
             <>
               <p className="hist-puesto">{ch.ficha.puesto}</p>
-              <StatsPentagon stats={ch.stats} />
-              <p className="hist-objetivo"><strong>Objetivo:</strong> {ch.ficha.objetivo}</p>
+              {ch.full && ch.stats ? <StatsPentagon stats={ch.stats} /> : ch.aspecto && <p className="char-look">Se le nota: {ch.aspecto.join(', ')}.</p>}
+              {ch.full && <p className="hist-objetivo"><strong>Objetivo:</strong> {ch.ficha.objetivo}</p>}
             </>
           )}
-          {!data.mine && <p className="muted">Los pensamientos solo los ve su dueño.</p>}
+          {!data.mine && <p className="muted">Su objetivo, su diario, sus números y lo que piensa solo los ve su dueño (y quien lleva la empresa).</p>}
         </aside>
 
         <main className="hist-main">

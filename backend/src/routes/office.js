@@ -5,6 +5,22 @@ const express = require('express');
 const weatherLib = require('../world/weather');
 const { fromMinutes, toMinutes } = require('../world/clock');
 
+// ¿Lo ve todo? Su dueño y quien lleva la empresa (admin; también en modo pruebas).
+const fullView = (c, req) => c.owner_user_id === req.userId || req.role === 'admin';
+
+// Cómo se le ve desde fuera, a partir de su pentágono (sin números).
+function lookOf(stats) {
+  const s = stats || {};
+  const out = [];
+  if (s.energia != null && s.energia < 1.8) out.push('se le ve cansado');
+  if (s.saciedad != null && s.saciedad < 1.6) out.push('tiene cara de hambre');
+  if (s.calma != null && s.calma < 1.8) out.push('anda agobiado');
+  if (s.social != null && s.social < 1.5) out.push('lleva rato sin hablar con nadie');
+  if (s.animo != null && s.animo > 4.2) out.push('está de muy buen humor');
+  if (s.animo != null && s.animo < 1.8) out.push('está de bajón');
+  return out.length ? out : ['tiene buena cara'];
+}
+
 function router({ world }) {
   const r = express.Router({ mergeParams: true });
   const adminOnly = (req, res, what) => {
@@ -25,9 +41,19 @@ function router({ world }) {
       `SELECT id, name, owner_user_id, desk_index, ficha, humor, energia, cafe, stats FROM characters
         WHERE id = $1 AND company_id = $2 AND approved`, [req.params.id, req.companyId])).rows[0];
     if (!c) return res.status(404).json({ error: 'No existe.' });
+    // Del tuyo (o si llevas la empresa) lo ves todo. De los demás, solo lo que se nota desde fuera:
+    // cómo es y cómo se le ve, sin su objetivo secreto, su diario ni sus números.
+    if (!fullView(c, req)) {
+      const f = c.ficha || {};
+      return res.json({
+        id: c.id, name: c.name, humor: c.humor, full: false,
+        ficha: { puesto: f.puesto, personalidad: f.personalidad, manias: f.manias || [], muletillas: f.muletillas || [] },
+        aspecto: lookOf(c.stats), diaries: [],
+      });
+    }
     const diaries = (await pool.query(
       'SELECT day, text FROM diaries WHERE character_id = $1 ORDER BY day DESC LIMIT 7', [c.id])).rows;
-    res.json({ ...c, diaries });
+    res.json({ ...c, full: true, aspecto: lookOf(c.stats), diaries });
   });
 
   // Historial de un personaje: lo que hizo y le dijeron, llamadas, trayectos, sueños, diarios y
@@ -37,8 +63,8 @@ function router({ world }) {
     const id = Number(req.params.id);
     const c = (await pool.query('SELECT id, owner_user_id FROM characters WHERE id = $1 AND company_id = $2 AND approved', [id, req.companyId])).rows[0];
     if (!c) return res.status(404).json({ error: 'No existe.' });
-    // Los pensamientos: los del suyo, y los de los ficticios para el admin de la empresa.
-    const mine = c.owner_user_id === req.userId || (c.owner_user_id == null && req.role === 'admin');
+    // Los pensamientos, los sueños y los diarios: los del suyo, y todos para quien lleva la empresa.
+    const mine = fullView(c, req);
     const before = Number(req.query.before) || 2147483647;
     const rows = (await pool.query(
       `SELECT f.id, f.kind, f.text, f.office_day AS day, f.min, f.lugar, f.externo, f.private, f.created_at,

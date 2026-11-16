@@ -302,3 +302,5 @@
 .office-now-ev.is-on { color: var(--text-primary); }
 .feed-incidente { color: #ffb4a8; }
 .feed-evento { color: #c4b8ff; }
+.char-look { color: var(--secondary) !important; font-size: 0.88rem !important; }
+.char-private { font-size: 0.82rem !important; border-top: 1px solid var(--border); padding-top: 0.6rem; margin-top: 0.4rem; }

@@ -22,6 +22,7 @@ import { makeCanvas } from '../engine/pixel';
 import { SW, SH, paintBack, paintFurniture, paintLight, slotsFor, sceneDef } from '../engine/RoomScenes';
 import { buildWalkable, findPath } from './paths';
 import { drawStateArt, drawStateSigns, drawBlackout } from './officeState';
+import { drawRepresentation } from './avatarSprites';
 import { weatherKind, isWindy, drawPrecip, drawOutdoorTint, drawWindowGlass, seasonOf } from './weather';
 
 export const ART_W = officeMap.cols * T;
@@ -361,6 +362,13 @@ function drawRoomLens(ctx, w, h, focus, world, people, now, animFrame) {
     const dy = Math.round(y - 30 - (Math.abs(c.id) % 2 ? breathe : 1 - breathe));
     lc.drawImage(spr, Math.round(x - 16), dy);
     if (c.visitor) drawVisitorProps(lc, c.visitor.kind, Math.round(x - 16), dy);
+    // El ánimo también en la lupa (antes estaba enfadado en el mapa y neutro al ampliar).
+    if (c.representation) {
+      lc.save();
+      lc.translate(Math.round(x - 16), dy);
+      drawRepresentation(lc, c.representation, 0, 0, 2, animFrame);
+      lc.restore();
+    }
   };
   // fila de atrás → muebles de delante → fila de delante → luz
   const byDepth = (a, b) => a.y - b.y;

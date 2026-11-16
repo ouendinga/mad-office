@@ -49,6 +49,13 @@ c=$(st -H "$A" $B/companies/1/org); python3 -c "import json;d=json.load(open('$R
 c=$(st -H "$A" -X PUT -H "$J" -d '{"on":true}' $B/companies/1/pruebas/modo); ok 23 200 "$c" "encender modo pruebas"
 c=$(st -H "$A" $B/companies/1/org); python3 -c "import json;d=json.load(open('$R'));names=[h['name'] for p in d['positions'] for h in p['holders']];assert 'Pausable' in names, names" && echo "    vuelve" || { echo "  ✗ no vuelve al encender"; fallos=1; }
 
+# Lo que se ve de otro personaje: el compi, lo de fuera; el que lleva la empresa, todo.
+CID=$(curl -s -H "$A" $B/companies/1/pruebas | python3 -c "import json,sys;print([p['character_id'] for p in json.load(sys.stdin)['players'] if p['name']=='Pausable'][0])")
+c=$(st -H "Authorization: Bearer $CT" $B/companies/1/characters/$CID); ok 23b 200 "$c" "el compi ve a otro"
+python3 -c "import json;d=json.load(open('$R'));assert d['full'] is False and 'objetivo' not in d['ficha'] and d['diaries']==[] and 'stats' not in d and d['aspecto'], d" && echo "    sin objetivo, diario ni números; con «se le nota»" || { echo "  ✗ el compi ve de más"; fallos=1; }
+c=$(st -H "$A" $B/companies/1/characters/$CID); python3 -c "import json;d=json.load(open('$R'));assert d['full'] is True and 'objetivo' in d['ficha'] and 'stats' in d, d" && echo "    quien lleva la empresa lo ve todo" || { echo "  ✗ el admin no lo ve todo"; fallos=1; }
+c=$(st -H "Authorization: Bearer $CT" "$B/companies/1/characters/$CID/history"); python3 -c "import json;d=json.load(open('$R'));assert d['mine'] is False and d['diaries']==[] and d['dreams']==[], d" && echo "    historial del compi sin diarios ni sueños" || { echo "  ✗ historial con de más"; fallos=1; }
+
 # Sin despertador, rehacer la ficha no gasta intentos: se reutiliza el turno que espera en la cola.
 IV='{"answers":{"a":"La montaña","b":"Café","c":"Programar"}}'
 T1=""; for i in 24 25 26 27; do

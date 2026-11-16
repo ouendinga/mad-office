@@ -11,15 +11,24 @@ export const PLACE_ROOM = {
   reuniones: 'reuniones', recepcion: 'recepcion', despacho: 'despacho', servidores: 'servidores',
 };
 const room = id => officeMap.rooms.find(r => r.id === id);
-const obj = type => officeMap.objects.find(o => o.type === type);
+const inRoom = (o, id) => { const r = room(id); return r && o.x >= r.x && o.x < r.x + r.w && o.y >= r.y && o.y < r.y + r.h; };
+// El objeto de ese tipo (la planta, la del open space: es la que sale en el texto del incidente).
+const obj = type => (type === 'plant'
+  ? officeMap.objects.find(o => o.type === type && inRoom(o, 'openspace')) : null) || officeMap.objects.find(o => o.type === type);
 const has = (office, kind) => !!(office && office.incidents.some(i => i.kind === kind));
 
 // Qué objeto lleva el cartel de cada incidente.
 const SIGN_ON = {
   maquina_rota: 'vending', cafetera_rota: 'kitchen_counter', sin_cafe: 'kitchen_counter',
   impresora_atasco: 'printer', aire_roto: 'ac_unit', postits_viento: 'kanban', postits_movidos: 'kanban',
+  nevera_olvidada: 'fridge', planta_seca: 'plant', paquete_misterioso: 'counter', fuga_fuente: 'water_cooler', calefaccion: 'ac_unit',
 };
-const SIGN_TEXT = { aire_roto: 'ROTO', postits_viento: 'SIN PÓSITS', postits_movidos: '¿QUIÉN HA TOCADO ESTO?' };
+const SIGN_TEXT = {
+  aire_roto: 'ROTO', postits_viento: 'SIN PÓSITS', postits_movidos: '¿QUIÉN HA TOCADO ESTO?', calefaccion: 'CALEFACCIÓN A TOPE',
+  fluorescente: 'LUZ PARPADEANTE', mosca: 'UNA MOSCA', perro: 'HAY UN PERRO',
+};
+// Los de toda la oficina van arriba, uno debajo de otro.
+const TOP_SIGNS = ['apagon', 'wifi_caido', 'obras_calle'];
 const POSTIT = ['#FFE066', '#7FD1AE', '#F7A8C8', '#8EC5FF'];
 
 // Capa de arte (antes de la noche y del tiempo): en píxeles de arte.
@@ -95,6 +104,67 @@ export function drawStateArt(ctx, office, now) {
       ctx.fillRect(r.x * T, r.y * T, r.w * T, r.h * T);
     }
   }
+  // Fluorescente: el cuarto de servidores parpadea.
+  if (has(office, 'fluorescente')) {
+    const r = room('servidores');
+    if (r && Math.floor(now / 90) % 5 < 2) { ctx.fillStyle = 'rgba(10, 12, 30, 0.55)'; ctx.fillRect(r.x * T, r.y * T, r.w * T, r.h * T); }
+  }
+  // Nevera olvidada: tufillo verde saliendo de la nevera.
+  if (has(office, 'nevera_olvidada')) {
+    const f = obj('fridge');
+    if (f) for (let i = 0; i < 4; i++) {
+      const t = (now / 1400 + i * 0.25) % 1;
+      ctx.globalAlpha = 0.5 * (1 - t);
+      ctx.fillStyle = '#8BC34A';
+      ctx.fillRect(f.x * T + 4 + i * 3 + Math.sin(now / 400 + i) * 2, f.y * T - 8 - t * 18, 3, 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+  // Planta seca: hojas pardas.
+  if (has(office, 'planta_seca')) {
+    const pl = obj('plant');
+    if (pl) { ctx.fillStyle = 'rgba(150, 105, 50, 0.65)'; ctx.fillRect(pl.x * T + 3, pl.y * T - 8, 10, 10); }
+  }
+  // Fuga de la fuente: charco en el pasillo.
+  if (has(office, 'fuga_fuente')) {
+    const wc = obj('water_cooler');
+    if (wc) {
+      ctx.globalAlpha = 0.4 + Math.sin(now / 600) * 0.05;
+      ctx.fillStyle = '#3E8ED0';
+      ctx.beginPath(); ctx.ellipse(wc.x * T + 8, (wc.y + 1) * T + 4, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+  // Calefacción a tope: el open space, naranja.
+  if (has(office, 'calefaccion')) {
+    const r = room('openspace');
+    if (r) { ctx.fillStyle = `rgba(255, 90, 30, ${0.1 + Math.sin(now / 900) * 0.03})`; ctx.fillRect(r.x * T, r.y * T, r.w * T, r.h * T); }
+  }
+  // La mosca: un puntito que va y viene por el open space.
+  if (has(office, 'mosca')) {
+    const r = room('openspace');
+    if (r) {
+      const x = r.x * T + (r.w * T / 2) + Math.sin(now / 700) * r.w * T * 0.35 + Math.sin(now / 130) * 6;
+      const y = r.y * T + (r.h * T / 2) + Math.cos(now / 900) * r.h * T * 0.3 + Math.cos(now / 110) * 5;
+      ctx.fillStyle = '#111111'; ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+      if (Math.floor(now / 60) % 2) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 1, 1); ctx.fillRect(Math.round(x) + 2, Math.round(y) - 1, 1, 1); }
+    }
+  }
+  // El perro: da vueltas por el open space moviendo la cola.
+  if (has(office, 'perro')) {
+    const r = room('openspace');
+    if (r) {
+      const t = now / 6000;
+      const x = Math.round(r.x * T + 20 + ((Math.sin(t) + 1) / 2) * (r.w * T - 40));
+      const y = Math.round(r.y * T + 30 + ((Math.cos(t * 0.7) + 1) / 2) * (r.h * T - 60));
+      const left = Math.cos(t) < 0;
+      ctx.fillStyle = '#A0522D'; ctx.fillRect(x, y, 10, 5); ctx.fillRect(left ? x - 3 : x + 9, y - 3, 4, 4); // cuerpo y cabeza
+      ctx.fillStyle = '#6E3A1E'; ctx.fillRect(x + 1, y + 5, 2, 3); ctx.fillRect(x + 7, y + 5, 2, 3); // patas
+      ctx.fillRect(left ? x + 10 : x - 2, y - 1 - (Math.floor(now / 150) % 2), 2, 2); // cola que se mueve
+      ctx.fillStyle = '#111'; ctx.fillRect(left ? x - 2 : x + 11, y - 2, 1, 1); // ojo
+    }
+  }
+
   // Eventos en marcha: guirnalda de colores en lo alto de la sala.
   for (const ev of office.events || []) {
     if (!ev.active) continue;
@@ -132,9 +202,16 @@ export function drawStateSigns(ctx, office, S, pill) {
       const r = room('cocina');
       at = [(r.x + r.w / 2) * T, (r.y + r.h - 1) * T];
       text = '¡QUÉ PESTE!';
-    } else if (inc.kind === 'apagon') {
-      at = [officeMap.cols * T / 2, 6 * T];
-      text = 'APAGÓN';
+    } else if (TOP_SIGNS.includes(inc.kind)) {
+      const n = office.incidents.filter(i => TOP_SIGNS.includes(i.kind)).indexOf(inc);
+      at = [officeMap.cols * T / 2, 6 * T + n * 14];
+      text = inc.kind === 'apagon' ? 'APAGÓN' : text;
+    } else if (inc.kind === 'fluorescente') {
+      const r = room('servidores');
+      at = [(r.x + r.w / 2) * T, (r.y + 3) * T];
+    } else if (inc.kind === 'mosca' || inc.kind === 'perro') {
+      const r = room('openspace');
+      at = [(r.x + r.w / 2) * T, (r.y + 1) * T + (inc.kind === 'perro' ? 14 : 0)];
     }
     if (!at || !text) continue;
     const [x, y] = S(at[0], at[1]);

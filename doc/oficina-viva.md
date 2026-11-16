@@ -402,8 +402,12 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
   Algunos salen solos por reglas (el viernes por la tarde, un cumpleaños) y otros los configura el
   admin desde un calendario: qué, cuándo y dónde. Van con los incidentes con estado: los
   personajes se enteran, van o no según su carácter, y lo comentan.
-- **Incidentes, siguiente tanda:** más catálogo (cientos de variantes por plantilla y condición),
-  indicadores en la lupa, y que la IA proponga incidentes pequeños que una regla valide.
+- ✅ (2026-11-16) **Incidentes, segunda tanda:** 20 tipos con varias versiones de texto (nevera, wifi, planta,
+  fluorescente, paquete, obras, mosca, perro, fuente, calefacción) e indicadores de ánimo en la lupa.
+  Pendiente: que la IA proponga incidentes pequeños que una regla valide.
+- ✅ (2026-11-16) **Qué se ve de los demás:** de otro personaje, solo lo que se nota desde fuera (puesto,
+  personalidad, manías, muletillas, «se le nota cansado»); su objetivo, diario, números, pensamientos y
+  sueños, solo su dueño y quien lleva la empresa. Lo decide el servidor (`routes/office.js`).
 - **Revisión de legibilidad del pixel art (2026-11-16):** hechos canaleta de cables, taza y planta,
   silla, indicadores de ánimo en la rejilla de 32, rubor según la piel, rótulos al zócalo y
   sombrilla. Pendientes: sombra de los árboles con aro (dibujarla tras el contorno), lámpara del

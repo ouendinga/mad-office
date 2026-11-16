@@ -111,6 +111,7 @@ class OfficeLife {
       companyId: this.companyId, day, min: m, mapTypes: this.mapTypes, active: this.active,
       lunch: m >= sch.SCHEDULE.lunch - 15 && m <= sch.SCHEDULE.lunch + sch.SCHEDULE.lunchMin,
       windy: !!(w && Number(w.wind) >= 25), storm: !!(w && w.code >= 95), hot: !!(w && w.temp >= 28),
+      cold: !!(w && w.temp <= 8), morning: m < sch.BLOCKS.manana.to,
       startedToday: await this.startedToday(day),
       inPlace: place => here.filter(x => place == null || roomOf(x.a0.lugar) === roomOf(place)).map(x => x.c),
     };

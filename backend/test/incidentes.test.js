@@ -105,3 +105,19 @@ test('con lluvia o frío, lo de la terraza se hace dentro', () => {
   assert.equal(ev.placeFor({ place: 'terraza' }, { code: 0, temp: 20 }), 'terraza');
   assert.equal(ev.placeFor({ place: 'reuniones' }, { code: 61, temp: 2 }), 'reuniones');
 });
+
+test('cada incidente tiene texto, reacciones y arreglo, y los textos no se repiten siempre', () => {
+  const kinds = new Set();
+  for (const d of inc.CATALOG) {
+    assert.ok(!kinds.has(d.kind), `repetido: ${d.kind}`);
+    kinds.add(d.kind);
+    assert.ok(d.react.length >= 2, `${d.kind}: pocas reacciones`);
+    assert.equal(typeof d.title({ name: 'Ana' }, { name: 'Luis' }), 'string');
+    assert.equal(typeof d.fixed({ name: 'Ana' }, { name: 'Luis' }), 'string');
+    assert.ok(['tiempo', 'alguien', 'tecnico'].includes(d.repair));
+    if (d.repair === 'tiempo') assert.ok(d.duration, `${d.kind}: se pasa solo pero sin duración`);
+  }
+  assert.ok(inc.CATALOG.length >= 20);
+  const titles = new Set(Array.from({ length: 40 }, () => inc.BY_KIND.impresora_atasco.title({ name: 'Ana' })));
+  assert.ok(titles.size >= 2, 'el atasco siempre igual');
+});

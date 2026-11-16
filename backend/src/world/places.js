@@ -91,7 +91,7 @@ const spotPos = (name, i = 0) => {
 // zona: uno cada dos casillas, sin montarse. El aforo es el número de huecos.
 // Objetos del mapa de los que dependen los incidentes (incidents.js: «si no hay cafetera, no se rompe
 // la cafetera»). Un test comprueba que están en el mapa del frontend.
-const INCIDENT_OBJECTS = ['vending', 'kitchen_counter', 'kanban', 'printer', 'stall', 'ac_unit'];
+const INCIDENT_OBJECTS = ['vending', 'kitchen_counter', 'kanban', 'printer', 'stall', 'ac_unit', 'fridge', 'rack', 'plant', 'counter', 'water_cooler'];
 
 // Sitio fijo de quien tiene despacho o mostrador: sentado detrás de su mesa.
 const OWN_SPOTS = {

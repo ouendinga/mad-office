@@ -295,18 +295,25 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
             <h2 className="modal-title">{HUMOR_EMOJI[selected.humor] || ''} {selected.name}</h2>
             <p className="char-puesto">{selected.ficha.puesto}</p>
             <p>{selected.ficha.personalidad}</p>
+            {selected.aspecto && <p className="char-look">Se le nota: {selected.aspecto.join(', ')}.</p>}
             {selected.ficha.manias && selected.ficha.manias.length > 0 && (
               <ul className="char-list">{selected.ficha.manias.map(m => <li key={m}>{m}</li>)}</ul>
             )}
-            <p><strong>Objetivo:</strong> {selected.ficha.objetivo}</p>
-            <h3 className="char-h3">📔 Diario</h3>
-            {selected.diaries.length === 0 && <p className="muted">Aún no ha escrito nada.</p>}
-            {selected.diaries.map(d => (
-              <div key={d.day} className="char-diary">
-                <div className="char-diary-day">{fmtMorning(d.day)}</div>
-                <p>{d.text}</p>
-              </div>
-            ))}
+            {selected.full ? (
+              <>
+                <p><strong>Objetivo:</strong> {selected.ficha.objetivo}</p>
+                <h3 className="char-h3">📔 Diario</h3>
+                {selected.diaries.length === 0 && <p className="muted">Aún no ha escrito nada.</p>}
+                {selected.diaries.map(d => (
+                  <div key={d.day} className="char-diary">
+                    <div className="char-diary-day">{fmtMorning(d.day)}</div>
+                    <p>{d.text}</p>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <p className="muted char-private">Su objetivo, su diario y lo que piensa solo los ve su dueño (y quien lleva la empresa). Tú ves lo que se nota desde fuera.</p>
+            )}
           </div>
         </div>
       )}

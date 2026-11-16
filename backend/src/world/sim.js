@@ -415,6 +415,7 @@ class Sim {
       if (ev) w.base = { ...w.a0, lugar: ev.place, que: ev.title, frase: ev.frase, con: null, evento: ev.id };
       else if (eff.avoid.has(w.a0.lugar)) w.base = { ...w.a0, lugar: 'terraza', que: `${w.a0.que} (en la terraza: la cocina apesta)` };
       else if (eff.apagon && w.a0.lugar === 'mesa') w.base = { ...w.a0, que: 'A oscuras, esperando a que vuelva la luz', frase: '' };
+      else if (eff.noWifi && w.a0.lugar === 'mesa') w.base = { ...w.a0, que: 'Sin wifi: tira de los datos del móvil', frase: '' };
     }
 
     // Escapadas cortas (micro.js): solo quien está ahora en su mesa, en la oficina (y no en un apagón).
