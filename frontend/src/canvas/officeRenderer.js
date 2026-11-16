@@ -9,8 +9,8 @@
  * aquí se dividen entre 2.
  *
  * El tiempo (clock.weather) y la estación (clock.season) cambian el dibujo: cristales de las
- * ventanas, terraza, árboles con viento. Al hacer clic en una sala se abre su vista de frente
- * (engine/RoomScenes) dentro de un círculo, como una lupa.
+ * ventanas, terraza, árboles con viento. Al hacer clic en una sala se abre la lupa: un zoom de esa
+ * sala tal cual está (cualquier plano), o «tu vista», que sigue a tu personaje.
  */
 
 import { getPlan, planVersion } from './plan';
@@ -19,7 +19,6 @@ import { renderAvatar } from '../engine/SpriteSheet';
 import { drawVisitorProps } from '../engine/VisitorProps';
 import { characterSprite } from '../engine/Character';
 import { makeCanvas } from '../engine/pixel';
-import { SW, SH, paintBack, paintFurniture, paintLight, slotsFor, sceneDef } from '../engine/RoomScenes';
 import { buildWalkable, findPath } from './paths';
 import { drawStateArt, drawStateSigns, drawBlackout } from './officeState';
 import { drawRepresentation } from './avatarSprites';
@@ -36,7 +35,6 @@ let builtFor = planVersion();
 
 let staticLayer = null;
 let scene = null;
-let lensScene = null;
 let dynamicObjects = [];
 let overlayObjects = [];
 let windows = [];
@@ -86,7 +84,6 @@ function ensure(world) {
     for (const k of Object.keys(shown)) delete shown[k];
     rebuild();
   } else if (!staticLayer || changed) rebuild();
-  if (!lensScene) lensScene = makeCanvas(SW, SH);
 }
 
 let walkable = null;
@@ -343,68 +340,79 @@ export function roomIdOf(c) {
   const s = shown[c.id] || { x: c.x * WORLD_TO_ART, y: c.y * WORLD_TO_ART };
   const r = roomAt(getPlan(), Math.floor(s.x / T), Math.floor((s.y - 1) / T));
   if (r) return r.id;
-  return Math.floor(s.x / T) >= 32 ? 'terraza' : 'pasillo';
+  const from = getPlan().outdoorFromCol;
+  return from != null && from < getPlan().cols && Math.floor(s.x / T) >= from ? 'terraza' : 'pasillo';
 }
 
 // La «lupa»: la sala vista de frente, en un círculo, con el resto de la oficina en penumbra.
+// La lupa: un zoom de la oficina DE VERDAD (la misma escena del mapa, con cada uno en su sitio),
+// en un círculo y con el resto en penumbra. Sirve con cualquier plano. Con `focus.follow` sigue a
+// un personaje (tu vista: lo que ve y oye) y oscurece lo que queda fuera de su sala.
 function drawRoomLens(ctx, w, h, focus, world, people, now, animFrame) {
-  const roomId = focus.room;
-  const clock = world && world.clock;
-  const env = {
-    w: clock && clock.weather,
-    season: clock && (clock.season || seasonOf(clock.date)),
-    minutes: minutesOf(clock),
-    now,
-    night: !world || (clock && clock.block === 'noche'),
-  };
-  // Cada uno en un hueco fijo según dónde está en el mapa (de izquierda a derecha), no según a
-  // quién se haya pinchado: así nadie cambia de sitio al seleccionar a otro.
-  const here = people.filter(x => roomIdOf(x.c) === roomId)
-    .sort((a, b) => a.p.x - b.p.x || a.c.id - b.c.id).map(x => x.c);
-  const def = sceneDef(roomId);
-  const slots = slotsFor(roomId, here.length);
-  const placed = here.map((c, i) => ({ c, x: slots[i][0], y: slots[i][1], seated: slots[i][2] === 0 && def.seatsBehind }));
-
-  const lc = lensScene.ctx;
-  paintBack(lc, roomId, env);
-  const breathe = Math.floor(now / 700) % 2;
-  const drawPerson = ({ c, x, y }) => {
-    lc.fillStyle = 'rgba(30,15,30,0.25)';
-    lc.beginPath(); lc.ellipse(x, y, 8, 2, 0, 0, Math.PI * 2); lc.fill();
-    const spr = characterSprite(c.avatar_config || {}, 'idle');
-    lc.imageSmoothingEnabled = false;
-    const dy = Math.round(y - 30 - (Math.abs(c.id) % 2 ? breathe : 1 - breathe));
-    lc.drawImage(spr, Math.round(x - 16), dy);
-    if (c.visitor) drawVisitorProps(lc, c.visitor.kind, Math.round(x - 16), dy);
-    // El ánimo también en la lupa (antes estaba enfadado en el mapa y neutro al ampliar).
-    if (c.representation) {
-      lc.save();
-      lc.translate(Math.round(x - 16), dy);
-      drawRepresentation(lc, c.representation, 0, 0, 2, animFrame);
-      lc.restore();
-    }
-  };
-  // fila de atrás → muebles de delante → fila de delante → luz
-  const byDepth = (a, b) => a.y - b.y;
-  placed.filter(p => p.seated).sort(byDepth).forEach(drawPerson);
-  paintFurniture(lc, roomId, env);
-  placed.filter(p => !p.seated).sort(byDepth).forEach(drawPerson);
-  paintLight(lc, roomId, env);
-
-  const R = Math.round(Math.min(w * 0.4, h * 0.44));
+  const plan = getPlan();
+  const follow = focus.follow && focus.charId != null && shown[focus.charId];
+  const roomId = follow && world ? roomIdOf(world.characters.find(c => c.id === focus.charId) || {}) : focus.room;
+  const room = plan.rooms.find(r => r.id === roomId);
+  // Qué trozo del mapa se ve (en píxeles de arte): la sala con una casilla de margen, o una
+  // ventana alrededor de quien se sigue.
+  let rx; let ry; let rw; let rh;
+  if (follow) {
+    const s = shown[focus.charId];
+    rw = Math.min(15 * T, ART_W); rh = Math.min(11 * T, ART_H);
+    // centrada en él, pero sin salirse del plano
+    rx = Math.max(0, Math.min(ART_W - rw, s.x - rw / 2));
+    ry = Math.max(0, Math.min(ART_H - rh, s.y - rh / 2 - T));
+  } else if (room) {
+    rx = (room.x - 1) * T; ry = (room.y - 1) * T; rw = (room.w + 2) * T; rh = (room.h + 2) * T;
+  } else {
+    rx = 0; ry = 0; rw = ART_W; rh = ART_H;
+  }
+  const R = Math.round(Math.min(w * 0.42, h * 0.45));
   const cx = Math.round(w / 2);
-  const cy = Math.round(h / 2 + Math.min(40, h * 0.06));
-  const k = (2 * R) / SH; // px de pantalla por px de arte
-  const x0 = cx - (SW * k) / 2;
-  const y0 = cy - R;
+  const cy = Math.round(h / 2 + Math.min(30, h * 0.04));
+  const k = Math.min(6, (2 * R) / Math.max(rw, rh)); // px de pantalla por px de arte
+  const x0 = cx - (rx + rw / 2) * k;
+  const y0 = cy - (ry + rh / 2) * k;
+  const toScreen = (x, y) => [x0 + x * k, y0 + y * k];
+
   ctx.save();
   ctx.fillStyle = 'rgba(10,8,20,0.55)';
   ctx.fillRect(0, 0, w, h);
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
   ctx.clip();
+  ctx.fillStyle = '#1B1626';
+  ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(lensScene.canvas, x0, y0, SW * k, SH * k);
+  ctx.drawImage(scene.canvas, x0, y0, ART_W * k, ART_H * k);
+  // Siguiendo a alguien: lo de fuera de su sala, en penumbra (no lo oye).
+  if (follow && room) {
+    const [ax, ay] = toScreen(room.x * T, room.y * T);
+    const [bx, by] = toScreen((room.x + room.w) * T, (room.y + room.h) * T);
+    ctx.fillStyle = 'rgba(10,8,20,0.5)';
+    ctx.fillRect(cx - R, cy - R, 2 * R, ay - (cy - R));
+    ctx.fillRect(cx - R, by, 2 * R, cy + R - by);
+    ctx.fillRect(cx - R, ay, ax - (cx - R), by - ay);
+    ctx.fillRect(bx, ay, cx + R - bx, by - ay);
+  }
+  // Quien está dentro de lo que se ve: nombres, llamadas y bocadillos a resolución de pantalla.
+  const inView = people.filter(({ p }) => p.x >= rx && p.x <= rx + rw && p.y >= ry && p.y <= ry + rh + 8)
+    .filter(({ c }) => !follow || !room || roomIdOf(c) === roomId);
+  for (const { c, p } of inView) {
+    const [sx, sy] = toScreen(p.x, p.y);
+    const isSel = c.id === focus.charId;
+    pill(ctx, c.name, sx, sy + 4, {
+      font: '700 11px Inter, sans-serif',
+      bg: isSel ? 'rgba(242,193,78,0.95)' : 'rgba(30,22,40,0.8)',
+      fg: isSel ? '#2A1F2D' : '#FFFFFF',
+    });
+  }
+  inView.slice().sort((a, b) => a.p.x - b.p.x).forEach(({ c, p }, i) => {
+    const [sx, sy] = toScreen(p.x, p.y - 32);
+    const ct = callText(c, world);
+    if (ct) pill(ctx, ct, sx, sy - 18, { font: '700 10px Inter, sans-serif', bg: 'rgba(46,138,90,0.92)' });
+    if (c.bubble) bubble(ctx, c.bubble, sx, sy - (ct ? 20 : 0) - (i % 2) * 34, { maxW: 160 });
+  });
   ctx.restore();
   ctx.lineWidth = 7;
   ctx.strokeStyle = '#2A1F2D';
@@ -413,35 +421,11 @@ function drawRoomLens(ctx, w, h, focus, world, people, now, animFrame) {
   ctx.strokeStyle = '#F2C14E';
   ctx.beginPath(); ctx.arc(cx, cy, R + 4, 0, Math.PI * 2); ctx.stroke();
 
-  // rótulo de la sala abajo del círculo
-  pill(ctx, def.label || 'Pasillo', cx, cy + R - 30, { font: '800 12px Inter, sans-serif', bg: 'rgba(30,22,40,0.85)' });
-
-  // nombres, llamadas y bocadillos a resolución de pantalla
-  const toScreen = (x, y) => [x0 + x * k, y0 + y * k];
-  for (const { c, x, y, seated } of placed) {
-    // a los que están sentados tras una mesa, el nombre encima de la cabeza (los pies no se ven)
-    const [sx, sy] = seated ? toScreen(x, y - 34) : toScreen(x, y);
-    const isSel = c.id === focus.charId;
-    pill(ctx, c.name, sx, sy + (seated ? -18 : 2), {
-      font: '700 11px Inter, sans-serif',
-      bg: isSel ? 'rgba(242,193,78,0.95)' : 'rgba(30,22,40,0.8)',
-      fg: isSel ? '#2A1F2D' : '#FFFFFF',
-    });
-  }
-  // de izquierda a derecha, alternando la altura para que los bocadillos no se pisen
-  placed.slice().sort((a, b) => a.x - b.x).forEach(({ c, x, y, seated }, i) => {
-    const [sx, sy0] = toScreen(x, y - 32);
-    const sy = sy0 - (seated ? 22 : 0);
-    const ct = callText(c, world);
-    const lift = (i % 2) * 40;
-    if (ct) pill(ctx, ct, sx, sy - 20, { font: '700 10px Inter, sans-serif', bg: 'rgba(46,138,90,0.92)' });
-    if (c.bubble) bubble(ctx, c.bubble, sx, sy - (ct ? 22 : 0) - lift, { maxW: 150 });
-  });
-  if (!placed.length) {
-    pill(ctx, 'Aquí no hay nadie ahora mismo', cx, cy - 10, { font: '700 12px Inter, sans-serif', bg: 'rgba(30,22,40,0.85)' });
-  }
-  lens = { cx, cy, R, people: placed.map(({ c, x, y }) => ({ id: c.id, ...(() => { const [sx, sy] = toScreen(x, y); return { sx, sy }; })() })), k };
-  void animFrame;
+  const label = follow ? `Tu vista · ${(room && room.label) || 'Pasillo'}` : (room && room.label) || 'Pasillo';
+  pill(ctx, label, cx, cy + R - 26, { font: '800 12px Inter, sans-serif', bg: 'rgba(30,22,40,0.85)' });
+  if (!inView.length) pill(ctx, 'Aquí no hay nadie ahora mismo', cx, cy - 10, { font: '700 12px Inter, sans-serif', bg: 'rgba(30,22,40,0.85)' });
+  lens = { cx, cy, R, k, people: inView.map(({ c, p }) => { const [sx, sy] = toScreen(p.x, p.y); return { id: c.id, sx, sy }; }) };
+  void animFrame; void now;
 }
 
 // Clic con la lupa abierta: dentro del círculo, ¿sobre quién? Fuera, null.
@@ -449,7 +433,7 @@ export function pickInLens(sx, sy) {
   if (!lens) return null;
   if (Math.hypot(sx - lens.cx, sy - lens.cy) > lens.R) return { outside: true };
   const hit = lens.people
-    .filter(p => Math.abs(sx - p.sx) <= 9 * lens.k && sy <= p.sy + 4 && sy >= p.sy - 32 * lens.k)
+    .filter(p => Math.abs(sx - p.sx) <= 10 * lens.k && sy <= p.sy + 6 * lens.k && sy >= p.sy - 32 * lens.k)
     .sort((a, b) => b.sy - a.sy)[0];
   return { charId: hit ? hit.id : null };
 }
@@ -476,14 +460,16 @@ export function pickRoomAt(sx, sy) {
   if (tx < 0 || ty < 0 || tx >= getPlan().cols || ty >= getPlan().rows) return null;
   const r = roomAt(getPlan(), tx, ty);
   if (r) return r.id;
-  return tx >= 32 ? 'terraza' : null;
+  const from = getPlan().outdoorFromCol;
+  return from != null && tx >= from ? 'terraza' : null;
 }
 
 // Nombre de la sala donde está un personaje (para la caja de diálogo).
 export function roomLabelOf(c) {
-  return sceneDef(roomIdOf(c)).label || 'Pasillo';
+  return roomLabel(roomIdOf(c));
 }
 
 export function roomLabel(roomId) {
-  return sceneDef(roomId).label || 'Pasillo';
+  const r = getPlan().rooms.find(x => x.id === roomId);
+  return (r && r.label) || 'Pasillo';
 }

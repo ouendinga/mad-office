@@ -12,7 +12,7 @@ import '../styles/history.css';
 import StatsPentagon from '../components/StatsPentagon';
 import PruebasPanel from '../components/PruebasPanel';
 import { getPlan, setPlan } from '../canvas/plan';
-import { FlaskConical, Network, Building2, CloudSun, UserRound, LogOut, UserPlus, ScrollText, AlertTriangle, PartyPopper, LayoutGrid } from 'lucide-react';
+import { FlaskConical, Network, Building2, CloudSun, UserRound, LogOut, UserPlus, ScrollText, AlertTriangle, PartyPopper, LayoutGrid, Eye } from 'lucide-react';
 import OfficeSettings from '../components/OfficeSettings';
 
 const WEEKDAYS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
@@ -212,7 +212,8 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
   const focused = focus && focus.charId != null && world ? world.characters.find(c => c.id === focus.charId) : null;
   const inStreet = showStreet(world, view);
   const streetTime = clock && (clock.phase === 'ida' || clock.phase === 'vuelta') && streetHasWalkers(world);
-  const roomPeople = focus && world ? world.characters.filter(c => c.mode !== 'remoto' && !c.home && c.x != null && roomIdOf(c) === focus.room) : [];
+  const focusRoom = focus && focus.follow && focused ? roomIdOf(focused) : focus && focus.room;
+  const roomPeople = focus && world ? world.characters.filter(c => c.mode !== 'remoto' && !c.home && c.x != null && roomIdOf(c) === focusRoom) : [];
 
   return (
     <div className="office-page">
@@ -257,6 +258,10 @@ export default function Office({ me, company, owner, onBecome, onLogout, onEditA
               <button type="button" className={`btn btn-sm ${inStreet ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeView('street')}>🚶 La calle</button>
               <button type="button" className={`btn btn-sm ${!inStreet ? 'btn-primary' : 'btn-ghost'}`} onClick={() => changeView('office')}>🏢 La oficina</button>
             </div>
+          )}
+          {!inStreet && mine && mine.mode === 'oficina' && !(focus && focus.follow) && (
+            <button type="button" className="btn btn-secondary btn-sm my-view" title="Sigue a tu personaje: lo que ve y oye"
+              onClick={() => changeFocus({ room: roomIdOf(mine), charId: mine.id, follow: true })}><Eye size={16} aria-hidden /> Tu vista</button>
           )}
           {!inStreet && !focus && <HomeStrip world={world} />}
           {focus && !inStreet && (
