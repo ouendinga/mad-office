@@ -13,10 +13,16 @@ const org = require('../company/org');
 const { NPCS, SPARE_NAMES, avatar } = require('../company/template');
 const { addMember } = require('./companies');
 const incidentsLib = require('../world/incidents');
+const tramasLib = require('../world/tramas');
 const eventsLib = require('../world/events');
 const outsideLib = require('../world/outside');
 
 const SPEEDS = [1, 2, 5, 10, 30, 60];
+const PLOT_LABEL = {
+  guerra_postits: 'La guerra de los pósits', taper_misterioso: 'El táper desaparecido', apuesta_pingpong: 'La apuesta del ping-pong',
+  rumor: 'El rumor', termostato: 'La guerra del termostato', cumple_sorpresa: 'La tarta sorpresa',
+  excursion_bar: 'La expedición al bar', nota_micro: 'La nota del micro',
+};
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const MAX_TEST_PLAYERS = 12;
 
@@ -158,7 +164,15 @@ function router({ world }) {
     incidents: incidentsLib.CATALOG.map(d => ({ kind: d.kind, place: d.place, example: d.title({ name: 'Alguien' }, { name: 'Otro' }) })),
     events: Object.entries(eventsLib.KINDS).map(([k, v]) => ({ kind: k, label: `${v.icon} ${v.label}` })),
     outside: outsideLib.CATALOG.map(d => ({ kind: d.kind, label: `${d.icon} ${d.sign.charAt(0)}${d.sign.slice(1).toLowerCase()}` })),
+    plots: Object.entries(tramasLib.PLOTS).map(([k, d]) => ({ kind: k, label: `${d.icon} ${PLOT_LABEL[k] || k}` })),
   }));
+  // Empezar ya una trama (con gente que esté ahora en la oficina).
+  r.post('/trama', async (req, res) => {
+    const p = clockLib.parts(req.sim.clock.nowMs());
+    const row = await req.sim.life.forcePlot(req.body && req.body.kind, p.date, p.minutes);
+    if (row.error) return res.status(409).json({ error: row.error });
+    res.status(201).json({ ok: true, title: row.title });
+  });
   // Provocar hoy un suceso de fuera (la nevada, la final…): su franja empieza ya.
   r.post('/fuera', async (req, res) => {
     const def = outsideLib.BY_KIND[req.body && req.body.kind];

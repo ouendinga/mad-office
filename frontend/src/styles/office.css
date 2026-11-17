@@ -286,10 +286,12 @@
 .office-now-list li { display: flex; gap: 0.35rem; align-items: baseline; }
 .office-now-list svg { flex-shrink: 0; position: relative; top: 2px; }
 .office-now-inc { color: #ff9b9b; }
+.office-now-plot { color: #f5c97a; }
 .office-now-ev.is-on { color: var(--text-primary); }
 .feed-incidente { color: #ffb4a8; }
 .feed-evento { color: #c4b8ff; }
 .feed-fuera { color: #9ee6f5; }
+.feed-trama { color: #f5c97a; }
 .office-now-out { color: #9ee6f5; }
 .char-look { color: var(--secondary) !important; font-size: var(--fs-sm) !important; }
 .char-private { font-size: var(--fs-sm) !important; border-top: 1px solid var(--border); padding-top: 0.6rem; margin-top: 0.4rem; }

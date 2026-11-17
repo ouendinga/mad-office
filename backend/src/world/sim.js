@@ -14,6 +14,7 @@ const { ACTION_FOR_PLACE, targetFor, zonePos, ownSpot, zoneSpotFixed, zoneCapaci
 const micro = require('./micro');
 const layouts = require('./layout');
 const { lunchGroups } = require('./lunch');
+const tramas = require('./tramas');
 const { thoughtFor } = require('./thoughts');
 const { OfficeLife } = require('./officeLife');
 const { visitorsFor, KINDS: VISITOR_KINDS } = require('./visitors');
@@ -257,7 +258,7 @@ class Sim {
     const chars = await this.loadCharacters();
     const here = [];
     for (const c of chars) if ((await this.dayOf(c, day)).mode !== 'remoto') here.push(c);
-    this.lunch = lunchGroups(here, day, this.companyId);
+    this.lunch = lunchGroups(here, day, this.companyId, (a, b) => tramas.bond(this.life.rels, a, b));
     this.lunchDay = day;
     return this.lunch;
   }
@@ -272,7 +273,7 @@ class Sim {
     const [events, plan, d] = await Promise.all([
       this.pool.query(
         `SELECT id, character_id, con_id, lugar, min, text, kind, private FROM feed
-          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita', 'incidente', 'evento', 'charla', 'fuera')
+          WHERE company_id = $3 AND office_day = $1 AND kind IN ('accion', 'llamada', 'visita', 'incidente', 'evento', 'charla', 'fuera', 'trama')
             AND (min IS NULL OR min <= $2) ORDER BY id`,
         [day, untilMin, this.companyId]),
       this.dayActions(c, day),
@@ -448,6 +449,9 @@ class Sim {
       // Lo de fuera: la tele de la final, la guerra de bolas, la inspección, el cliente al teléfono…
       const ox = this.life.outsideFor(w.c, p.minutes, w.d, w.a0);
       if (w.d.mode !== 'oficina') { if (ox) w.base = { ...w.a0, ...ox }; continue; }
+      // Una escena de trama manda (la bronca en el despacho, la final de ping-pong, la tarta…).
+      const sc = this.life.sceneFor(w.c, p.minutes, day);
+      if (sc) { w.base = { ...w.a0, ...sc, trama: true }; continue; }
       const ev = this.life.eventFor(w.c, p.minutes);
       if (ev) w.base = { ...w.a0, lugar: ev.place, que: ev.title, frase: ev.frase, con: null, evento: ev.id };
       else if (ox) w.base = { ...w.a0, ...ox, fuera: true };
@@ -457,7 +461,7 @@ class Sim {
     }
 
     // Escapadas cortas (micro.js): solo quien está ahora en su mesa, en la oficina (y no en un apagón).
-    const atDesk = eff.apagon ? [] : working.filter(w => w.d.mode === 'oficina' && w.base.lugar === 'mesa' && !w.base.con && !w.base.evento && !w.base.fuera)
+    const atDesk = eff.apagon ? [] : working.filter(w => w.d.mode === 'oficina' && w.base.lugar === 'mesa' && !w.base.con && !w.base.evento && !w.base.fuera && !w.base.trama)
       .map(w => w.c.id).sort((a, b) => a - b);
     const groups = micro.groupPlans(this.companyId, day, p.minutes, atDesk);
     const byDesk = new Map(working.map(w => [w.c.desk_index, w.c.id]));
@@ -537,6 +541,7 @@ class Sim {
       day, minutes, weather: this.weatherNow(),
       incidents: this.life.active.map(i => ({ kind: i.kind, place: i.place, title: i.data && i.data.title })),
       events: (this.life.events || []).filter(e => e.to_min > minutes).map(e => ({ title: e.title })),
+      plots: this.life.plotGossip(),
     });
     for (const x of posts) {
       const c = working.find(w => w.c.id === x.id);

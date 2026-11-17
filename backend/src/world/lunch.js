@@ -26,7 +26,8 @@ function affinity(a, b) {
 
 // chars: los que comen hoy en la oficina. Devuelve Map(id -> { offset, lugar, que, con: [ids] }),
 // con offset en minutos desde el inicio de la comida.
-function lunchGroups(chars, day, companyId = 1) {
+// bond(a, b): lo que suman las relaciones de las tramas (aprecio menos roce), si se pasa.
+function lunchGroups(chars, day, companyId = 1, bond = null) {
   const r = rng(`comida|${companyId}|${day}`);
   const left = chars.slice().sort((a, b) => a.id - b.id);
   const out = new Map();
@@ -41,7 +42,7 @@ function lunchGroups(chars, day, companyId = 1) {
       continue;
     }
     const size = 1 + Math.floor(r() * 3); // 2-4 personas
-    const mates = left.map(b => ({ b, s: affinity(a, b) + r() * 0.3 })).sort((x, y) => y.s - x.s)
+    const mates = left.map(b => ({ b, s: affinity(a, b) + (bond ? bond(a.id, b.id) : 0) + r() * 0.3 })).sort((x, y) => y.s - x.s)
       .slice(0, size).filter(x => x.s > 0.45).map(x => x.b);
     for (const b of mates) left.splice(left.indexOf(b), 1);
     const group = [a, ...mates];

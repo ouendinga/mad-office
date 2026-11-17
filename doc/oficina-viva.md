@@ -467,3 +467,24 @@ entrada y ~550 de salida por turno de plan, **≈0,006 $**. Por personaje, unos 
   - Gestos con estilo propio: estirarse, el móvil, el teléfono en la oreja.
   - Pruebas explica la casilla «IA».
   - Fuera la lupa antigua (`RoomScenes.js`).
+- ✅ (2026-11-17) **Charlas con sentido:** cada pregunta trae sus respuestas y sus remates (antes se
+  sorteaban por separado: «¿Qué tal el finde?» — «¿Has probado a reiniciarlo?»). La muletilla de la
+  ficha solo sale como coletilla al cerrar. Un test comprueba que pregunta y respuesta casan.
+- ✅ (2026-11-17) **Tramas: causa, consecuencia y efecto mariposa** (pedido del dueño: «que se
+  genere una trama aleatoria de sucesos»). `world/tramas.js`, por reglas y sin IA:
+  - **Historias de varios pasos**, que pueden durar días: la guerra de los pósits, el táper
+    desaparecido, la apuesta del ping-pong, el rumor (cambia cada vez que pasa de boca en boca), la
+    guerra del termostato, la tarta sorpresa, la expedición al bar y la nota del micro.
+  - **Cada paso decide el siguiente** según quién está, cómo es (mala leche, torpe…) y cómo se
+    llevan. Si no hay testigo en la cocina, culpan al que no era, y ese rencor se queda.
+  - **Se encadenan:** los pósits movidos arrancan la guerra; la cafetera rota, la expedición al bar;
+    el olor del micro, la nota. A su vez, la guerra del termostato rompe el aire, y el táper
+    descarado acaba en guerra de pósits.
+  - **Relaciones (roce y aprecio, tabla `relations`):** cambian con cada paso y se olvidan un poco
+    cada día. Deciden con quién se come, a quién le toca la broma pesada y quién organiza la tarta.
+  - **Se ve:** cada paso es una escena en el mapa (la bronca en el despacho, la final de ping-pong
+    con público, todos a la cocina a cantar) y una línea amarilla en el feed, que oyen quienes están
+    allí. La IA de los personajes reacciona a lo que oye, sin turnos nuevos. Las tramas en marcha
+    salen en «Ahora en la oficina» y se cotillean en las charlas.
+  - **Ritmo:** como mucho 3 a la vez y unas 1-2 al día solas, más las que arrancan los incidentes.
+    En Pruebas, «Empezar trama».

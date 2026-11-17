@@ -27,7 +27,7 @@ function heardBy(events, listener, plans) {
     // Lo que pasa en toda la oficina (un apagón) lo nota todo el que esté dentro.
     if (e.kind === 'incidente' && !e.lugar) return true;
     if (e.min == null || !e.lugar || e.lugar === 'casa') return false;
-    if (!['accion', 'incidente', 'evento', 'charla', 'fuera'].includes(e.kind)) return false;
+    if (!['accion', 'incidente', 'evento', 'charla', 'fuera', 'trama'].includes(e.kind)) return false;
     return whereAt(plans, e.min) === roomOf(e.lugar);
   });
 }

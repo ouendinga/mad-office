@@ -311,7 +311,7 @@ function roll(ctx) {
     if (def.victim) {
       const others = ctx.inPlace(null).filter(c => !cause || c.id !== cause.id);
       if (!others.length) continue;
-      victim = others[Math.floor(r() * others.length)];
+      victim = ctx.pickVictim ? ctx.pickVictim(cause, others, r) : others[Math.floor(r() * others.length)];
     }
     const dur = def.duration ? def.duration[0] + Math.floor(r() * (def.duration[1] - def.duration[0])) : null;
     out.push({ def, cause, victim, endsMin: dur ? ctx.min + dur : null });

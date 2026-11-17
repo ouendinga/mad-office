@@ -61,6 +61,7 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
   const [incKind, setIncKind] = useState('');
   const [evKind, setEvKind] = useState('afterwork');
   const [outKind, setOutKind] = useState('nevada');
+  const [plotKind, setPlotKind] = useState('guerra_postits');
   const [done, setDone] = useState('');
 
   const load = useCallback(() => {
@@ -172,6 +173,15 @@ export default function PruebasPanel({ company, onClose, onBecome }) {
                     </select>
                     <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
                       onClick={async () => { setErr(''); setDone(''); try { await capi('/pruebas/fuera', { method: 'POST', body: { kind: outKind } }); setDone('Suceso de fuera en marcha hoy: mira la oficina y el feed.'); } catch (e) { setErr(e.message); } }}>Que pase hoy</button>
+                  </div>
+                )}
+                {catalogo.plots && (
+                  <div className="pruebas-row">
+                    <select value={plotKind} onChange={e => setPlotKind(e.target.value)} aria-label="Trama">
+                      {catalogo.plots.map(x => <option key={x.kind} value={x.kind}>{x.label}</option>)}
+                    </select>
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+                      onClick={async () => { setErr(''); setDone(''); try { const r = await capi('/pruebas/trama', { method: 'POST', body: { kind: plotKind } }); setDone(`Trama en marcha: ${r.title}. Sigue en el feed (en amarillo).`); } catch (e) { setErr(e.message); } }}>Empezar trama</button>
                   </div>
                 )}
                 {done && <p className="pruebas-help" role="status">{done}</p>}

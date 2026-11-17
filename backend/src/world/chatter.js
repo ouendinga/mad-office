@@ -147,6 +147,12 @@ const TOPICS = {
       b: ['Si hay comida, voy.', 'Depende de cómo vaya la tarde.', 'Me lo ha dicho todo el mundo. Voy.'],
       c: ['Pues nos vemos allí.', 'Guárdame sitio.'] },
   ],
+  // Cotilleo de una trama en marcha (tramas.js): {trama} = «lo de Ana y Bea con los pósits».
+  trama: [
+    { a: ['¿Te has enterado de {trama}?', '¿Tú sabes algo de {trama}?', 'Oye, lo de {trama}… ¿cómo va?'],
+      b: ['Algo me han contado, sí. Qué fuerte.', 'No me cuentes más, que luego me lían.', 'Me he enterado por el grupo. Lo sabe todo el mundo.', 'Ni idea. Cuéntamelo todo.'],
+      c: ['Esto da para una serie.', 'Mañana más, seguro.', 'Yo, de este tema, ni pío.'] },
+  ],
   lluvia: [
     { a: ['Vaya día de perros.', '¿Has visto cómo llueve?'],
       b: ['Yo he venido nadando.', 'Mi paraguas no ha sobrevivido.', 'Hoy no salgo ni a por café.'],
@@ -252,6 +258,9 @@ function buildConversation(group, members, ctx, seed) {
   if (anyInc.length) topics.push(['incidente', near.length ? 0.6 : 0.35, { inc: incidentText(pick(r, anyInc)) }]);
   const evs = (ctx.events || []).filter(e => !e.done);
   if (evs.length && context !== 'evento') topics.push(['evento', 0.3, { ev: String(pick(r, evs).title || 'lo de hoy').toLowerCase() }]);
+  // Se cotillea de las tramas de OTROS (nadie pregunta «¿te has enterado de lo mío?»).
+  const gossip = (ctx.plots || []).filter(g => !members.some(m => (g.ids || []).includes(m.id)));
+  if (gossip.length) topics.push(['trama', 0.3, { trama: pick(r, gossip).text }]);
   const wt = weatherTopic(ctx.weather);
   if (wt && context !== 'pingpong' && context !== 'consola') topics.push([wt, 0.25, {}]);
   let topic = null;
@@ -265,6 +274,8 @@ function buildConversation(group, members, ctx, seed) {
     .replace(/\{food\}/g, food ? FOOD_NAME[food.food] || food.food : 'eso')
     .replace(/\{inc\}/g, vars.inc || 'lo de hoy')
     .replace(/\{ev\}/g, vars.ev || 'lo de hoy')
+    .replace(/\{trama\}/g, vars.trama || 'lo de hoy')
+    .replace(/\{trama\}/g, vars.trama || 'lo de hoy')
     .replace(/^./, ch => ch.toUpperCase());
   // La pregunta y la respuesta salen SIEMPRE del hilo (si no, no casan). La muletilla de la ficha
   // solo como coletilla del remate, que es lo que uno suelta sin pensar al cerrar.

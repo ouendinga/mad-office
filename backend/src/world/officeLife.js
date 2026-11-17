@@ -13,6 +13,8 @@ const { rng } = require('./autopilot');
 const { INCIDENT_OBJECTS } = require('./places');
 const mudanza = require('./mudanza');
 const layouts = require('./layout');
+const tramas = require('./tramas');
+const stats = require('./stats');
 
 const TECH_STAY = 40; // minutos que tarda el técnico
 const MAX_CATCH_UP = 30; // minutos que se recuperan si el reloj va rápido
@@ -40,6 +42,12 @@ class OfficeLife {
     this.outsideDay = null;
     this.outsideRolled = false;
     this.crews = new Map();
+    this.plots = []; // tramas en marcha (filas de office_plots)
+    this.rels = new Map(); // 'a>b' -> { roce, aprecio }
+    this.relDay = null;
+    this.scenes = new Map(); // id de personaje -> { day, until, lugar, que, frase, con }
+    this.plotsToday = null; // { day, n }
+    this.here = [];
   }
 
   get pool() { return this.sim.pool; }
@@ -48,6 +56,8 @@ class OfficeLife {
   async load() {
     this.active = (await this.pool.query(
       'SELECT * FROM office_incidents WHERE company_id = $1 AND resolved_day IS NULL ORDER BY id', [this.companyId])).rows;
+    this.plots = (await this.pool.query(
+      'SELECT * FROM office_plots WHERE company_id = $1 AND ended_day IS NULL ORDER BY id', [this.companyId])).rows;
   }
 
   async loadEvents(day, weekday, chars) {
@@ -81,9 +91,14 @@ class OfficeLife {
     const from = this.lastMin == null ? p.minutes : Math.max(this.lastMin + 1, p.minutes - MAX_CATCH_UP);
     this.lastMin = p.minutes;
     const here = working.filter(w => w.d.mode === 'oficina');
+    this.here = here;
+    await this.loadRelations(day);
     for (let m = from; m <= p.minutes; m++) {
       await this.closeDue(day, m, here);
-      if (block === 'manana' || block === 'tarde') await this.rollAt(day, m, here);
+      if (block === 'manana' || block === 'tarde') {
+        await this.rollAt(day, m, here);
+        await this.plotsTick(day, m, here, block);
+      }
       await this.announceEvents(day, m);
       await this.announceOutside(day, m);
     }
@@ -127,6 +142,14 @@ class OfficeLife {
       ...(this.outside.some(o => o.def.kind === 'ola_calor') ? { hot: true } : {}),
       ...(this.outside.some(o => o.def.kind === 'nevada') ? { cold: true } : {}),
       inPlace: place => here.filter(x => place == null || roomOf(x.a0.lugar) === roomOf(place)).map(x => x.c),
+      // La broma pesada le toca, más a menudo, a quien ya se le tiene manía (relaciones de tramas.js).
+      pickVictim: (cause, others, r) => {
+        if (cause && r() < 0.6) {
+          const top = others.map(o => ({ o, roce: this.rel(cause, o).roce })).sort((a, b) => b.roce - a.roce)[0];
+          if (top && top.roce >= 0.2) return top.o;
+        }
+        return others[Math.floor(r() * others.length)];
+      },
     };
     for (const n of incidents.roll(ctx)) await this.start(n.def, n.cause, n.victim, day, m, n.endsMin);
   }
@@ -163,6 +186,12 @@ class OfficeLife {
     this.active.push(inc);
     this.count = (this.count || 0) + 1;
     await this.sim.post(cause || null, 'incidente', title, day, { lugar: def.everywhere ? null : def.place, min: m });
+    // Causa → consecuencia: algunos incidentes arrancan una trama (tramas.js).
+    if (!def.small) {
+      const x = this.plotCtx(day, m, this.here, `inc|${inc.id}`);
+      const spec = tramas.fromIncident({ kind: def.kind, cause, victim }, x, this.plots);
+      if (spec) await this.startPlot(spec, day, m, `incidente:${def.kind}`);
+    }
     return inc;
   }
 
@@ -398,6 +427,199 @@ class OfficeLife {
     }
   }
 
+  // --- Tramas (tramas.js) ---
+
+  rel(a, b) {
+    return this.rels.get(tramas.relKey(a.id, b.id)) || { roce: 0, aprecio: 0 };
+  }
+
+  // Las relaciones, una vez por día (y ese día se olvida un poco lo de antes).
+  async loadRelations(day) {
+    if (this.relDay === day) return;
+    this.relDay = day;
+    await this.pool.query(
+      `UPDATE relations SET roce = ROUND((roce * $3)::numeric, 2), aprecio = ROUND((aprecio * $4)::numeric, 2), day = $2
+        WHERE company_id = $1 AND day < $2`, [this.companyId, day, 0.9, 0.95]);
+    await this.pool.query('DELETE FROM relations WHERE company_id = $1 AND roce < 0.03 AND aprecio < 0.03', [this.companyId]);
+    const rows = (await this.pool.query('SELECT a, b, roce, aprecio FROM relations WHERE company_id = $1', [this.companyId])).rows;
+    this.rels = new Map(rows.map(r => [tramas.relKey(r.a, r.b), { roce: Number(r.roce), aprecio: Number(r.aprecio) }]));
+  }
+
+  // Lo que necesita un paso de trama para decidir: quién está, dónde, cómo es y cómo se llevan.
+  plotCtx(day, m, here, seed) {
+    const r = rng(`trama|${this.companyId}|${day}|${m}|${seed}`);
+    const chars = this.sim.chars || [];
+    const byId = new Map(chars.map(c => [c.id, c]));
+    const inOffice = new Map(here.map(w => [w.c.id, w]));
+    const where = c => {
+      const sc = this.sceneFor(c, m, day);
+      if (sc) return sc.lugar;
+      const w = c && inOffice.get(c.id);
+      return w ? w.a0.lugar : null;
+    };
+    const w = this.sim.weatherNow();
+    const sch = this.sim.sch;
+    const isBoss = c => !!c && (c.csuite || chars.some(o => o.position_parent && o.position_parent === c.position_id));
+    return {
+      r, day, min: m,
+      here: here.map(x => x.c),
+      byId: id => (id == null ? null : byId.get(id) || null),
+      present: c => !!c && inOffice.has(c.id),
+      where,
+      inRoom: (c, place = null) => here.map(x => x.c).filter(o => o.id !== c.id && roomOf(where(o)) === roomOf(place || where(c))),
+      traits: c => incidents.traits(c || {}),
+      rel: (a, b) => (a && b ? this.rel(a, b) : { roce: 0, aprecio: 0 }),
+      worstPair: () => {
+        let best = null;
+        for (const [k, v] of this.rels) {
+          const [a, b] = k.split('>').map(Number);
+          if (inOffice.has(a) && inOffice.has(b) && (!best || v.roce > best.roce)) best = { a: byId.get(a), b: byId.get(b), roce: v.roce };
+        }
+        return best;
+      },
+      boss: c => (c ? chars.find(o => c.position_parent && o.position_id === c.position_parent) || null : null),
+      isBoss,
+      mapTypes: this.sim.layout ? this.sim.layout.objectTypes : this.fallbackTypes,
+      lunch: m >= sch.SCHEDULE.lunch - 15 && m <= sch.SCHEDULE.lunch + sch.SCHEDULE.lunchMin,
+      cold: !!(w && w.temp <= 8), hot: !!(w && w.temp >= 28),
+    };
+  }
+
+  // Cuándo toca el siguiente paso: si se pasa de la jornada, al día laborable siguiente por la mañana.
+  schedule(day, m, after, r) {
+    const sch = this.sim.sch;
+    let next = m + tramas.between(r, after);
+    if (next < sch.BLOCKS.tarde.to) return { day, min: next };
+    return { day: nextWorkday(day), min: sch.BLOCKS.manana.from + 20 + ((next - sch.BLOCKS.tarde.to) % 90) };
+  }
+
+  async startPlot(spec, day, m, origin = 'sola') {
+    const def = tramas.PLOTS[spec.kind];
+    const ids = Object.fromEntries(Object.entries(spec.cast).map(([k, c]) => [k, c.id]));
+    const P = { kind: spec.kind, ids, c: spec.cast, cast: spec.cast, state: spec.state || {} };
+    const row = (await this.pool.query(
+      `INSERT INTO office_plots (company_id, kind, title, cast_ids, state, step, next_day, next_min, origin, started_day)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $7) RETURNING *`,
+      [this.companyId, spec.kind, def.title(P), ids, P.state, def.first, day, m, origin])).rows[0];
+    this.plots.push(row);
+    if (origin === 'sola') this.plotsToday = { day, n: (this.plotsToday && this.plotsToday.day === day ? this.plotsToday.n : 0) + 1 };
+    return row;
+  }
+
+  async plotsTick(day, m, here) {
+    if (!this.plotsToday || this.plotsToday.day !== day) {
+      const n = (await this.pool.query(
+        `SELECT COUNT(*)::int AS n FROM office_plots WHERE company_id = $1 AND started_day = $2 AND origin = 'sola'`, [this.companyId, day])).rows[0].n;
+      this.plotsToday = { day, n };
+    }
+    const spec = tramas.maybeStart(this.plotCtx(day, m, here, 'nueva'), { active: this.plots, startedToday: this.plotsToday.n, minute: m });
+    if (spec) await this.startPlot(spec, day, m, 'sola');
+    for (const row of this.plots.slice()) {
+      if (row.next_day > day || (row.next_day === day && row.next_min > m)) continue;
+      await this.advancePlot(row, day, m, here);
+    }
+  }
+
+  async advancePlot(row, day, m, here) {
+    const x = this.plotCtx(day, m, here, `paso|${row.id}|${row.step}|${row.waits}`);
+    const cast = Object.fromEntries(Object.entries(row.cast_ids).map(([k, id]) => [k, x.byId(id)]));
+    const P = { id: row.id, kind: row.kind, step: row.step, ids: row.cast_ids, c: cast, cast, state: row.state, waits: row.waits };
+    let b;
+    try { b = tramas.runStep(P, x); } catch (e) { console.error('trama:', row.kind, row.step, e.message); b = { end: 'perdida' }; }
+    if (b.wait) {
+      if (row.waits + 1 >= tramas.MAX_WAITS) return this.endPlot(row, day, 'se_olvida');
+      const nx = this.schedule(day, m, [30, 90], x.r);
+      row.waits += 1; row.next_day = nx.day; row.next_min = nx.min;
+      await this.pool.query('UPDATE office_plots SET waits = $2, next_day = $3, next_min = $4 WHERE id = $1', [row.id, row.waits, nx.day, nx.min]);
+      return;
+    }
+    await this.applyBeat(row, b, day, m, x);
+    if (b.cast) row.cast_ids = { ...row.cast_ids, ...Object.fromEntries(Object.entries(b.cast).map(([k, c]) => [k, c.id])) };
+    if (b.state) row.state = { ...row.state, ...b.state };
+    const def = tramas.PLOTS[row.kind];
+    const title = def.title({ ...P, c: Object.fromEntries(Object.entries(row.cast_ids).map(([k, id]) => [k, x.byId(id)])), state: row.state });
+    if (b.end || !b.next) {
+      row.title = title;
+      return this.endPlot(row, day, b.end || 'fin');
+    }
+    const nx = this.schedule(day, m, b.next[1], x.r);
+    Object.assign(row, { step: b.next[0], waits: 0, next_day: nx.day, next_min: nx.min, title });
+    await this.pool.query(
+      'UPDATE office_plots SET step = $2, waits = 0, next_day = $3, next_min = $4, state = $5, cast_ids = $6, title = $7 WHERE id = $1',
+      [row.id, row.step, nx.day, nx.min, row.state, row.cast_ids, title]);
+  }
+
+  async endPlot(row, day, outcome) {
+    this.plots = this.plots.filter(p => p.id !== row.id);
+    await this.pool.query('UPDATE office_plots SET ended_day = $2, outcome = $3, title = $4 WHERE id = $1', [row.id, day, outcome, row.title]);
+  }
+
+  // Lo que pasa en un paso: el feed, las escenas, las relaciones, el pentágono, incidentes y tramas nuevas.
+  async applyBeat(row, b, day, m, x) {
+    for (const s of b.scenes || []) {
+      if (!s.c || !x.present(s.c)) continue;
+      this.scenes.set(s.c.id, { day, until: m + (s.min || 10), lugar: s.lugar, que: s.que, frase: s.frase || '', con: s.con ? s.con.id : null });
+    }
+    const changed = tramas.applyRel(this.rels, b.rel);
+    for (const [a, bb, v] of changed) {
+      await this.pool.query(
+        `INSERT INTO relations (company_id, a, b, roce, aprecio, day) VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (company_id, a, b) DO UPDATE SET roce = $4, aprecio = $5`, [this.companyId, a, bb, v.roce, v.aprecio, day]);
+    }
+    for (const [c, delta] of b.stats || []) {
+      if (c && x.present(c)) await this.sim.saveStats(c, stats.add(stats.normalize(c.stats), delta));
+    }
+    if (b.line) await this.sim.post(b.by || null, 'trama', b.line, day, { lugar: b.lugar || null, con: b.con ? b.con.id : null, min: m });
+    if (b.incident) {
+      const idef = incidents.BY_KIND[b.incident.kind];
+      if (idef && !this.active.some(a => a.kind === idef.kind) && incidents.possible(idef, x.mapTypes)) {
+        const dur = idef.duration ? m + idef.duration[0] : null;
+        await this.start(idef, b.incident.cause || null, b.incident.victim || null, day, m, dur);
+      }
+    }
+    if (b.spawn && b.spawn.cast && Object.values(b.spawn.cast).every(Boolean)
+      && this.plots.length < tramas.MAX_ACTIVE + 1 && !this.plots.some(p => p.kind === b.spawn.kind && p.id !== row.id)) {
+      const def = tramas.PLOTS[b.spawn.kind];
+      const nx = this.schedule(day, m, [30, 120], x.r);
+      await this.startPlot({ kind: b.spawn.kind, cast: b.spawn.cast, state: def.init ? def.init(x) : {} }, nx.day, nx.min, `trama:${row.kind}`);
+    }
+  }
+
+  // ¿Está ahora en una escena de trama? → { lugar, que, frase, con } o null.
+  sceneFor(c, m, day = this.lastDay) {
+    const s = c && this.scenes.get(c.id);
+    if (!s) return null;
+    if (s.day !== day || m >= s.until) { this.scenes.delete(c.id); return null; }
+    return { lugar: s.lugar, que: s.que, frase: s.frase, con: s.con };
+  }
+
+  // De qué se cotillea (chatter.js).
+  plotGossip() {
+    const x = { byId: id => (this.sim.chars || []).find(c => c.id === id) || null };
+    return this.plots.filter(p => p.step !== tramas.PLOTS[p.kind].first || p.waits).map(p => {
+      const def = tramas.PLOTS[p.kind];
+      const cast = Object.fromEntries(Object.entries(p.cast_ids).map(([k, id]) => [k, x.byId(id)]));
+      try { return { text: def.gossip({ c: cast, cast, state: p.state, ids: p.cast_ids }), ids: Object.values(p.cast_ids) }; } catch { return null; }
+    }).filter(Boolean);
+  }
+
+  // Provocar una trama ya (modo pruebas). Devuelve la fila o un error en palabras.
+  async forcePlot(kind, day, m) {
+    const def = tramas.PLOTS[kind];
+    if (!def) return { error: 'Esa trama no existe.' };
+    if (this.plots.some(p => p.kind === kind)) return { error: 'Esa ya está en marcha.' };
+    const here = this.here.length ? this.here : [];
+    const x = this.plotCtx(day, m, here, `pruebas|${Date.now()}`);
+    if (x.here.length < 2) return { error: 'Hace falta que haya al menos dos personas en la oficina.' };
+    x.lunch = true;
+    let cast = def.when(x);
+    if (!cast) {
+      const [a, b] = x.here.slice().sort(() => x.r() - 0.5);
+      cast = Object.fromEntries(def.roles.map((role, i) => [role, i === 0 ? a : b]));
+    }
+    return this.startPlot({ kind, cast, state: def.init ? def.init(x) : {} }, day, m, 'pruebas');
+  }
+
   // --- La mudanza (mudanza.js) ---
 
   get move() { return (this.sim.company.settings || {}).mudanza || null; }
@@ -475,6 +697,7 @@ class OfficeLife {
       cajas: this.boxes(day, m),
       mudanza: mv ? { to: mv.to, toName: (this.moveTo && this.moveTo.id === mv.to ? this.moveTo : layouts.get(mv.to)).name, day: mv.day, camion: mv.day === day && phase === 'ida' } : null,
       incidents: this.active.map(i => ({ id: i.id, kind: i.kind, place: i.place, title: i.data.title, sign: i.data.sign || null })),
+      plots: this.plots.map(p => ({ id: p.id, kind: p.kind, icon: (tramas.PLOTS[p.kind] || {}).icon || '🎭', title: p.title })),
       outside: this.outside.map(({ row, def }) => ({
         id: row.id, kind: row.kind, icon: def.icon, sign: def.sign, title: row.data.title,
         place: (def.gather && def.gather.place) || null, from: events.hhmm(row.from_min), to: events.hhmm(row.to_min),
