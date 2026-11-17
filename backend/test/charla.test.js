@@ -243,3 +243,18 @@ test('directo: quien come lleva `eat` en la vista; quien trabaja, no', () => {
   assert.equal(eatingView.eat.style, 'palillos');
   assert.equal(at({ min: 600, lugar: 'mesa', que: 'Trabaja (más o menos)' }).eat, undefined);
 });
+
+test('charla: la respuesta contesta a ESA pregunta (mismo hilo) y la muletilla nunca sustituye la respuesta', () => {
+  const { SCRIPTS, TOPICS } = require('../src/world/chatter');
+  const hilos = [...Object.values(SCRIPTS), ...Object.values(TOPICS)].flat();
+  const bare = t => t.replace(/^\(ñam\) /, '');
+  const fits = (tpl, text) => new RegExp('^' + tpl.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\{[a-z]+\}/gi, '.*').replace(/^./, ch => `[${ch}${ch.toUpperCase()}]`) + '$').test(text);
+  const places = ['cafe', 'terraza', 'descanso', 'reuniones'];
+  for (let i = 0; i < 300; i++) {
+    const { lines } = buildConversation({ kind: 'sala', lugar: places[i % 4], ids: [1, 2] }, members.slice(0, 2), {}, `h${i}`);
+    const [q, ans] = lines.map(l => bare(l.text));
+    const own = hilos.filter(h => h.a.some(t => fits(t, q)));
+    assert.ok(own.length, `pregunta fuera de los guiones: ${q}`);
+    assert.ok(own.some(h => h.b.some(t => fits(t, ans))), `«${q}» — «${ans}» no casan`);
+  }
+});

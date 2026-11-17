@@ -27,7 +27,9 @@ const PLACE_NAME = {
 const between = (r, [a, b]) => a + Math.floor(r() * (b - a));
 const pick = (r, list) => list[Math.floor(r() * list.length)];
 
-// --- Guiones por tema. a: quien abre · b: respuesta · c: remate (el primero o un tercero) ---
+// --- Guiones. Cada hilo es una pregunta (o comentario) con SUS respuestas y SUS remates: todo
+// lo de `b` contesta a cualquier frase de `a`, y todo lo de `c` cierra cualquier par a-b del mismo hilo
+// (antes se sorteaban por separado y salía «¿Qué tal el finde?» — «Todos saben a lunes»).
 // {B} es el nombre de a quién se habla; {food}, lo que come; {inc}, el incidente; {ev}, el evento.
 const FOOD_NAME = {
   pasta: 'macarrones', ensalada: 'ensalada', arroz: 'arroz', lentejas: 'lentejas', tortilla: 'tortilla',
@@ -36,81 +38,135 @@ const FOOD_NAME = {
 
 const SCRIPTS = {
   comida: [
-    { a: ['¿Eso son {food}? Huele que alimenta.', '¿Qué traes hoy, {B}?', 'Mmm, {food}. Te lo cambio por lo mío.'],
-      b: ['{food} de mi madre. No se comparte.', 'Restos de ayer. Los mejores.', 'Lo que había en la nevera. Sin preguntas.'],
-      c: ['Mañana traigo croquetas. Prometido.', 'Pues yo el lunes empiezo la dieta.', 'Esto en un restaurante serían 15 euros.'] },
-    { a: ['¿Os habéis fijado en que el micro tiene cola de 20 minutos?', '¿Quién ha dejado el táper de la semana pasada en la nevera?'],
-      b: ['Yo calenté a las 13:58. Estrategia.', 'No he sido yo. Creo.', 'Eso ya tiene vida propia.'],
+    { a: ['¿Eso son {food}? Huele que alimenta.', 'Mmm, {food}. Qué buena pinta.'],
+      b: ['De mi madre. No se comparte.', 'Restos de ayer. Los mejores.', 'Lo he hecho yo. No preguntes cómo.'],
+      c: ['Mañana traigo croquetas. Prometido.', 'Esto en un restaurante serían 15 euros.', 'Pues yo con mi ensalada triste.'] },
+    { a: ['¿Qué traes hoy, {B}?', '¿Qué hay de comer hoy, {B}?'],
+      b: ['{food}. Lo que había en la nevera.', '{food}. Y de postre, nada.', '{food}, como siempre.'],
+      c: ['Mañana traigo croquetas. Prometido.', 'Pues yo el lunes empiezo la dieta.'] },
+    { a: ['¿Os habéis fijado en la cola del micro?', 'El micro hoy tiene cola de 20 minutos.'],
+      b: ['Yo he calentado a las 13:58. Estrategia.', 'Por eso como frío.', 'Hay quien calienta tres táperes seguidos.'],
       c: ['Habría que poner un turno con Excel.', 'Lo hablamos en la reunión de seguimiento.'] },
+    { a: ['¿Quién ha dejado el táper de la semana pasada en la nevera?', 'Algo huele raro en la nevera.'],
+      b: ['No he sido yo. Creo.', 'Eso ya tiene vida propia.', 'Yo no abro esa nevera desde el martes.'],
+      c: ['Que alguien llame a sanidad.', 'Lo tiro yo el viernes. O no.'] },
     { a: ['¿Postre o directamente café?', '¿Bajamos luego a por un helado?'],
-      b: ['Las dos cosas. Es martes. O lo que sea.', 'Yo solo café. Bueno, y una galleta.', 'Si hay helado, voy.'],
+      b: ['Las dos cosas. Es lo que pide el cuerpo.', 'Yo solo café. Bueno, y una galleta.', 'Si hay helado, voy.'],
       c: ['Eso, que la tarde es larga.', 'Me apunto a todo.'] },
   ],
   cafe: [
-    { a: ['¿Qué tal el finde, {B}?', '¿Ya es viernes? Dime que sí.', 'Este café sabe a lunes.'],
-      b: ['Corto. Siempre es corto.', 'Ojalá. Es lo que hay.', 'Todos saben a lunes.'],
-      c: ['Pues aguanta, que queda poco.', 'Otro café y lo arreglamos.', 'Así es la vida en la oficina.'] },
-    { a: ['¿Has visto el correo del jefe?', '¿Tú te has enterado de lo de la reunión de las cinco?'],
+    { a: ['¿Qué tal el finde, {B}?', '¿Qué hiciste el finde, {B}?'],
+      b: ['Corto. Siempre es corto.', 'Sofá y series. Perfecto.', 'Una boda. Aún me duelen los pies.', 'Mudanza de mi cuñado. No preguntes.'],
+      c: ['Pues el próximo, más.', 'Qué envidia.', 'Y vuelta a la rutina.'] },
+    { a: ['Este café sabe a lunes.', 'Este café está más aguado que ayer.'],
+      b: ['Todos saben a lunes.', 'Es el mismo café de siempre. Somos nosotros.', 'Échale otro sobre de azúcar.'],
+      c: ['Otro café y lo arreglamos.', 'Habría que pedir una cafetera decente.'] },
+    { a: ['¿Ya es viernes? Dime que sí.', '¿Cuánto queda para el viernes?'],
+      b: ['Ojalá. Es lo que hay.', 'Demasiado. No hagas la cuenta.', 'Un día menos que ayer.'],
+      c: ['Pues aguanta, que queda poco.', 'Así es la vida en la oficina.'] },
+    { a: ['¿Has visto el correo del jefe?', '¿Te has enterado de lo de la reunión de las cinco?'],
       b: ['Lo he abierto y lo he cerrado. Sin leer.', '¿Qué reunión? No me asustes.', 'Lo he leído dos veces y sigo igual.'],
       c: ['Pues eso, que podría ser un correo.', 'Mejor no preguntes.'] },
+    { a: ['¿Cómo llevas lo tuyo, {B}?', '¿Mucho lío hoy, {B}?'],
+      b: ['Ahí va. Despacito.', 'Tres fuegos abiertos y un café. Bien.', 'Mejor que ayer, peor que mañana.'],
+      c: ['Pues ánimo, que se saca.', 'Si necesitas algo, me dices.'] },
   ],
   terraza: [
     { a: ['Aquí fuera se piensa mejor.', 'Cinco minutos de aire y vuelvo a ser persona.'],
       b: ['Y no se oye el teclado de nadie.', 'Ojalá trabajar aquí todo el día.'],
       c: ['Hasta que llueva.', 'Propongo mover la oficina aquí.'] },
+    { a: ['¿Has visto qué vistas, {B}?', 'Desde aquí se ve hasta la sierra.'],
+      b: ['Por eso subo, no por el aire.', 'Pues yo solo veo la grúa de enfrente.'],
+      c: ['Algún día haremos aquí las reuniones.', 'Una foto y para dentro.'] },
   ],
   descanso: [
-    { a: ['¿Qué ponen en la tele?', 'Este puf me conoce mejor que mi colchón.'],
-      b: ['Un documental de pingüinos. Muy de oficina.', 'No te duermas, que te conozco.'],
+    { a: ['¿Qué ponen en la tele?', '¿Qué estáis viendo?'],
+      b: ['Un documental de pingüinos. Muy de oficina.', 'Nada. Está puesto de fondo.'],
+      c: ['Cinco minutos más y vuelvo.', 'Esto es productividad, ¿eh?'] },
+    { a: ['Este puf me conoce mejor que mi colchón.', 'Me quedo dormido aquí.'],
+      b: ['No te duermas, que te conozco.', 'Si roncas, te hago una foto.'],
       c: ['Cinco minutos más y vuelvo.', 'Esto es productividad, ¿eh?'] },
   ],
   reunion: [
-    { a: ['¿Cuál era el objetivo de esta reunión?', 'Vale, ¿quién comparte pantalla?', 'Propongo una reunión para preparar la reunión.'],
-      b: ['Alinearnos. Creo.', 'Yo no, que tengo 40 pestañas abiertas.', 'Secundo. Con orden del día.'],
-      c: ['Lo dejamos en un correo, ¿vale?', 'Pues hacemos un seguimiento la semana que viene.', 'Apuntado. Siguiente punto.'] },
+    { a: ['¿Cuál era el objetivo de esta reunión?', '¿Alguien sabe para qué estamos aquí?'],
+      b: ['Alinearnos. Creo.', 'Revisar lo de la semana pasada. Otra vez.', 'Ni idea, pero había galletas.'],
+      c: ['Lo dejamos en un correo, ¿vale?', 'Pues hacemos un seguimiento la semana que viene.'] },
+    { a: ['Vale, ¿quién comparte pantalla?', '¿Comparte alguien pantalla o lo hacemos de memoria?'],
+      b: ['Yo no, que tengo 40 pestañas abiertas.', 'Comparto yo. Un segundo… ¿Se ve?', 'Que comparta {B}, que lo tiene todo.'],
+      c: ['Apuntado. Siguiente punto.', 'Vale, se ve. Seguimos.'] },
+    { a: ['Propongo una reunión para preparar la reunión.', '¿Y si lo vemos en otra reunión?'],
+      b: ['Secundo. Con orden del día.', 'Me parece perfecto. Muy nuestro.'],
+      c: ['Os mando la convocatoria.', 'Apuntado. Siguiente punto.'] },
   ],
   visita: [
     { a: ['Oye, {B}, ¿tienes un minuto?', '{B}, una cosita rápida…', 'Perdona que te moleste, {B}…'],
       b: ['Un minuto de los de verdad, ¿no?', 'Dime, que estoy a mil.', 'Si es para el Excel, no estoy.'],
       c: ['Nada, que ya está. Gracias.', 'Te lo mando por correo mejor.', 'Era una tontería, ya me voy.'] },
+    { a: ['{B}, ¿me miras esto cuando puedas?', '{B}, ¿esto te suena?'],
+      b: ['A ver… ¿Esto quién lo ha hecho?', 'Eso es de la versión vieja.', 'Déjamelo y luego lo miro.'],
+      c: ['Vale, gracias, te debo un café.', 'Pues ya me dices.'] },
   ],
   pingpong: [
-    { a: ['¡Punto mío!', 'Ese saque ha sido ilegal.', '¡Va, la última!'],
-      b: ['Ha tocado red, repite.', '¡Revancha!', 'Eso no ha botado.'],
-      c: ['Al mejor de cinco.', 'Lo anoto en la pizarra.', 'Esto lo decide el VAR.'] },
+    { a: ['¡Punto mío!', '¡Toma ya!'],
+      b: ['Ha tocado red, repite.', 'Eso no ha botado.', 'Suerte de principiante.'],
+      c: ['Al mejor de cinco.', 'Esto lo decide el VAR.'] },
+    { a: ['Ese saque ha sido ilegal.', '¡Eso ha sido red!'],
+      b: ['Ni de broma. Limpio.', 'Lo que tú digas. Punto mío.'],
+      c: ['Esto lo decide el VAR.', 'Lo anoto en la pizarra.'] },
+    { a: ['¡Va, la última!', '¿Revancha?'],
+      b: ['La última de verdad.', 'Venga, pero luego a currar.'],
+      c: ['Al mejor de cinco.', 'Lo anoto en la pizarra.'] },
   ],
   consola: [
-    { a: ['¡No me tires el plátano!', 'Dame el mando bueno.', 'Esta pantalla me la paso.'],
-      b: ['Esto es formación de equipo.', 'Te dejo ganar por respeto.', 'El mando está roto, por eso pierdo.'],
+    { a: ['¡No me tires el plátano!', '¡Me has echado de la pista!'],
+      b: ['Es una carrera, no una ONG.', 'Ha sido sin querer. Bueno, no.'],
+      c: ['Una más y volvemos.', 'Te la guardo.'] },
+    { a: ['Dame el mando bueno.', 'Este mando va fatal.'],
+      b: ['El mando está roto, por eso pierdes.', 'El bueno es para el que gana.'],
       c: ['Una más y volvemos.', 'Que no se entere el jefe.'] },
   ],
   evento: [
-    { a: ['¿Esto cuenta como horas de trabajo?', 'Buen ambiente, ¿eh?'],
-      b: ['Si hay picoteo, sí.', 'El mejor rato de la semana.'],
+    { a: ['¿Esto cuenta como horas de trabajo?', '¿Esto computa como jornada?'],
+      b: ['Si hay picoteo, sí.', 'Yo lo pongo en el parte como formación.'],
+      c: ['Que se repita.', 'Pues la próxima, con música.'] },
+    { a: ['Buen ambiente, ¿eh?', 'Esto hay que hacerlo más.'],
+      b: ['El mejor rato de la semana.', 'Mucho mejor que una reunión.'],
       c: ['Que se repita.', 'Pues la próxima, con música.'] },
   ],
 };
 
-// Por tema del contexto (van antes que el guion del sitio si tocan).
+// Por tema del contexto (van antes que el guion del sitio si tocan). Mismo formato: hilos.
 const TOPICS = {
-  incidente: { a: ['¿Os habéis enterado? {inc}.', 'Te cuento: {inc}. De película.', '¿Has visto? {inc}. Increíble.'],
-    b: ['No hablo de eso hasta que lo arreglen.', 'Yo no he sido, que conste.', 'Ya tardaba en pasar algo.', 'Esto en otra empresa no pasa.'],
-    c: ['Pues habrá que llamar a alguien.', 'Le hacemos una foto para el grupo.', 'Con esto ya tenemos tema para toda la semana.'] },
-  evento: { a: ['¿Vas a lo de {ev}?', 'Oye, lo de {ev}, ¿quién se apunta?'],
-    b: ['Si hay comida, voy.', 'Depende de cómo vaya la tarde.', 'Me lo ha dicho todo el mundo. Voy.'],
-    c: ['Pues nos vemos allí.', 'Guárdame sitio.'] },
-  lluvia: { a: ['Vaya día de perros.', '¿Has visto cómo llueve?'],
-    b: ['Yo he venido nadando.', 'Mi paraguas no ha sobrevivido.', 'Hoy no salgo ni a por café.'],
-    c: ['Y luego dicen que en España siempre hace sol.', 'Mañana teletrabajo. Avisado quedas.'] },
-  nieve: { a: ['¡Está nevando!', '¿Habéis visto la nieve?'],
-    b: ['Si cuaja, me voy a casa a hacer un muñeco.', 'Ya verás el tráfico a la vuelta.'],
-    c: ['Hoy nadie trabaja, solo mira por la ventana.'] },
-  calor: { a: ['Qué calor hace, por favor.', 'Aquí dentro se puede freír un huevo.'],
-    b: ['El aire está puesto de adorno.', 'Yo ya he pedido un ventilador al jefe.'],
-    c: ['Propongo jornada en la piscina.'] },
-  frio: { a: ['Qué frío hace hoy.', 'Llevo tres capas y sigo helado.'],
-    b: ['Ponte junto a los servidores, que calientan.', 'El café hoy es por supervivencia.'],
-    c: ['Mañana me traigo la manta.'] },
+  incidente: [
+    { a: ['¿Os habéis enterado? {inc}.', 'Te cuento: {inc}. De película.', '¿Has visto? {inc}. Increíble.'],
+      b: ['No hablo de eso hasta que lo arreglen.', 'Yo no he sido, que conste.', 'Ya tardaba en pasar algo.', 'Esto en otra empresa no pasa.'],
+      c: ['Pues habrá que llamar a alguien.', 'Le hacemos una foto para el grupo.', 'Con esto ya tenemos tema para toda la semana.'] },
+  ],
+  evento: [
+    { a: ['¿Vas a lo de {ev}?', 'Oye, lo de {ev}, ¿te apuntas?'],
+      b: ['Si hay comida, voy.', 'Depende de cómo vaya la tarde.', 'Me lo ha dicho todo el mundo. Voy.'],
+      c: ['Pues nos vemos allí.', 'Guárdame sitio.'] },
+  ],
+  lluvia: [
+    { a: ['Vaya día de perros.', '¿Has visto cómo llueve?'],
+      b: ['Yo he venido nadando.', 'Mi paraguas no ha sobrevivido.', 'Hoy no salgo ni a por café.'],
+      c: ['Y luego dicen que en España siempre hace sol.', 'Mañana teletrabajo. Avisado quedas.'] },
+  ],
+  nieve: [
+    { a: ['¡Está nevando!', '¿Habéis visto la nieve?'],
+      b: ['Si cuaja, me voy a casa a hacer un muñeco.', 'Ya verás el tráfico a la vuelta.'],
+      c: ['Hoy nadie trabaja, solo mira por la ventana.'] },
+  ],
+  calor: [
+    { a: ['Qué calor hace, por favor.', 'Aquí dentro se puede freír un huevo.'],
+      b: ['El aire está puesto de adorno.', 'Yo ya he pedido un ventilador al jefe.'],
+      c: ['Propongo jornada en la piscina.'] },
+  ],
+  frio: [
+    { a: ['Qué frío hace hoy.', 'Llevo tres capas y sigo helado.'],
+      b: ['Ponte junto a los servidores, que calientan.', 'El café hoy es por supervivencia.'],
+      c: ['Mañana me traigo la manta.'] },
+  ],
 };
 
 // Para el remate genérico si el guion no lo trae.
@@ -201,7 +257,7 @@ function buildConversation(group, members, ctx, seed) {
   let topic = null;
   let vars = {};
   for (const [t, p, v] of topics) if (r() < p) { topic = t; vars = v; break; }
-  const script = topic ? TOPICS[topic] : pick(r, SCRIPTS[context] || SCRIPTS.cafe);
+  const script = pick(r, topic ? TOPICS[topic] : SCRIPTS[context] || SCRIPTS.cafe);
 
   const food = (A && A.eat) || (B && B.eat) || eating[0] && eating[0].eat;
   const fill = (text, speaker, listener) => text
@@ -210,8 +266,9 @@ function buildConversation(group, members, ctx, seed) {
     .replace(/\{inc\}/g, vars.inc || 'lo de hoy')
     .replace(/\{ev\}/g, vars.ev || 'lo de hoy')
     .replace(/^./, ch => ch.toUpperCase());
-  // Una muletilla de vez en cuando (más en las respuestas: es lo que uno suelta sin pensar).
-  const say = (speaker, list, listener, mule) => {
+  // La pregunta y la respuesta salen SIEMPRE del hilo (si no, no casan). La muletilla de la ficha
+  // solo como coletilla del remate, que es lo que uno suelta sin pensar al cerrar.
+  const say = (speaker, list, listener, mule = 0) => {
     const own = speaker.muletillas || [];
     const text = own.length && r() < mule ? pick(r, own) : fill(pick(r, list), speaker, listener);
     // Quien habla con la boca llena, se nota.
@@ -220,8 +277,8 @@ function buildConversation(group, members, ctx, seed) {
 
   const n = 2 + Math.floor(r() * 3); // 2-4 frases
   const C = speakers[2] || A;
-  const lines = [{ id: A.id, text: say(A, script.a, B, 0.1) }, { id: B.id, text: say(B, script.b, A, 0.35) }];
-  if (n >= 3) lines.push({ id: C.id, text: say(C, script.c || CLOSERS, B, 0.3) });
+  const lines = [{ id: A.id, text: say(A, script.a, B) }, { id: B.id, text: say(B, script.b, A) }];
+  if (n >= 3) lines.push({ id: C.id, text: say(C, script.c || CLOSERS, B, n === 3 ? 0.3 : 0) });
   if (n >= 4) lines.push({ id: B.id, text: say(B, CLOSERS, C, 0.4) });
   return { topic: topic || null, context, lines };
 }
