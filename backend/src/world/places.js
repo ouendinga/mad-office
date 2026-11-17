@@ -106,9 +106,12 @@ function zoneSpotFixed(name, k, L = CLASICA) {
 
 function targetFor({ lugar, deskIndex, withDeskIndex, slot }, L = CLASICA) {
   if (lugar === 'mesa' && withDeskIndex != null) {
-    // De visita: de pie al lado de la mesa del otro, delante.
+    // De visita: de pie A UN LADO de la mesa del otro, a su altura (antes, delante de la mesa, y se
+    // quedaba encima del que se sienta en la fila de abajo). Lado derecho o izquierdo según quién
+    // visita, para que dos visitas a la misma mesa no se monten.
     const p = deskPos(withDeskIndex, L);
-    return { x: p.x + 22, y: p.y + TILE + 22 };
+    const side = ((slot | 0) % 2 === 0 ? 1 : -1) * (TILE * 1.5);
+    return { x: p.x + side, y: p.y };
   }
   // Si esta oficina no tiene ese sitio, a su mesa.
   if (lugar === 'mesa' || !L.zones[lugar]) return deskPos(deskIndex, L);

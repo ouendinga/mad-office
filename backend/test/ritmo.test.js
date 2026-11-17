@@ -201,3 +201,20 @@ test('ningún hueco de sala cae en una pared', () => {
     }
   }
 });
+
+test('de visita a la mesa de otro: a su lado y a su altura, nunca encima de nadie sentado', () => {
+  const L = require('../src/world/layout').get('clasica');
+  const sat = L.desks.map((_, i) => places.deskPos(i, L));
+  for (let i = 0; i < L.desks.length; i++) {
+    for (const slot of [1, 2]) {
+      const v = places.targetFor({ lugar: 'mesa', deskIndex: 0, withDeskIndex: i, slot }, L);
+      assert.equal(v.y, sat[i].y, 'a la altura de quien visita');
+      for (const s of sat) assert.ok(Math.abs(v.x - s.x) >= places.TILE || Math.abs(v.y - s.y) >= places.TILE * 1.5, `encima de alguien sentado (mesa ${i})`);
+      const tile = L.grid[Math.floor((v.y - 1) / places.TILE)][Math.floor(v.x / places.TILE)];
+      assert.notEqual(tile, '#', 'en una pared');
+    }
+  }
+  const a = places.targetFor({ lugar: 'mesa', withDeskIndex: 3, slot: 1 }, L);
+  const b = places.targetFor({ lugar: 'mesa', withDeskIndex: 3, slot: 2 }, L);
+  assert.notEqual(a.x, b.x, 'dos visitas a la misma mesa, cada una a un lado');
+});
