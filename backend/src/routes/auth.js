@@ -91,6 +91,9 @@ function router({ onUsersChanged }) {
     let ok = !!row && !isTest;
     if (ok && hash) ok = !!password && gate.verifyPassword(password, hash);
     else if (ok && req.gateOpen === false) ok = false;
+    // Cuenta con contraseña propia y no la ha escrito (va plegada): que el formulario la pida, sin
+    // contarlo como intento fallido.
+    if (row && !isTest && hash && !password) return res.status(401).json({ error: 'Esta cuenta tiene contraseña: escríbela.', code: 'clave' });
     if (!ok) {
       gate.failed(req.ip, 'login');
       return res.status(401).json({ error: req.gateOpen === false || hash

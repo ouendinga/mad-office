@@ -55,6 +55,7 @@ export default function Landing({ onAuth, invite, needPassword = false, startWit
         body: JSON.stringify({ email, ...(password ? { password } : {}) })
       });
       const data = await res.json();
+      if (data.code === 'clave') setShowPass(true); // abre el campo de la contraseña
       if (!res.ok) throw new Error(data.error);
       onAuth(data.user, data.token);
     } catch (err) {

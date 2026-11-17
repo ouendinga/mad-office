@@ -25,6 +25,8 @@ c=$(st -X POST -H "$J" -d "{\"email\":\"compi@x.es\",\"name\":\"Compi\",\"invite
 CT=$(python3 -c "import json;print(json.load(open('$R'))['token'])")
 c=$(st -H "Authorization: Bearer $CT" $B/me); ok 8 200 "$c" "compi /me sin cookie"; echo "    $(python3 -c "import json;d=json.load(open('$R'));print([c['name'] for c in d['companies']])")"
 c=$(st -X POST -H "$J" -d '{"email":"compi@x.es"}' $B/auth/login); ok 9 401 "$c" "entrar solo con correo, fuera"
+K=$(python3 -c "import json;print(json.load(open('$R')).get('code'))"); ok 9b clave "$K" "cuenta con contraseña: pide escribirla"
+c=$(st -b $CK -X POST -H "$J" -d '{"email":"compi@x.es"}' $B/auth/login); ok 9c 401 "$c" "con puerta tampoco entra sin su contraseña"
 c=$(st -X POST -H "$J" -d '{"email":"compi@x.es","password":"compi-pass-1"}' $B/auth/login); ok 10 200 "$c" "entrar con contraseña"
 c=$(st -X POST -H "$J" -d '{"email":"dueno@x.es"}' $B/auth/login); ok 11 401 "$c" "dueño sin contraseña, fuera"
 c=$(st -b $CK -X POST -H "$J" -d '{"email":"dueno@x.es"}' $B/auth/login); ok 12 200 "$c" "dueño sin contraseña, con puerta"
